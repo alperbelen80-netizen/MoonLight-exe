@@ -5,6 +5,7 @@ import { DashboardPage } from './routes/DashboardPage';
 import { AccountsPage } from './routes/AccountsPage';
 import { ExecutionMatrixPage } from './routes/ExecutionMatrixPage';
 import { AlertsPage } from './routes/AlertsPage';
+import { DataHealthPage } from './routes/DataHealthPage';
 import { SettingsPage } from './routes/SettingsPage';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
           <Route path="accounts" element={<AccountsPage />} />
           <Route path="matrix" element={<ExecutionMatrixPage />} />
           <Route path="alerts" element={<AlertsPage />} />
+          <Route path="data-health" element={<DataHealthPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>

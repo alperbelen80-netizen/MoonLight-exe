@@ -15,7 +15,7 @@ async function testEndpoint(
   endpoint: string,
   expectedFields?: string[],
 ): Promise<void> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const url = `${API_BASE}${endpoint}`;
 
     http
@@ -77,7 +77,7 @@ async function testEndpoint(
 }
 
 async function runSmokeTests() {
-  console.log('\n=== MoonLight Smoke Test ===\n');
+  console.log('\n=== MoonLight Smoke Test v1.1 ===\n');
 
   await testEndpoint('/owner/dashboard/summary', [
     'global_health_score',
@@ -87,6 +87,7 @@ async function runSmokeTests() {
   await testEndpoint('/owner/execution-matrix');
   await testEndpoint('/alerts');
   await testEndpoint('/owner/execution-mode', ['mode']);
+  await testEndpoint('/data/health/matrix', ['items']);
 
   console.log('\nResults:\n');
 

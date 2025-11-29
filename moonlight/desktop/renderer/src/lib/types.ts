@@ -5,6 +5,7 @@ export type SessionHealth = 'UP' | 'DEGRADED' | 'RECONNECTING' | 'COOLDOWN' | 'D
 export type AlertSeverity = 'CRITICAL' | 'WARNING' | 'INFO';
 export type AlertStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
 export type SignalDirection = 'CALL' | 'PUT';
+export type QualityGrade = 'A' | 'B' | 'C' | 'REJECTED';
 
 export interface ExecutionModeDTO {
   mode: ExecutionMode;
@@ -93,4 +94,17 @@ export interface CreateAccountDTO {
   alias: string;
   broker_id: string;
   type: string;
+}
+
+export interface DataHealthItemDTO {
+  symbol: string;
+  tf: string;
+  coverage_pct: number;
+  gap_pct: number;
+  quality_grade: QualityGrade;
+}
+
+export interface DataHealthMatrixDTO {
+  items: DataHealthItemDTO[];
+  generated_at_utc: string;
 }

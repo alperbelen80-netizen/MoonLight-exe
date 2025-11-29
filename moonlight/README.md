@@ -1,6 +1,31 @@
-# MoonLight Trading OS v1.0
+# MoonLight Trading OS v1.1
 
 **Kurumsal Trading Otomasyon Platformu — Owner Console & Backtest Engine**
+
+---
+
+## What's New in v1.1
+
+**✅ EVVetoSlot Engine (P60):**
+- Intelligent slot selection based on EV, payout, and reliability
+- Automatic expiry optimization (1m/5m/15m/30m/60m)
+- Veto mechanism for low-quality signals
+
+**✅ PackFactory & Gating (P67, P70):**
+- Strategy packs with ensemble scoring
+- Single-expert selection (gating) from multiple signals
+- Noise reduction in multi-strategy scenarios
+
+**✅ Data Health Dashboard (P34, P35):**
+- Real-time data quality monitoring
+- Coverage & gap tracking per symbol/TF
+- Quality grades (A/B/C/REJECTED)
+- Owner Console integration
+
+**✅ Enhanced Testing:**
+- EVVetoSlot unit tests
+- PackFactory & Gating unit tests
+- Extended smoke test coverage
 
 ---
 
@@ -8,17 +33,21 @@
 
 MoonLight, Fixed-Time (binary/turbo) trading stratejileri için geliştirilmiş, kurumsal seviyede bir otomasyon ve risk yönetim platformudur. Sistem iki ana bileşenden oluşur:
 
-- **Backend Engine (Node.js + NestJS):** Execution pipeline, risk management, backtest engine, strategy factory, data processing.
-- **Owner Desktop Console (Electron + React):** Canlı kontrol paneli, risk yönetimi, execution mode kontrolü, alert & approval yönetimi.
+- **Backend Engine (Node.js + NestJS):** Execution pipeline, risk management, backtest engine, strategy factory, data processing, EVVetoSlot, PackFactory.
+- **Owner Desktop Console (Electron + React):** Canlı kontrol paneli, risk yönetimi, execution mode kontrolü, alert & approval yönetimi, data health monitoring.
 
 **Temel Özellikler:**
 - 60+ strateji desteği (scalping, mean revert, trend follow)
+- **EVVetoSlot Engine:** Intelligent slot selection & EV optimization
+- **PackFactory:** Strategy ensemble & weighted scoring
+- **Gating:** Single-expert selection from multi-strategy signals
 - Triple-Check risk katmanı (U1/U2/U3 uncertainty scoring)
 - M3 Defensive mechanism (AUTO/GUARD/ANALYSIS modes)
 - Circuit Breaker & Fail-Safe (DayCap, loss streak, WR degradation)
 - Backtest engine (historical data → strategies → PnL calculation)
 - Advanced reporting (Sharpe, Profit Factor, equity curve, CSV/XLSX export)
-- Owner Console (execution mode control, kill-switch, product matrix, alerts, approval queue)
+- **Data Health Dashboard:** Real-time quality monitoring
+- Owner Console (execution mode control, kill-switch, product matrix, alerts, approval queue, data health)
 
 ---
 
@@ -103,7 +132,7 @@ Output: `backend/dist/`
 yarn package:desktop
 ```
 
-Output: `desktop/dist/MoonLight-Owner-Console-Setup-1.0.0.exe`
+Output: `desktop/dist/MoonLight-Owner-Console-Setup-1.1.0.exe`
 
 ---
 
@@ -116,7 +145,7 @@ cd backend
 yarn test
 ```
 
-**Coverage:** 20 test suites, 81+ tests
+**Coverage:** 23+ test suites, 90+ tests
 
 ### Smoke Test
 
@@ -132,7 +161,8 @@ Or (PowerShell):
 
 Checks:
 - Backend health (GET /owner/dashboard/summary)
-- API contracts (accounts, execution-matrix, alerts)
+- API contracts (accounts, execution-matrix, alerts, **data/health/matrix**)
+- EVVetoSlot & PackFactory endpoints
 
 ---
 
@@ -153,35 +183,43 @@ Navigate to http://localhost:5173 (dev) or launch Electron app (production).
 - View global health score
 - See daily PnL and win rate
 - Monitor execution mode (OFF/AUTO/GUARD/ANALYSIS)
+- **NEW:** View data health summary
 
-### Step 4: Configure Accounts
+### Step 4: Monitor Data Health
+
+Go to **Data Health** page:
+- See coverage % and gap % per symbol/TF
+- Quality grades (A/B/C/REJECTED)
+- Identify data quality issues
+
+### Step 5: Configure Accounts
 
 Go to **Accounts** page:
 - View broker accounts
 - Check session health (UP/DEGRADED/COOLDOWN)
 - Add new account (FakeBroker for testing)
 
-### Step 5: Control Execution Matrix
+### Step 6: Control Execution Matrix
 
 Go to **Execution Matrix** page:
 - Toggle data capture per product/TF
 - Toggle signal generation
 - Toggle auto-trade execution
 
-### Step 6: Monitor Alerts
+### Step 7: Monitor Alerts
 
 Go to **Alerts** page:
 - Filter by severity (CRITICAL/WARNING/INFO)
 - ACK or RESOLVE alerts
 - Review circuit breaker and fail-safe events
 
-### Step 7: Manage Approvals (GUARD mode)
+### Step 8: Manage Approvals (GUARD mode)
 
 If execution mode = GUARD:
 - Dashboard shows pending approvals
 - Approve or reject trades manually
 
-### Step 8: Kill-Switch (Emergency Stop)
+### Step 9: Kill-Switch (Emergency Stop)
 
 If needed:
 - Click **Activate Kill-Switch** button
@@ -210,6 +248,9 @@ If needed:
 - `POST /alerts/:id/ack` - Acknowledge
 - `POST /alerts/:id/resolve` - Resolve
 
+### **Data API (NEW in v1.1)**
+- `GET /data/health/matrix` - Data quality matrix
+
 ### Backtest API
 - `POST /backtest/run` - Start backtest
 - `GET /backtest/status/:runId` - Check status
@@ -218,11 +259,11 @@ If needed:
 
 ---
 
-## Limitations (v1.0)
+## Limitations (v1.1)
 
 - **Broker Support:** FakeBroker only (real broker adapters in development)
 - **Multi-Tenant:** Single owner scenario
-- **Data Sources:** Manual Parquet import (TradingView webhook in development)
+- **Data Sources:** Manual Parquet import + Auto-Inspector (TradingView webhook in development)
 - **Production Deployment:** Desktop app only (cloud deployment roadmap)
 
 ---
@@ -235,9 +276,9 @@ moonlight/
 │   ├── src/
 │   │   ├── execution/  # Execution pipeline
 │   │   ├── risk/       # Risk, ART, Triple-Check, Circuit Breaker
-│   │   ├── strategy/   # Strategy factory, indicators
+│   │   ├── strategy/   # Strategy factory, indicators, EVVetoSlot, PackFactory, Gating
 │   │   ├── backtest/   # Backtest engine
-│   │   ├── data/       # Data capture, resample
+│   │   ├── data/       # Data capture, resample, Auto-Inspector
 │   │   ├── broker/     # Broker adapters
 │   │   ├── owner/      # Owner API
 │   │   └── alerts/     # Alerts module
@@ -246,7 +287,7 @@ moonlight/
 │   ├── main/        # Electron main process
 │   └── renderer/    # React UI
 │       ├── src/
-│       │   ├── routes/      # Pages
+│       │   ├── routes/      # Pages (Dashboard, Accounts, Matrix, Alerts, Data Health)
 │       │   ├── components/  # UI components
 │       │   ├── store/       # Zustand stores
 │       │   └── services/    # API clients

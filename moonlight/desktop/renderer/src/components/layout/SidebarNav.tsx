@@ -5,6 +5,7 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard' },
   { path: '/accounts', label: 'Accounts' },
   { path: '/matrix', label: 'Execution Matrix' },
+  { path: '/data-health', label: 'Data Health' },
   { path: '/alerts', label: 'Alerts' },
   { path: '/settings', label: 'Settings' },
 ];
