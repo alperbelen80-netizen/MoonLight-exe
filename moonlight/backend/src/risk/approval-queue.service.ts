@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { ApprovalQueue } from '../../database/entities/approval-queue.entity';
+import { ApprovalQueue } from '../database/entities/approval-queue.entity';
 
 export interface ApprovalQueueItemDTO {
   id: string;
