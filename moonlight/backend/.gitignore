@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+*.sqlite
+data/db/*.sqlite
+data/raw/
+data/bars/
+data/sim/
+data/reports/
+.DS_Store
+*.swp
+*.swo
+*~
