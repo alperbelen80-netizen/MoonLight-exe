@@ -55,7 +55,7 @@ describe('AutoInspectorService', () => {
     expect(result.coverage_pct).toBeCloseTo(92.01, 1);
   });
 
-  it('should assign grade REJECTED for coverage 80%, gap 20%', () => {
+  it('should assign grade REJECTED for coverage below 90%', () => {
     const result = service.inspectDay({
       symbol: 'XAGUSD',
       tf: Timeframe.ONE_MINUTE,
