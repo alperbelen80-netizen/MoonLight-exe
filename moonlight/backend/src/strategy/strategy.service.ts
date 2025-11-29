@@ -1,14 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { StrategyFactoryService } from './factory/strategy-factory.service';
 import { CanonicalSignalDTO } from '../shared/dto/canonical-signal.dto';
+import { StrategyFactoryService } from './factory/strategy-factory.service';
 import { StrategyContext, StrategyEvaluationOptions } from '../shared/dto/strategy-context.dto';
 import { StrategyDefinitionDTO } from '../shared/dto/strategy-definition.dto';
+import { EVVetoSlotEngine } from './evvetoslot/evvetoslot-engine.service';
+import { PackFactoryService } from './pack-factory/pack-factory.service';
+import { GatingService } from './gating/gating.service';
+import { SlotSelectionResult } from './evvetoslot/evvetoslot.types';
 
 @Injectable()
 export class StrategyService {
   private readonly logger = new Logger(StrategyService.name);
 
-  constructor(private readonly strategyFactory: StrategyFactoryService) {}
+  constructor(
+    private readonly strategyFactory: StrategyFactoryService,
+    private readonly evvetoSlotEngine: EVVetoSlotEngine,
+    private readonly packFactory: PackFactoryService,
+    private readonly gatingService: GatingService,
+  ) {}
 
   getStrategyDefinitions(): StrategyDefinitionDTO[] {
     return this.strategyFactory.getAllDefinitions();
@@ -60,15 +69,37 @@ export class StrategyService {
       }
     }
 
+    const packResult = this.packFactory.evaluatePackSignals('PACK_DEFAULT', signals);
+
+    const finalSignals: CanonicalSignalDTO[] = [];
+
+    if (packResult.selected_signal) {
+      const gatingResult = this.gatingService.selectOne({
+        signals: [packResult.selected_signal],
+        scores: packResult.scores,
+        threshold_delta: 0.01,
+      });
+
+      if (gatingResult.selected_signal) {
+        finalSignals.push(gatingResult.selected_signal);
+      }
+    }
+
     if (
       options?.max_signals_per_context !== undefined &&
-      signals.length > options.max_signals_per_context
+      finalSignals.length > options.max_signals_per_context
     ) {
-      return signals
+      return finalSignals
         .sort((a, b) => b.ev - a.ev)
         .slice(0, options.max_signals_per_context);
     }
 
-    return signals;
+    return finalSignals;
+  }
+
+  getOptimizedExpiryForSignal(
+    signal: CanonicalSignalDTO,
+  ): SlotSelectionResult {
+    return this.evvetoSlotEngine.selectSlotForSignal(signal);
   }
 }

@@ -3,6 +3,9 @@ import { StrategyService } from './strategy.service';
 import { StrategyFactoryService } from './factory/strategy-factory.service';
 import { IndicatorService } from './indicators/indicator.service';
 import { PresetLoaderService } from './preset/preset-loader.service';
+import { EVVetoSlotEngine } from './evvetoslot/evvetoslot-engine.service';
+import { PackFactoryService } from './pack-factory/pack-factory.service';
+import { GatingService } from './gating/gating.service';
 
 @Module({
   providers: [
@@ -10,6 +13,9 @@ import { PresetLoaderService } from './preset/preset-loader.service';
     StrategyFactoryService,
     IndicatorService,
     PresetLoaderService,
+    EVVetoSlotEngine,
+    PackFactoryService,
+    GatingService,
   ],
   exports: [StrategyService, PresetLoaderService, IndicatorService],
 })

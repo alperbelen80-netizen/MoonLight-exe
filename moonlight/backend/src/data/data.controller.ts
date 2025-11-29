@@ -1,42 +1,44 @@
-import { Controller, Post, Body, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { DataService } from './data.service';
-import { LiveCaptureService } from './capture/live-capture.service';
 import { AutoInspectorService } from './inspector/auto-inspector.service';
-import { TickCaptureDTO } from '../shared/dto/tick-capture.dto';
-import { DataQualitySnapshotDTO } from '../shared/dto/data-quality-snapshot.dto';
-import { Timeframe } from '../shared/enums/timeframe.enum';
+import { DataHealthMatrixDTO, DataHealthItemDTO } from '../shared/dto/data-health-matrix.dto';
 
 @Controller('data')
 export class DataController {
   constructor(
     private readonly dataService: DataService,
-    private readonly liveCaptureService: LiveCaptureService,
     private readonly autoInspectorService: AutoInspectorService,
   ) {}
 
-  @Post('capture')
-  async captureData(@Body() input: TickCaptureDTO) {
-    await this.liveCaptureService.captureBars(input);
-    return { status: 'OK', bars_captured: input.bars.length };
-  }
+  @Get('health/matrix')
+  async getDataHealthMatrix(): Promise<DataHealthMatrixDTO> {
+    const mockItems: DataHealthItemDTO[] = [
+      {
+        symbol: 'XAUUSD',
+        tf: '1m',
+        coverage_pct: 99.2,
+        gap_pct: 0.8,
+        quality_grade: 'A' as any,
+      },
+      {
+        symbol: 'EURUSD',
+        tf: '5m',
+        coverage_pct: 96.5,
+        gap_pct: 3.5,
+        quality_grade: 'B' as any,
+      },
+      {
+        symbol: 'BTCUSD',
+        tf: '15m',
+        coverage_pct: 92.1,
+        gap_pct: 7.9,
+        quality_grade: 'C' as any,
+      },
+    ];
 
-  @Get('status')
-  getStatus() {
-    return this.dataService.getStatus();
-  }
-
-  @Get('health/:symbol/:tf')
-  async getDataHealth(
-    @Param('symbol') symbol: string,
-    @Param('tf') tf: string,
-    @Query('date') date: string,
-  ): Promise<DataQualitySnapshotDTO> {
-    return this.autoInspectorService.inspectDay({
-      symbol,
-      tf: tf as Timeframe,
-      date,
-      actualTimestamps: [],
-      dataSource: 'MANUAL_QUERY',
-    });
+    return {
+      items: mockItems,
+      generated_at_utc: new Date().toISOString(),
+    };
   }
 }
