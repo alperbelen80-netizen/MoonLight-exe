@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { StrategyFactoryService } from '../../../strategy/factory/strategy-factory.service';
+import { StrategyFactoryService, StrategyInstance } from '../../../strategy/factory/strategy-factory.service';
 import { IndicatorService } from '../../../strategy/indicators/indicator.service';
+import { StrategyDefinitionDTO } from '../../../shared/dto/strategy-definition.dto';
 
 describe('StrategyFactoryService', () => {
   let factory: StrategyFactoryService;
@@ -43,17 +44,17 @@ describe('StrategyFactoryService', () => {
   });
 
   it('should allow re-registering strategy (overwrite)', () => {
-    const dummyStrategy = {
+    const dummyStrategy: StrategyInstance = {
       id: 'bb_rsi_buy_v1',
       definition: {
         id: 'bb_rsi_buy_v1',
         name: 'Overwritten',
-        category: 'scalping' as any,
+        category: 'scalping',
         version: 2,
-        parameters: [],
+        parameters: [] as any,
         allowed_timeframes: [] as any,
       },
-      evaluate: async () => null,
+      evaluate: async (): Promise<null> => null,
     };
 
     factory.registerStrategy(dummyStrategy);
