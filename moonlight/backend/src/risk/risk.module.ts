@@ -12,10 +12,12 @@ import { RiskController } from './risk.controller';
 import { RiskProfile } from '../database/entities/risk-profile.entity';
 import { ApprovalQueue } from '../database/entities/approval-queue.entity';
 import { CircuitBreakerEvent } from '../database/entities/circuit-breaker-event.entity';
+import { AlertsModule } from '../alerts/alerts.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([RiskProfile, ApprovalQueue, CircuitBreakerEvent]),
+    AlertsModule,
   ],
   controllers: [RiskController],
   providers: [

@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { ExecutionModule } from './execution/execution.module';
@@ -10,6 +10,7 @@ import { BacktestModule } from './backtest/backtest.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { OwnerModule } from './owner/owner.module';
 import { ConfigModule } from './config/config.module';
+import { AlertsModule } from './alerts/alerts.module';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { ConfigModule } from './config/config.module';
       database: process.env.DB_PATH || './data/db/moonlight.sqlite',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.NODE_ENV === 'development',
-      logging: process.env.NODE_ENV === 'development',
+      logging: false,
     }),
     BullModule.forRoot({
       redis: {
@@ -35,6 +36,7 @@ import { ConfigModule } from './config/config.module';
     ReportingModule,
     OwnerModule,
     ConfigModule,
+    AlertsModule,
   ],
   controllers: [],
   providers: [],

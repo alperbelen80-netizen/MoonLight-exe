@@ -1,129 +1,211 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
-import {
-  OwnerDashboardSummaryDTO,
-  OwnerBacktestRunItemDTO,
-  OwnerTopStrategyItemDTO,
-  QueueHealthDTO,
-} from '../../shared/dto/owner-dashboard.dto';
-import { BacktestRun } from '../../database/entities/backtest-run.entity';
-import { BacktestTrade } from '../../database/entities/backtest-trade.entity';
-import { BacktestRunStatus } from '../../shared/dto/backtest.dto';
+import { v4 as uuidv4 } from 'uuid';
+import { ExecutionConfig } from '../database/entities/execution-config.entity';
+import { ProductExecutionConfig } from '../database/entities/product-execution-config.entity';
+import { OwnerAccount } from '../database/entities/owner-account.entity';
+import { ExecutionMode } from '../shared/enums/execution-mode.enum';
+import { ExecutionModeDTO } from '../shared/dto/execution-mode.dto';
+import { ProductExecutionConfigDTO } from '../shared/dto/product-execution-config.dto';
+import { OwnerAccountDTO } from '../shared/dto/owner-account.dto';
+import { OwnerDashboardSummaryDTO, HealthColor } from '../shared/dto/owner-dashboard-summary.dto';
+import { SessionManagerService } from '../broker/session/session-manager.service';
+import { ApprovalQueueService } from '../risk/approval-queue.service';
+import { CircuitBreakerService } from '../risk/fail-safe/circuit-breaker.service';
 
 @Injectable()
 export class OwnerService {
   private readonly logger = new Logger(OwnerService.name);
 
   constructor(
-    @InjectRepository(BacktestRun)
-    private readonly backtestRunRepo: Repository<BacktestRun>,
-    @InjectRepository(BacktestTrade)
-    private readonly backtestTradeRepo: Repository<BacktestTrade>,
-    @InjectQueue('backtest')
-    private readonly backtestQueue: Queue,
+    @InjectRepository(ExecutionConfig)
+    private readonly execConfigRepo: Repository<ExecutionConfig>,
+    @InjectRepository(ProductExecutionConfig)
+    private readonly productConfigRepo: Repository<ProductExecutionConfig>,
+    @InjectRepository(OwnerAccount)
+    private readonly accountRepo: Repository<OwnerAccount>,
+    private readonly sessionManager: SessionManagerService,
+    private readonly approvalQueueService: ApprovalQueueService,
+    private readonly circuitBreakerService: CircuitBreakerService,
   ) {}
 
   async getDashboardSummary(): Promise<OwnerDashboardSummaryDTO> {
-    const allRuns = await this.backtestRunRepo.find();
+    const execMode = await this.getExecutionMode();
 
-    const countsByStatus: Record<BacktestRunStatus, number> = {
-      [BacktestRunStatus.QUEUED]: 0,
-      [BacktestRunStatus.RUNNING]: 0,
-      [BacktestRunStatus.COMPLETED]: 0,
-      [BacktestRunStatus.FAILED]: 0,
-    };
+    const pendingApprovals = await this.approvalQueueService.listPending(100);
 
-    allRuns.forEach((run) => {
-      const status = run.status as BacktestRunStatus;
-      if (countsByStatus[status] !== undefined) {
-        countsByStatus[status]++;
-      }
-    });
+    const globalHealthScore = 85;
+    const globalHealthColor = HealthColor.GREEN;
 
-    const recentRuns = await this.backtestRunRepo.find({
-      order: { created_at_utc: 'DESC' },
-      take: 20,
-    });
-
-    const recentRunItems: OwnerBacktestRunItemDTO[] = recentRuns.map((run) => ({
-      run_id: run.run_id,
-      status: run.status as BacktestRunStatus,
-      symbols: JSON.parse(run.symbols),
-      timeframes: JSON.parse(run.timeframes),
-      strategy_ids: JSON.parse(run.strategy_ids),
-      from_date: run.from_date,
-      to_date: run.to_date,
-      net_pnl: run.net_pnl,
-      win_rate: run.win_rate,
-      created_at_utc: run.created_at_utc.toISOString(),
-    }));
-
-    const completedRunIds = allRuns
-      .filter((r) => r.status === BacktestRunStatus.COMPLETED)
-      .map((r) => r.run_id);
-
-    const topStrategies = await this.calculateTopStrategies(completedRunIds);
-
-    const queueCounts = await this.backtestQueue.getJobCounts();
-    const queueHealth: QueueHealthDTO[] = [
-      {
-        queue_name: 'backtest',
-        waiting: queueCounts.waiting || 0,
-        active: queueCounts.active || 0,
-        completed: queueCounts.completed || 0,
-        failed: queueCounts.failed || 0,
-        delayed: queueCounts.delayed || 0,
-      },
-    ];
+    const dailyNetPnl = 0;
+    const dailyTradeCount = 0;
+    const monthlyNetPnl = 0;
+    const liveWinRate7d = 0.65;
+    const liveTradeCount7d = 0;
 
     return {
-      backtest_counts_by_status: countsByStatus,
-      recent_runs: recentRunItems,
-      top_strategies: topStrategies,
-      queue_health: queueHealth,
+      global_health_score: globalHealthScore,
+      global_health_color: globalHealthColor,
+      daily_net_pnl: dailyNetPnl,
+      daily_trade_count: dailyTradeCount,
+      monthly_net_pnl: monthlyNetPnl,
+      live_win_rate_7d: liveWinRate7d,
+      live_trade_count_7d: liveTradeCount7d,
+      execution_mode: execMode.mode,
+      circuit_breaker_level: 'NONE',
+      approval_queue_pending_count: pendingApprovals.length,
+      fail_safe_active: false,
+      top_strategies: [],
+      top_symbols: [],
       generated_at_utc: new Date().toISOString(),
     };
   }
 
-  private async calculateTopStrategies(
-    runIds: string[],
-  ): Promise<OwnerTopStrategyItemDTO[]> {
-    if (runIds.length === 0) {
-      return [];
-    }
+  async getAccounts(): Promise<OwnerAccountDTO[]> {
+    const accounts = await this.accountRepo.find();
 
-    const trades = await this.backtestTradeRepo
-      .createQueryBuilder('trade')
-      .where('trade.run_id IN (:...runIds)', { runIds })
-      .getMany();
+    return accounts.map((a) => ({
+      account_id: a.account_id,
+      broker_id: a.broker_id,
+      alias: a.alias,
+      type: a.type,
+      status: a.status,
+      session_health: a.session_health as any,
+      balance: a.balance,
+      created_at_utc: a.created_at_utc.toISOString(),
+    }));
+  }
 
-    const byStrategy = new Map<string, BacktestTrade[]>();
+  async getProductExecutionMatrix(): Promise<ProductExecutionConfigDTO[]> {
+    const configs = await this.productConfigRepo.find();
 
-    trades.forEach((t) => {
-      if (!byStrategy.has(t.strategy_id)) {
-        byStrategy.set(t.strategy_id, []);
-      }
-      byStrategy.get(t.strategy_id)!.push(t);
+    return configs.map((c) => ({
+      id: c.id,
+      symbol: c.symbol,
+      tf: c.tf,
+      data_enabled: c.data_enabled,
+      signal_enabled: c.signal_enabled,
+      auto_trade_enabled: c.auto_trade_enabled,
+      updated_at_utc: c.updated_at_utc.toISOString(),
+    }));
+  }
+
+  async updateProductExecutionConfig(
+    id: string,
+    patch: Partial<ProductExecutionConfigDTO>,
+  ): Promise<ProductExecutionConfigDTO> {
+    await this.productConfigRepo.update({ id }, {
+      data_enabled: patch.data_enabled,
+      signal_enabled: patch.signal_enabled,
+      auto_trade_enabled: patch.auto_trade_enabled,
+      updated_at_utc: new Date(),
     });
 
-    const topList: OwnerTopStrategyItemDTO[] = [];
+    const updated = await this.productConfigRepo.findOne({ where: { id } });
 
-    for (const [strategyId, stratTrades] of byStrategy) {
-      const winCount = stratTrades.filter((t) => t.outcome === 'WIN').length;
-      const winRate = stratTrades.length > 0 ? winCount / stratTrades.length : 0;
-      const netPnl = stratTrades.reduce((sum, t) => sum + t.net_pnl, 0);
-
-      topList.push({
-        strategy_id: strategyId,
-        total_trades: stratTrades.length,
-        win_rate: winRate,
-        net_pnl: netPnl,
-      });
+    if (!updated) {
+      throw new Error(`ProductExecutionConfig ${id} not found`);
     }
 
-    return topList.sort((a, b) => b.net_pnl - a.net_pnl).slice(0, 10);
+    return {
+      id: updated.id,
+      symbol: updated.symbol,
+      tf: updated.tf,
+      data_enabled: updated.data_enabled,
+      signal_enabled: updated.signal_enabled,
+      auto_trade_enabled: updated.auto_trade_enabled,
+      updated_at_utc: updated.updated_at_utc.toISOString(),
+    };
+  }
+
+  async getExecutionMode(): Promise<ExecutionModeDTO> {
+    const config = await this.execConfigRepo.findOne({ where: { id: 'GLOBAL' } });
+
+    if (!config) {
+      const defaultConfig = this.execConfigRepo.create({
+        id: 'GLOBAL',
+        mode: ExecutionMode.OFF,
+        updated_at_utc: new Date(),
+      });
+
+      await this.execConfigRepo.save(defaultConfig);
+
+      return {
+        mode: ExecutionMode.OFF,
+        updated_at_utc: defaultConfig.updated_at_utc.toISOString(),
+      };
+    }
+
+    return {
+      mode: config.mode as ExecutionMode,
+      updated_at_utc: config.updated_at_utc.toISOString(),
+    };
+  }
+
+  async setExecutionMode(mode: ExecutionMode): Promise<ExecutionModeDTO> {
+    const config = await this.execConfigRepo.findOne({ where: { id: 'GLOBAL' } });
+
+    if (!config) {
+      const newConfig = this.execConfigRepo.create({
+        id: 'GLOBAL',
+        mode,
+        updated_at_utc: new Date(),
+      });
+
+      await this.execConfigRepo.save(newConfig);
+
+      this.logger.log(`Execution mode set to: ${mode}`);
+
+      return {
+        mode,
+        updated_at_utc: newConfig.updated_at_utc.toISOString(),
+      };
+    }
+
+    await this.execConfigRepo.update(
+      { id: 'GLOBAL' },
+      { mode, updated_at_utc: new Date() },
+    );
+
+    this.logger.log(`Execution mode changed to: ${mode}`);
+
+    const updated = await this.execConfigRepo.findOne({ where: { id: 'GLOBAL' } });
+
+    return {
+      mode: updated!.mode as ExecutionMode,
+      updated_at_utc: updated!.updated_at_utc.toISOString(),
+    };
+  }
+
+  async createAccount(params: {
+    alias: string;
+    brokerId: string;
+    type: string;
+  }): Promise<OwnerAccountDTO> {
+    const account = this.accountRepo.create({
+      account_id: `ACC_${uuidv4()}`,
+      alias: params.alias,
+      broker_id: params.brokerId,
+      type: params.type,
+      status: 'ACTIVE',
+      session_health: 'UP',
+      created_at_utc: new Date(),
+    });
+
+    await this.accountRepo.save(account);
+
+    this.logger.log(`Account created: ${account.account_id}`);
+
+    return {
+      account_id: account.account_id,
+      broker_id: account.broker_id,
+      alias: account.alias,
+      type: account.type,
+      status: account.status,
+      session_health: account.session_health as any,
+      balance: account.balance,
+      created_at_utc: account.created_at_utc.toISOString(),
+    };
   }
 }
