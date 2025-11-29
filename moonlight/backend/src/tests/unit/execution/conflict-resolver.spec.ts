@@ -24,7 +24,7 @@ describe('ConflictResolverService', () => {
     service = module.get<ConflictResolverService>(ConflictResolverService);
   });
 
-  const mockSignal: CanonicalSignalDTO = {
+  const mockSignal: CanonicalSignalDTO = Object.assign(new CanonicalSignalDTO(), {
     signal_id: 'SIG_CONFLICT_001',
     idempotency_key: 'hash_conflict_001',
     source: 'test_strategy',
@@ -40,7 +40,7 @@ describe('ConflictResolverService', () => {
     requested_stake: 25.0,
     schema_version: 1,
     environment: Environment.LIVE,
-  };
+  });
 
   it('should ALLOW when no conflicts exist', async () => {
     const request: ConflictCheckRequest = {
@@ -114,8 +114,6 @@ describe('ConflictResolverService', () => {
         cluster: 'METAL',
       },
     ];
-
-    service.setDayCapState({ current_loss_usd: 0, limit_usd: 500 });
 
     const customLimits = {
       ...DEFAULT_RISK_LIMITS,
