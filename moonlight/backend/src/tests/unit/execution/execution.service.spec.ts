@@ -11,76 +11,76 @@ import { CircuitBreakerService } from '../../../risk/fail-safe/circuit-breaker.s
 import { BrokerService } from '../../../broker/broker.service';
 import { ExecutionState } from '../../../shared/enums/execution-state.enum';
 import { ExecutionRequestDTO } from '../../../shared/dto/execution-request.dto';
-import { CanonicalSignalDTO, SignalDirection, Environment, UncertaintyLevel } from '../../../shared/dto/canonical-signal.dto';
+import { CanonicalSignalDTO, SignalDirection, Environment } from '../../../shared/dto/canonical-signal.dto';
 import { ARTDecision } from '../../../shared/dto/atomic-risk-token.dto';
 import { BrokerOrderStatus } from '../../../shared/dto/broker-order.dto';
 
-const mockFsm = {
-  transition: jest.fn().mockResolvedValue({
-    next_state: ExecutionState.ORDER_ACKED,
-  }),
-};
-
-const mockArtEngine = {
-  requestART: jest.fn().mockResolvedValue({
-    art_id: 'ART_TEST',
-    decision: ARTDecision.ACCEPT,
-    approved_stake: 25,
-  }),
-};
-
-const mockRiskProfile = {
-  getById: jest.fn(),
-  getDefaultProfile: jest.fn(),
-};
-
-const mockRiskGuardrail = {
-  evaluateForBacktest: jest.fn().mockReturnValue({
-    allowed: true,
-    violations: [],
-    effective_stake_amount: 25,
-  }),
-};
-
-const mockTripleCheck = {
-  evaluate: jest.fn().mockReturnValue({
-    u1_score: 0.1,
-    u2_score: 0.1,
-    u3_score: 0.1,
-    uncertainty_score: 0.1,
-    level: 'LOW',
-  }),
-};
-
-const mockM3Defensive = {
-  decide: jest.fn().mockReturnValue({
-    mode: 'AUTO',
-    uncertainty_score: 0.1,
-    uncertainty_level: 'LOW',
-    final_action: 'EXECUTE',
-  }),
-};
-
-const mockApprovalQueue = {
-  enqueue: jest.fn(),
-};
-
-const mockCircuitBreaker = {
-  isBlocked: jest.fn().mockReturnValue(false),
-};
-
-const mockBrokerService = {
-  sendOrderWithIdempotency: jest.fn().mockResolvedValue({
-    broker_request_id: 'REQ_001',
-    broker_order_id: 'ORDER_001',
-    status: BrokerOrderStatus.ACK,
-    response_ts_utc: new Date().toISOString(),
-    latency_ms: 50,
-  }),
-};
-
 describe('ExecutionService', () => {
   let service: ExecutionService;
+
+  const mockFsm = {
+    transition: jest.fn().mockResolvedValue({
+      next_state: ExecutionState.ORDER_ACKED,
+    }),
+  };
+
+  const mockArtEngine = {
+    requestART: jest.fn().mockResolvedValue({
+      art_id: 'ART_TEST',
+      decision: ARTDecision.ACCEPT,
+      approved_stake: 25,
+    }),
+  };
+
+  const mockRiskProfile = {
+    getById: jest.fn(),
+    getDefaultProfile: jest.fn(),
+  };
+
+  const mockRiskGuardrail = {
+    evaluateForBacktest: jest.fn().mockReturnValue({
+      allowed: true,
+      violations: [],
+      effective_stake_amount: 25,
+    }),
+  };
+
+  const mockTripleCheck = {
+    evaluate: jest.fn().mockReturnValue({
+      u1_score: 0.1,
+      u2_score: 0.1,
+      u3_score: 0.1,
+      uncertainty_score: 0.1,
+      level: 'LOW',
+    }),
+  };
+
+  const mockM3Defensive = {
+    decide: jest.fn().mockReturnValue({
+      mode: 'AUTO',
+      uncertainty_score: 0.1,
+      uncertainty_level: 'LOW',
+      final_action: 'EXECUTE',
+    }),
+  };
+
+  const mockApprovalQueue = {
+    enqueue: jest.fn(),
+  };
+
+  const mockCircuitBreaker = {
+    isBlocked: jest.fn().mockReturnValue(false),
+  };
+
+  const mockBrokerService = {
+    sendOrderWithIdempotency: jest.fn().mockResolvedValue({
+      broker_request_id: 'REQ_001',
+      broker_order_id: 'ORDER_001',
+      status: BrokerOrderStatus.ACK,
+      response_ts_utc: new Date().toISOString(),
+      latency_ms: 50,
+    }),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
