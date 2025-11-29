@@ -5,6 +5,8 @@ import { ExecutionModule } from './execution/execution.module';
 import { RiskModule } from './risk/risk.module';
 import { BrokerModule } from './broker/broker.module';
 import { DataModule } from './data/data.module';
+import { StrategyModule } from './strategy/strategy.module';
+import { BacktestModule } from './backtest/backtest.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { DataModule } from './data/data.module';
     RiskModule,
     BrokerModule,
     DataModule,
+    StrategyModule,
+    BacktestModule,
   ],
   controllers: [],
   providers: [],

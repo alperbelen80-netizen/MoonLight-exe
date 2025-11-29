@@ -68,3 +68,31 @@ export async function readOhlcvBarsFromParquet(
     throw error;
   }
 }
+
+export async function readOhlcvBarsBetweenDates(
+  params: { baseDir: string; symbol: string; tf: Timeframe; fromDate: string; toDate: string },
+): Promise<OhlcvBarDTO[]> {
+  const { baseDir, symbol, tf, fromDate, toDate } = params;
+
+  const allBars: OhlcvBarDTO[] = [];
+
+  const startDate = new Date(fromDate);
+  const endDate = new Date(toDate);
+
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split('T')[0];
+
+    const bars = await readOhlcvBarsFromParquet({
+      baseDir,
+      symbol,
+      tf,
+      date: dateStr,
+    });
+
+    allBars.push(...bars);
+  }
+
+  return allBars.sort(
+    (a, b) => new Date(a.ts_utc).getTime() - new Date(b.ts_utc).getTime(),
+  );
+}
