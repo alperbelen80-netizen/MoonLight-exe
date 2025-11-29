@@ -1,0 +1,95 @@
+import { IsString, IsArray, IsEnum, IsNumber, IsOptional, Min, Matches } from 'class-validator';
+import { Timeframe } from '../enums/timeframe.enum';
+import { Environment } from './canonical-signal.dto';
+
+export enum BacktestRunStatus {
+  QUEUED = 'QUEUED',
+  RUNNING = 'RUNNING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+}
+
+export class BacktestRunRequestDTO {
+  @IsArray()
+  @IsString({ each: true })
+  symbols: string[];
+
+  @IsArray()
+  @IsEnum(Timeframe, { each: true })
+  timeframes: Timeframe[];
+
+  @IsArray()
+  @IsString({ each: true })
+  strategy_ids: string[];
+
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  from_date: string;
+
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  to_date: string;
+
+  @IsNumber()
+  @Min(0)
+  initial_balance: number;
+
+  @IsString()
+  risk_profile_id: string;
+
+  @IsEnum(Environment)
+  environment: Environment;
+
+  @IsString()
+  @IsOptional()
+  note?: string;
+}
+
+export class BacktestRunSummaryDTO {
+  @IsString()
+  run_id: string;
+
+  @IsEnum(BacktestRunStatus)
+  status: BacktestRunStatus;
+
+  @IsArray()
+  @IsString({ each: true })
+  symbols: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  timeframes: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  strategy_ids: string[];
+
+  @IsString()
+  from_date: string;
+
+  @IsString()
+  to_date: string;
+
+  @IsNumber()
+  total_trades: number;
+
+  @IsNumber()
+  win_rate: number;
+
+  @IsNumber()
+  net_pnl: number;
+
+  @IsNumber()
+  max_drawdown: number;
+
+  @IsString()
+  created_at_utc: string;
+
+  @IsString()
+  updated_at_utc: string;
+}
+
+export class BacktestRunDetailDTO {
+  summary: BacktestRunSummaryDTO;
+  trades_sample: any[];
+}
