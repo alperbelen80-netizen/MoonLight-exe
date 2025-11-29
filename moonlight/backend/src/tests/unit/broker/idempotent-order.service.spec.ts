@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { IdempotentOrderService } from '../../../broker/order/idempotent-order.service';
 import { FakeBrokerAdapter } from '../../../broker/adapters/fake-broker.adapter';
 import { BROKER_ADAPTER } from '../../../broker/adapters/broker-adapter.interface';
-import { BrokerOrderRequestDTO, BrokerOrderStatus, BrokerOrderAckDTO } from '../../../shared/dto/broker-order.dto';
+import { BrokerOrderRequestDTO, BrokerOrderStatus } from '../../../shared/dto/broker-order.dto';
 import { SignalDirection } from '../../../shared/dto/canonical-signal.dto';
 import { buildOrderKey } from '../../../broker/order/order-key.util';
 
@@ -11,20 +11,21 @@ describe('IdempotentOrderService', () => {
   let fakeBroker: FakeBrokerAdapter;
 
   beforeEach(async () => {
+    fakeBroker = new FakeBrokerAdapter();
+    
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         IdempotentOrderService,
-        FakeBrokerAdapter,
         {
           provide: BROKER_ADAPTER,
-          useClass: FakeBrokerAdapter,
+          useValue: fakeBroker,
         },
       ],
     }).compile();
 
     service = module.get<IdempotentOrderService>(IdempotentOrderService);
-    fakeBroker = module.get<FakeBrokerAdapter>(FakeBrokerAdapter);
     service.clearCache();
+    fakeBroker.setShouldFail(false);
   });
 
   const createMockRequest = (): BrokerOrderRequestDTO => ({
