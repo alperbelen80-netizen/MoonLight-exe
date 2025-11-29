@@ -1,0 +1,17 @@
+node_modules/
+dist/
+out/
+coverage/
+*.log
+.env
+backend/.env
+desktop/.env
+data/db/*.sqlite
+data/raw/
+data/bars/
+data/sim/
+data/reports/
+.DS_Store
+*.swp
+*.swo
+*~

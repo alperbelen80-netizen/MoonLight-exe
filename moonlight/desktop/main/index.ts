@@ -1,22 +1,27 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, '..', 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
+    title: 'MoonLight Owner Console',
   });
 
-  if (process.env.NODE_ENV === 'development') {
+  if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist-renderer', 'index.html'));
+    mainWindow.loadFile(
+      path.join(__dirname, '..', '..', 'dist-renderer', 'index.html'),
+    );
   }
 }
 

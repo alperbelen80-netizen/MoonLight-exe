@@ -1,0 +1,24 @@
+{
+  "name": "moonlight-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "desktop"
+  ],
+  "scripts": {
+    "dev": "concurrently \"yarn dev:backend\" \"yarn dev:desktop\"",
+    "dev:backend": "cd backend && yarn start:dev",
+    "dev:desktop": "cd desktop && yarn dev",
+    "build": "yarn build:backend && yarn build:desktop",
+    "build:backend": "cd backend && yarn build",
+    "build:desktop": "cd desktop && yarn build",
+    "package:desktop": "cd desktop && yarn dist",
+    "test": "cd backend && yarn test",
+    "smoke": "cd backend && ts-node scripts/smoke-test.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "ts-node": "^10.9.2"
+  }
+}

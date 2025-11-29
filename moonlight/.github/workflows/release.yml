@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'yarn'
+
+      - name: Install root dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Install desktop dependencies
+        run: |
+          cd desktop
+          yarn install --frozen-lockfile
+
+      - name: Build Desktop Installer
+        run: |
+          cd desktop
+          yarn dist
+
+      - name: Upload Windows Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonlight-owner-installer-windows
+          path: desktop/dist/*.exe
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: desktop/dist/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

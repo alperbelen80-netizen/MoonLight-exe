@@ -5,9 +5,10 @@
   "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
+    "build": "tsc && vite build && tsc main/index.ts --outDir dist-electron/main",
     "preview": "vite preview",
-    "electron:dev": "electron ."
+    "dist": "yarn build && electron-builder",
+    "test": "vitest run"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -31,5 +32,37 @@
     "vitest": "^1.2.0",
     "@testing-library/react": "^14.1.2",
     "@testing-library/jest-dom": "^6.1.5"
+  },
+  "build": {
+    "productName": "MoonLight Owner Console",
+    "appId": "com.moonlight.owner",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist-renderer/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MoonLight Owner Console"
+    }
   }
 }
