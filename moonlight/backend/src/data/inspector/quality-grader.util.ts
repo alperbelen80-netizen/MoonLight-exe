@@ -14,7 +14,7 @@ export function gradeDataQuality(input: {
     return QualityGrade.A;
   }
 
-  if (coveragePct >= 95 && gapPct <= 4) {
+  if (coveragePct >= 95 && gapPct <= 5) {
     return QualityGrade.B;
   }
 
