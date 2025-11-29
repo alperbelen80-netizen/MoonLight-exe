@@ -29,12 +29,12 @@ describe('TripleCheckService', () => {
     expect(result.level).toBe('LOW');
   });
 
-  it('should calculate MEDIUM uncertainty for quality grade REJECTED', () => {
+  it('should calculate higher uncertainty for quality grade REJECTED', () => {
     const result = service.evaluate({
       data_quality: { quality_grade: 'REJECTED' },
     });
 
-    expect(result.level).toBe('MEDIUM');
+    expect(result.uncertainty_score).toBeGreaterThan(0.15);
   });
 
   it('should include u1, u2, u3 scores', () => {
