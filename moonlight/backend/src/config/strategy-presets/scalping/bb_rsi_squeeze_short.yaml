@@ -1,0 +1,33 @@
+id: bb_rsi_squeeze_short_1m
+name: "BB + RSI Squeeze Short (1m)"
+category: scalping
+version: 1
+symbols:
+  - XAUUSD
+  - EURUSD
+timeframes:
+  - 1m
+  - 5m
+entry:
+  direction: PUT
+  conditions_mode: ALL
+  conditions:
+    - indicator: BB
+      tf: 1m
+      period: 20
+      operator: ">"
+      value: 0
+    - indicator: RSI
+      tf: 1m
+      period: 14
+      operator: ">"
+      value: 70
+risk:
+  min_ev: 0.02
+  min_confidence: 0.65
+  stake_fixed: 25
+tags:
+  - bb
+  - rsi
+  - scalping
+enabled_by_default: true

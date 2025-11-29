@@ -1,0 +1,27 @@
+id: ema_trend_follow_15m
+name: "EMA Trend Follow (15m)"
+category: trend_follow
+version: 1
+symbols:
+  - BTCUSD
+  - XAUUSD
+timeframes:
+  - 15m
+  - 30m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 15m
+      period: 50
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.04
+  min_confidence: 0.75
+  stake_fixed: 30
+tags:
+  - ema
+  - trend_follow
+enabled_by_default: true
