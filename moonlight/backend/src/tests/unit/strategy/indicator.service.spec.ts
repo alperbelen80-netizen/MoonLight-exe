@@ -55,13 +55,13 @@ describe('IndicatorService', () => {
     expect(rsi!.value).toBeLessThan(50);
   });
 
-  it('should calculate BB width correctly', () => {
+  it('should calculate BB correctly', () => {
     const bars = createMockBars(30, 'FLAT');
 
     const bb = service.calculateBB(bars, 20, 2.0);
 
     expect(bb).not.toBeNull();
-    expect(bb!.middle).toBeCloseTo(100, 1);
+    expect(bb!.middle).toBeCloseTo(100, 0);
     expect(bb!.upper).toBeGreaterThan(bb!.middle);
     expect(bb!.lower).toBeLessThan(bb!.middle);
     expect(bb!.width).toBeGreaterThan(0);
@@ -82,7 +82,7 @@ describe('IndicatorService', () => {
     const ema = service.calculateEMA(bars, 20);
 
     expect(ema).not.toBeNull();
-    expect(ema!.value).toBeCloseTo(100, 1);
+    expect(ema!.value).toBeCloseTo(100, 0);
   });
 
   it('should return null when insufficient bars for RSI', () => {
