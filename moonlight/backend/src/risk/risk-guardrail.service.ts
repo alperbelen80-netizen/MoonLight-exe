@@ -4,7 +4,7 @@ import {
   RiskGuardrailDecision,
   RiskContextSnapshot,
   RiskViolationCode,
-} from '../../shared/dto/risk-profile.dto';
+} from '../shared/dto/risk-profile.dto';
 
 @Injectable()
 export class RiskGuardrailService {
