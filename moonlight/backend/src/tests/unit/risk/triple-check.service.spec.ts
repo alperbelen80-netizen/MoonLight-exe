@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TripleCheckService } from '../../../risk/triple-check/triple-check.service';
-import { UncertaintyLevel } from '../../../shared/dto/uncertainty.dto';
 
 describe('TripleCheckService', () => {
   let service: TripleCheckService;
@@ -18,24 +17,24 @@ describe('TripleCheckService', () => {
       data_quality: { quality_grade: 'A' },
     });
 
-    expect(result.level).toBe(UncertaintyLevel.LOW);
+    expect(result.level).toBe('LOW');
     expect(result.uncertainty_score).toBeLessThan(0.33);
   });
 
-  it('should calculate MEDIUM uncertainty for quality grade B', () => {
+  it('should calculate LOW uncertainty for quality grade B', () => {
     const result = service.evaluate({
       data_quality: { quality_grade: 'B' },
     });
 
-    expect(result.level).toBe(UncertaintyLevel.LOW);
+    expect(result.level).toBe('LOW');
   });
 
-  it('should calculate HIGH uncertainty for quality grade REJECTED', () => {
+  it('should calculate MEDIUM uncertainty for quality grade REJECTED', () => {
     const result = service.evaluate({
       data_quality: { quality_grade: 'REJECTED' },
     });
 
-    expect(result.level).toBe(UncertaintyLevel.MEDIUM);
+    expect(result.level).toBe('MEDIUM');
   });
 
   it('should include u1, u2, u3 scores', () => {

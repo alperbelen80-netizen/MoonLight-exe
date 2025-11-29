@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { M3DefensiveService } from '../../../risk/m3-defensive.service';
 import { M3Mode, M3FinalAction } from '../../../shared/dto/m3-decision.dto';
-import { UncertaintyLevel } from '../../../shared/dto/uncertainty.dto';
 
 describe('M3DefensiveService', () => {
   let service: M3DefensiveService;
@@ -22,7 +21,7 @@ describe('M3DefensiveService', () => {
         u2_score: 0.1,
         u3_score: 0.1,
         uncertainty_score: 0.1,
-        level: UncertaintyLevel.LOW,
+        level: 'LOW',
       },
     });
 
@@ -37,7 +36,7 @@ describe('M3DefensiveService', () => {
         u2_score: 0.7,
         u3_score: 0.7,
         uncertainty_score: 0.7,
-        level: UncertaintyLevel.HIGH,
+        level: 'HIGH',
       },
     });
 
@@ -52,7 +51,7 @@ describe('M3DefensiveService', () => {
         u2_score: 0.7,
         u3_score: 0.7,
         uncertainty_score: 0.7,
-        level: UncertaintyLevel.HIGH,
+        level: 'HIGH',
       },
     });
 
@@ -67,7 +66,7 @@ describe('M3DefensiveService', () => {
         u2_score: 0.1,
         u3_score: 0.1,
         uncertainty_score: 0.1,
-        level: UncertaintyLevel.LOW,
+        level: 'LOW',
       },
     });
 
