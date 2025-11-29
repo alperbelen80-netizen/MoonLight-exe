@@ -9,12 +9,16 @@ import { BacktestController } from './backtest.controller';
 import { BacktestRun } from '../database/entities/backtest-run.entity';
 import { BacktestTrade } from '../database/entities/backtest-trade.entity';
 import { StrategyModule } from '../strategy/strategy.module';
+import { ConfigModule } from '../config/config.module';
+import { RiskModule } from '../risk/risk.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([BacktestRun, BacktestTrade]),
     BullModule.registerQueue({ name: 'backtest' }),
     StrategyModule,
+    ConfigModule,
+    RiskModule,
   ],
   controllers: [BacktestController],
   providers: [

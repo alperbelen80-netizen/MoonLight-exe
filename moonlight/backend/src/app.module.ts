@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { ExecutionModule } from './execution/execution.module';
@@ -7,6 +7,9 @@ import { BrokerModule } from './broker/broker.module';
 import { DataModule } from './data/data.module';
 import { StrategyModule } from './strategy/strategy.module';
 import { BacktestModule } from './backtest/backtest.module';
+import { ReportingModule } from './reporting/reporting.module';
+import { OwnerModule } from './owner/owner.module';
+import { ConfigModule } from './config/config.module';
 
 @Module({
   imports: [
@@ -29,6 +32,9 @@ import { BacktestModule } from './backtest/backtest.module';
     DataModule,
     StrategyModule,
     BacktestModule,
+    ReportingModule,
+    OwnerModule,
+    ConfigModule,
   ],
   controllers: [],
   providers: [],

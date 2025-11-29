@@ -3,6 +3,9 @@ import { BacktestRunRequestDTO } from '../shared/dto/backtest.dto';
 import { StrategyService } from '../strategy/strategy.service';
 import { StrategyContext } from '../shared/dto/strategy-context.dto';
 import { readOhlcvBarsBetweenDates } from '../shared/utils/parquet.util';
+import { RiskProfileService } from '../risk/risk-profile.service';
+import { RiskGuardrailService } from '../risk/risk-guardrail.service';
+import { RiskContextSnapshot } from '../shared/dto/risk-profile.dto';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface BacktestResult {
@@ -12,6 +15,7 @@ export interface BacktestResult {
   win_rate: number;
   net_pnl: number;
   max_drawdown: number;
+  blocked_by_risk_count: number;
   trades: any[];
 }
 
@@ -20,19 +24,32 @@ export class ReplayRunnerService {
   private readonly logger = new Logger(ReplayRunnerService.name);
   private readonly baseDir = process.env.DATA_DIR || './data';
 
-  constructor(private readonly strategyService: StrategyService) {}
+  constructor(
+    private readonly strategyService: StrategyService,
+    private readonly riskProfileService: RiskProfileService,
+    private readonly riskGuardrailService: RiskGuardrailService,
+  ) {}
 
   async runBacktest(params: {
     runId: string;
     request: BacktestRunRequestDTO;
+    profileId?: string;
   }): Promise<BacktestResult> {
-    const { request } = params;
+    const { request, profileId } = params;
     const { symbols, timeframes, strategy_ids, from_date, to_date, initial_balance } = request;
+
+    const riskProfile =
+      (profileId && (await this.riskProfileService.getById(profileId))) ||
+      (await this.riskProfileService.getDefaultProfile());
 
     const allTrades: any[] = [];
     let equity = initial_balance;
     let maxEquity = initial_balance;
     let maxDrawdown = 0;
+    let blockedByRiskCount = 0;
+
+    let todayDate = from_date;
+    let todayLossAbs = 0;
 
     for (const symbol of symbols) {
       for (const tf of timeframes) {
@@ -55,6 +72,12 @@ export class ReplayRunnerService {
           const contextBars = bars.slice(Math.max(0, i - 100), i + 1);
           const currentBar = bars[i];
 
+          const barDate = currentBar.ts_utc.split('T')[0];
+          if (barDate !== todayDate) {
+            todayDate = barDate;
+            todayLossAbs = 0;
+          }
+
           const context: StrategyContext = {
             symbol,
             tf,
@@ -70,6 +93,38 @@ export class ReplayRunnerService {
           });
 
           for (const signal of signals) {
+            const requestedStake = 25;
+
+            const symbolTradesToday = allTrades.filter(
+              (t) => t.symbol === symbol && t.entry_ts_utc.split('T')[0] === todayDate,
+            );
+            const symbolExposure = symbolTradesToday.reduce((sum, t) => sum + t.stake_amount, 0);
+            const symbolExposurePct = equity > 0 ? symbolExposure / equity : 0;
+
+            const riskContext: RiskContextSnapshot = {
+              equity,
+              open_trades_count: 0,
+              today_loss_abs: todayLossAbs,
+              today_loss_pct: initial_balance > 0 ? todayLossAbs / initial_balance : 0,
+              symbol_exposure_pct: symbolExposurePct,
+            };
+
+            const guardrailDecision = this.riskGuardrailService.evaluateForBacktest({
+              profile: riskProfile,
+              context: riskContext,
+              requested_stake: requestedStake,
+            });
+
+            if (!guardrailDecision.allowed) {
+              blockedByRiskCount++;
+              this.logger.debug(
+                `Trade blocked by risk: ${guardrailDecision.violations.join(', ')}`,
+              );
+              continue;
+            }
+
+            const stakeAmount = guardrailDecision.effective_stake_amount;
+
             const expiryBarIndex = i + 1;
             if (expiryBarIndex >= bars.length) {
               continue;
@@ -82,7 +137,6 @@ export class ReplayRunnerService {
             let outcome: string;
             let grossPnl: number;
 
-            const stakeAmount = 25;
             const payoutRatio = 0.85;
 
             if (signal.direction === 'CALL') {
@@ -107,6 +161,10 @@ export class ReplayRunnerService {
             const drawdown = maxEquity - equity;
             if (drawdown > maxDrawdown) {
               maxDrawdown = drawdown;
+            }
+
+            if (netPnl < 0) {
+              todayLossAbs += Math.abs(netPnl);
             }
 
             const trade = {
@@ -137,7 +195,7 @@ export class ReplayRunnerService {
     const netPnl = equity - initial_balance;
 
     this.logger.log(
-      `Backtest complete: ${allTrades.length} trades, WR: ${(winRate * 100).toFixed(2)}%, Net PnL: $${netPnl.toFixed(2)}`,
+      `Backtest complete: ${allTrades.length} trades, ${blockedByRiskCount} blocked, WR: ${(winRate * 100).toFixed(2)}%, Net PnL: $${netPnl.toFixed(2)}`,
     );
 
     return {
@@ -147,6 +205,7 @@ export class ReplayRunnerService {
       win_rate: winRate,
       net_pnl: netPnl,
       max_drawdown: maxDrawdown,
+      blocked_by_risk_count: blockedByRiskCount,
       trades: allTrades,
     };
   }

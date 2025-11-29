@@ -38,6 +38,12 @@ export class BacktestRun {
   @Column('integer', { default: 0 })
   total_trades: number;
 
+  @Column('integer', { default: 0 })
+  blocked_by_risk_count: number;
+
+  @Column('integer', { default: 0 })
+  cancelled_trades_count: number;
+
   @Column('datetime')
   created_at_utc: Date;
 

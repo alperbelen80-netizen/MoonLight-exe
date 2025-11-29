@@ -82,6 +82,14 @@ export class BacktestRunSummaryDTO {
   @IsNumber()
   max_drawdown: number;
 
+  @IsNumber()
+  @IsOptional()
+  blocked_by_risk_count?: number;
+
+  @IsNumber()
+  @IsOptional()
+  cancelled_trades_count?: number;
+
   @IsString()
   created_at_utc: string;
 

@@ -12,6 +12,10 @@ import {
   BacktestRunDetailDTO,
   BacktestRunStatus,
 } from '../shared/dto/backtest.dto';
+import { ConfigSnapshotService } from '../config/config-snapshot.service';
+import { RiskProfileService } from '../risk/risk-profile.service';
+import { StrategyFactoryService } from '../strategy/factory/strategy-factory.service';
+import { PresetLoaderService } from '../strategy/preset/preset-loader.service';
 
 @Injectable()
 export class BacktestService {
@@ -24,6 +28,10 @@ export class BacktestService {
     private readonly backtestTradeRepo: Repository<BacktestTrade>,
     @InjectQueue('backtest')
     private readonly backtestQueue: Queue,
+    private readonly configSnapshotService: ConfigSnapshotService,
+    private readonly riskProfileService: RiskProfileService,
+    private readonly strategyFactory: StrategyFactoryService,
+    private readonly presetLoader: PresetLoaderService,
   ) {}
 
   async startBacktest(
@@ -31,6 +39,27 @@ export class BacktestService {
   ): Promise<BacktestRunSummaryDTO> {
     const runId = `RUN_${uuidv4()}`;
     const now = new Date();
+
+    const riskProfile = await this.riskProfileService.getById(dto.risk_profile_id);
+    const profile = riskProfile || (await this.riskProfileService.getDefaultProfile());
+
+    const strategies = dto.strategy_ids
+      .map((id) => this.strategyFactory.getStrategy(id)?.definition)
+      .filter((d) => d !== undefined) as any[];
+
+    const presets = await Promise.all(
+      dto.strategy_ids.map((id) => this.presetLoader.getPresetById(id)),
+    );
+    const validPresets = presets.filter((p) => p !== undefined) as any[];
+
+    await this.configSnapshotService.createBacktestRunSnapshot({
+      runId,
+      request: dto,
+      riskProfile: profile,
+      strategies,
+      presets: validPresets,
+      createdBy: 'system',
+    });
 
     const run = this.backtestRunRepo.create({
       run_id: runId,
@@ -45,13 +74,15 @@ export class BacktestService {
       win_rate: 0,
       max_drawdown: 0,
       total_trades: 0,
+      blocked_by_risk_count: 0,
+      cancelled_trades_count: 0,
       created_at_utc: now,
       updated_at_utc: now,
     });
 
     await this.backtestRunRepo.save(run);
 
-    await this.backtestQueue.add('run', { runId, dto }, {
+    await this.backtestQueue.add('run', { runId, dto, profileId: profile.id }, {
       attempts: 1,
     });
 
@@ -99,6 +130,8 @@ export class BacktestService {
       win_rate: run.win_rate,
       net_pnl: run.net_pnl,
       max_drawdown: run.max_drawdown,
+      blocked_by_risk_count: run.blocked_by_risk_count,
+      cancelled_trades_count: run.cancelled_trades_count,
       created_at_utc: run.created_at_utc.toISOString(),
       updated_at_utc: run.updated_at_utc.toISOString(),
     };

@@ -22,9 +22,9 @@ export class BacktestProcessor {
 
   @Process('run')
   async handleBacktestRun(
-    job: Job<{ runId: string; dto: BacktestRunRequestDTO }>,
+    job: Job<{ runId: string; dto: BacktestRunRequestDTO; profileId?: string }>,
   ): Promise<void> {
-    const { runId, dto } = job.data;
+    const { runId, dto, profileId } = job.data;
 
     this.logger.log(`Processing backtest run: ${runId}`);
 
@@ -34,7 +34,7 @@ export class BacktestProcessor {
         { status: BacktestRunStatus.RUNNING },
       );
 
-      const result = await this.replayRunner.runBacktest({ runId, request: dto });
+      const result = await this.replayRunner.runBacktest({ runId, request: dto, profileId });
 
       const tradeEntities = result.trades.map((t) =>
         this.backtestTradeRepo.create({
@@ -65,6 +65,7 @@ export class BacktestProcessor {
           win_rate: result.win_rate,
           net_pnl: result.net_pnl,
           max_drawdown: result.max_drawdown,
+          blocked_by_risk_count: result.blocked_by_risk_count,
           updated_at_utc: new Date(),
         },
       );
