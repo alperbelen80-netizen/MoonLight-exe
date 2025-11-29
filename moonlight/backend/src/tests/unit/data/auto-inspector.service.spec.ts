@@ -29,20 +29,20 @@ describe('AutoInspectorService', () => {
     expect(result.total_actual_bars).toBe(1433);
   });
 
-  it('should assign grade B for coverage 96%, gap 2%', () => {
+  it('should assign grade B for coverage 96%, gap 4%', () => {
     const result = service.inspectDay({
       symbol: 'EURUSD',
       tf: Timeframe.FIVE_MINUTE,
       date: '2025-01-18',
-      actualTimestamps: Array.from({ length: 277 }, (_, i) => `ts_${i}`),
+      actualTimestamps: Array.from({ length: 276 }, (_, i) => `ts_${i}`),
       dataSource: 'BROKER',
     });
 
     expect(result.quality_grade).toBe(QualityGrade.B);
-    expect(result.coverage_pct).toBeCloseTo(96.18, 1);
+    expect(result.coverage_pct).toBeCloseTo(95.83, 1);
   });
 
-  it('should assign grade C for coverage 92%, gap 5%', () => {
+  it('should assign grade C for coverage 92%, gap 8%', () => {
     const result = service.inspectDay({
       symbol: 'BTCUSD',
       tf: Timeframe.ONE_MINUTE,
@@ -55,7 +55,7 @@ describe('AutoInspectorService', () => {
     expect(result.coverage_pct).toBeCloseTo(92.01, 1);
   });
 
-  it('should assign grade REJECTED for coverage 80%, gap 15%', () => {
+  it('should assign grade REJECTED for coverage 80%, gap 20%', () => {
     const result = service.inspectDay({
       symbol: 'XAGUSD',
       tf: Timeframe.ONE_MINUTE,
