@@ -48,7 +48,7 @@ export class IdempotentOrderService {
           `Sending order (attempt ${attempt + 1}/${maxAttempts}): ${orderKey}`,
         );
 
-        const ack = await this.brokerAdapter.placeOrder(request);
+        const ack = await this.brokerAdapter.sendOrder(request);
 
         this.cache.set(orderKey, {
           ack,
