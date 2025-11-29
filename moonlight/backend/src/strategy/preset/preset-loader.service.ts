@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as glob from 'fast-glob';
+import glob from 'fast-glob';
 import { PresetStrategyDTO } from '../../shared/dto/preset-strategy.dto';
 import { StrategyFactoryService } from '../factory/strategy-factory.service';
 import { IndicatorService } from '../indicators/indicator.service';
