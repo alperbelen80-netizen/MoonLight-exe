@@ -1,5 +1,4 @@
 import { IsEnum, IsNumber, IsString, Min, Max } from 'class-validator';
-import { UncertaintyLevel } from './uncertainty.dto';
 
 export enum M3Mode {
   AUTO = 'AUTO',
@@ -22,8 +21,8 @@ export class M3DecisionDTO {
   @Max(1)
   uncertainty_score: number;
 
-  @IsEnum(UncertaintyLevel)
-  uncertainty_level: UncertaintyLevel;
+  @IsString()
+  uncertainty_level: string;
 
   @IsEnum(M3FinalAction)
   final_action: M3FinalAction;

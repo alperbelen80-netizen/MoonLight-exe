@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { TripleCheckInputDTO, TripleCheckResultDTO, UncertaintyLevel } from '../../shared/dto/uncertainty.dto';
+import { TripleCheckInputDTO, TripleCheckResultDTO } from '../../shared/dto/uncertainty.dto';
 
 @Injectable()
 export class TripleCheckService {
@@ -16,13 +16,13 @@ export class TripleCheckService {
 
     const uncertaintyScore = this.w1 * u1Score + this.w2 * u2Score + this.w3 * u3Score;
 
-    let level: UncertaintyLevel;
+    let level: string;
     if (uncertaintyScore < 0.33) {
-      level = UncertaintyLevel.LOW;
+      level = 'LOW';
     } else if (uncertaintyScore < 0.66) {
-      level = UncertaintyLevel.MEDIUM;
+      level = 'MEDIUM';
     } else {
-      level = UncertaintyLevel.HIGH;
+      level = 'HIGH';
     }
 
     return {

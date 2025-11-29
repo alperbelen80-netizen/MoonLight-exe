@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { M3DecisionDTO, M3Mode, M3FinalAction } from '../../shared/dto/m3-decision.dto';
-import { TripleCheckResultDTO, UncertaintyLevel } from '../../shared/dto/uncertainty.dto';
+import { M3DecisionDTO, M3Mode, M3FinalAction } from '../shared/dto/m3-decision.dto';
+import { TripleCheckResultDTO } from '../shared/dto/uncertainty.dto';
 
 @Injectable()
 export class M3DefensiveService {
@@ -17,13 +17,13 @@ export class M3DefensiveService {
     if (mode === M3Mode.ANALYSIS) {
       finalAction = M3FinalAction.ABSTAIN;
     } else if (mode === M3Mode.GUARD) {
-      if (tripleCheck.level === UncertaintyLevel.HIGH || tripleCheck.level === UncertaintyLevel.MEDIUM) {
+      if (tripleCheck.level === 'HIGH' || tripleCheck.level === 'MEDIUM') {
         finalAction = M3FinalAction.HUMAN_APPROVAL;
       } else {
         finalAction = M3FinalAction.EXECUTE;
       }
     } else {
-      if (tripleCheck.level === UncertaintyLevel.HIGH) {
+      if (tripleCheck.level === 'HIGH') {
         finalAction = M3FinalAction.ABSTAIN;
       } else {
         finalAction = M3FinalAction.EXECUTE;

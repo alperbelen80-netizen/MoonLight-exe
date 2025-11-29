@@ -1,11 +1,5 @@
 import { IsNumber, IsString, IsEnum, Min, Max } from 'class-validator';
 
-export enum UncertaintyLevel {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH',
-}
-
 export class TripleCheckInputDTO {
   regime_state?: any;
   data_quality?: any;
@@ -38,6 +32,6 @@ export class TripleCheckResultDTO {
   @Max(1)
   uncertainty_score: number;
 
-  @IsEnum(UncertaintyLevel)
-  level: UncertaintyLevel;
+  @IsString()
+  level: string;
 }
