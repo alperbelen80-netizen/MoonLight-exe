@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { RiskProfile } from '../../database/entities/risk-profile.entity';
-import { RiskProfileDTO } from '../../shared/dto/risk-profile.dto';
+import { RiskProfile } from '../database/entities/risk-profile.entity';
+import { RiskProfileDTO } from '../shared/dto/risk-profile.dto';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
