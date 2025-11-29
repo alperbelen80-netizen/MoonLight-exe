@@ -2,12 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { ConfigSnapshot } from '../../database/entities/config-snapshot.entity';
-import { ConfigSnapshotDTO, ConfigSnapshotScope } from '../../shared/dto/config-snapshot.dto';
-import { BacktestRunRequestDTO } from '../../shared/dto/backtest.dto';
-import { RiskProfileDTO } from '../../shared/dto/risk-profile.dto';
-import { StrategyDefinitionDTO } from '../../shared/dto/strategy-definition.dto';
-import { PresetStrategyDTO } from '../../shared/dto/preset-strategy.dto';
+import { ConfigSnapshot } from '../database/entities/config-snapshot.entity';
+import { ConfigSnapshotDTO, ConfigSnapshotScope } from '../shared/dto/config-snapshot.dto';
+import { BacktestRunRequestDTO } from '../shared/dto/backtest.dto';
+import { RiskProfileDTO } from '../shared/dto/risk-profile.dto';
+import { StrategyDefinitionDTO } from '../shared/dto/strategy-definition.dto';
+import { PresetStrategyDTO } from '../shared/dto/preset-strategy.dto';
 
 @Injectable()
 export class ConfigSnapshotService {
