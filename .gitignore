@@ -85,3 +85,7 @@ moonlight/node_modules/electron/dist/electron
 *.env
 *.env.*
 projem.zip
+-e 
+# Environment files
+*.env
+*.env.*
