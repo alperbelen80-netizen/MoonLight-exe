@@ -3,6 +3,8 @@ import { useAccountsStore } from '../store/accounts.store';
 import { LoadingState } from '../components/common/LoadingState';
 import { ErrorState } from '../components/common/ErrorState';
 import { AccountsTable } from '../components/owner/AccountsTable';
+import { AccountBalanceWidget } from '../components/account/AccountBalanceWidget';
+import { OpenPositionsWidget } from '../components/account/OpenPositionsWidget';
 
 export function AccountsPage() {
   const { accounts, isLoading, error, fetchAccounts } = useAccountsStore();
@@ -28,7 +30,15 @@ export function AccountsPage() {
         </button>
       </div>
 
-      <AccountsTable accounts={accounts} />
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-2">
+          <AccountsTable accounts={accounts} />
+        </div>
+        <div className="space-y-4">
+          <AccountBalanceWidget />
+          <OpenPositionsWidget />
+        </div>
+      </div>
     </div>
   );
 }

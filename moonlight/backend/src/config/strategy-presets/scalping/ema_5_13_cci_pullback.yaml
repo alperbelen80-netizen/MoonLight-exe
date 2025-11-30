@@ -1,0 +1,28 @@
+id: ema_5_13_cci_pullback
+name: "EMA 5/13 + CCI Pullback"
+category: scalping
+version: 1
+symbols:
+  - XAUUSD
+  - BTCUSD
+timeframes:
+  - 1m
+  - 5m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 1m
+      period: 5
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.024
+  min_confidence: 0.66
+  stake_fixed: 24
+tags:
+  - ema
+  - cci
+  - pullback
+enabled_by_default: true

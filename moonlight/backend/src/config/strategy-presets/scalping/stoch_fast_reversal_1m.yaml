@@ -1,0 +1,29 @@
+id: stoch_fast_reversal_1m
+name: "Stochastic Fast Reversal (1m)"
+category: scalping
+version: 1
+symbols:
+  - EURUSD
+  - GBPUSD
+  - USDJPY
+timeframes:
+  - 1m
+  - 3m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 1m
+      period: 14
+      operator: "<"
+      value: 30
+risk:
+  min_ev: 0.022
+  min_confidence: 0.64
+  stake_fixed: 20
+tags:
+  - stochastic
+  - reversal
+  - fast
+enabled_by_default: true

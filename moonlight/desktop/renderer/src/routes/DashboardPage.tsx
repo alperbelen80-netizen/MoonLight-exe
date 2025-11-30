@@ -9,6 +9,7 @@ import { ExecutionModeSwitch } from '../components/owner/ExecutionModeSwitch';
 import { KillSwitchButton } from '../components/owner/KillSwitchButton';
 import { ApprovalQueuePanel } from '../components/owner/ApprovalQueuePanel';
 import { PnlHistoryChart } from '../components/dashboard/PnlHistoryChart';
+import { LastLiveSignalsWidget } from '../components/dashboard/LastLiveSignalsWidget';
 
 export function DashboardPage() {
   const { summary, isLoading, error, fetchSummary } = useDashboardStore();
@@ -96,7 +97,10 @@ export function DashboardPage() {
         <KPICard title="Trades (7d)" value={summary.live_trade_count_7d} color="gray" />
       </div>
 
-      <PnlHistoryChart />
+      <div className="grid grid-cols-2 gap-6">
+        <PnlHistoryChart />
+        <LastLiveSignalsWidget />
+      </div>
 
       {pending.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">

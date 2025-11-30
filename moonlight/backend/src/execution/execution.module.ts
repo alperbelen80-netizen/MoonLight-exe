@@ -12,16 +12,24 @@ import { FixedTimeScheduler } from './scheduler/fixed-time-scheduler';
 import { ReconciliationWorker } from './reconciliation/reconciliation.worker';
 import { ReconciliationController } from './reconciliation/reconciliation.controller';
 import { ReconciliationRun } from '../database/entities/reconciliation-run.entity';
+import { LiveSignal } from '../database/entities/live-signal.entity';
+import { LiveSignalEngine } from './live-signal-engine.service';
+import { LiveSignalService } from './live-signal.service';
+import { LiveSignalController } from './live-signal.controller';
+import { SemiAutomaticExecutor } from './semi-automatic-executor.service';
+import { DataFeedOrchestrator } from '../data/sources/data-feed-orchestrator.service';
 import { RiskModule } from '../risk/risk.module';
 import { BrokerModule } from '../broker/broker.module';
+import { StrategyModule } from '../strategy/strategy.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ReconciliationRun]),
+    TypeOrmModule.forFeature([ReconciliationRun, LiveSignal]),
     RiskModule,
     BrokerModule,
+    StrategyModule,
   ],
-  controllers: [ExecutionController, ReconciliationController],
+  controllers: [ExecutionController, ReconciliationController, LiveSignalController],
   providers: [
     ExecutionFSM,
     ReceivedStateHandler,
@@ -31,8 +39,12 @@ import { BrokerModule } from '../broker/broker.module';
     ConflictResolverService,
     FixedTimeScheduler,
     ReconciliationWorker,
+    DataFeedOrchestrator,
+    LiveSignalEngine,
+    LiveSignalService,
+    SemiAutomaticExecutor,
   ],
-  exports: [ExecutionFSM, ExecutionService],
+  exports: [ExecutionFSM, ExecutionService, LiveSignalService, DataFeedOrchestrator],
 })
 export class ExecutionModule implements OnModuleInit {
   constructor(

@@ -1,0 +1,29 @@
+id: triple_ema_cross
+name: "Triple EMA Cross (9/21/50)"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - EURUSD
+  - BTCUSD
+timeframes:
+  - 15m
+  - 1h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 15m
+      period: 9
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.034
+  min_confidence: 0.71
+  stake_fixed: 29
+tags:
+  - ema
+  - triple
+  - cross
+enabled_by_default: true

@@ -1,0 +1,28 @@
+id: hma_qqe_vwap
+name: "HMA + QQE + VWAP"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - EURUSD
+timeframes:
+  - 15m
+  - 1h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 15m
+      period: 50
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.035
+  min_confidence: 0.72
+  stake_fixed: 30
+tags:
+  - hma
+  - qqe
+  - vwap
+enabled_by_default: true

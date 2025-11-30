@@ -1,0 +1,29 @@
+id: rsi2_oversold_extreme
+name: "RSI(2) Oversold Extreme"
+category: mean_revert
+version: 1
+symbols:
+  - EURUSD
+  - GBPUSD
+  - USDJPY
+timeframes:
+  - 1m
+  - 5m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 1m
+      period: 2
+      operator: "<"
+      value: 5
+risk:
+  min_ev: 0.025
+  min_confidence: 0.66
+  stake_fixed: 23
+tags:
+  - rsi2
+  - oversold
+  - extreme
+enabled_by_default: true

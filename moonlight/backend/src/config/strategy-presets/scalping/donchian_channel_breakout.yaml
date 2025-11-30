@@ -1,0 +1,27 @@
+id: donchian_channel_breakout
+name: "Donchian Channel Breakout"
+category: scalping
+version: 1
+symbols:
+  - XAUUSD
+  - BTCUSD
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 5m
+      period: 14
+      operator: ">"
+      value: 55
+risk:
+  min_ev: 0.027
+  min_confidence: 0.67
+  stake_fixed: 25
+tags:
+  - donchian
+  - breakout
+enabled_by_default: true

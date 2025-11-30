@@ -1,0 +1,27 @@
+id: regression_to_mean_oscillator
+name: "Regression to Mean Oscillator"
+category: mean_revert
+version: 1
+symbols:
+  - XAUUSD
+  - BTCUSD
+timeframes:
+  - 15m
+  - 1h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 15m
+      period: 14
+      operator: "<"
+      value: 30
+risk:
+  min_ev: 0.032
+  min_confidence: 0.71
+  stake_fixed: 28
+tags:
+  - regression
+  - mean
+enabled_by_default: true

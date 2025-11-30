@@ -1,0 +1,28 @@
+id: ema200_supertrend_obv
+name: "EMA200 + SuperTrend + OBV"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - BTCUSD
+timeframes:
+  - 15m
+  - 1h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 15m
+      period: 50
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.038
+  min_confidence: 0.74
+  stake_fixed: 33
+tags:
+  - ema200
+  - supertrend
+  - obv
+enabled_by_default: true

@@ -1,0 +1,27 @@
+id: momentum_oscillator_cross
+name: "Momentum Oscillator Cross"
+category: scalping
+version: 1
+symbols:
+  - EURUSD
+  - USDJPY
+timeframes:
+  - 1m
+  - 5m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 1m
+      period: 14
+      operator: ">"
+      value: 45
+risk:
+  min_ev: 0.023
+  min_confidence: 0.65
+  stake_fixed: 22
+tags:
+  - momentum
+  - oscillator
+enabled_by_default: true

@@ -1,0 +1,27 @@
+id: fisher_transform_ema50
+name: "Fisher Transform + EMA50"
+category: trend_follow
+version: 1
+symbols:
+  - BTCUSD
+  - ETHUSD
+timeframes:
+  - 15m
+  - 1h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 15m
+      period: 50
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.037
+  min_confidence: 0.73
+  stake_fixed: 32
+tags:
+  - fisher
+  - ema
+enabled_by_default: true

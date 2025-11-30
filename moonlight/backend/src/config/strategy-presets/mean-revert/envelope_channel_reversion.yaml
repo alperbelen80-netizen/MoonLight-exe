@@ -1,0 +1,27 @@
+id: envelope_channel_reversion
+name: "Envelope Channel Reversion"
+category: mean_revert
+version: 1
+symbols:
+  - EURUSD
+  - GBPUSD
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: BB
+      tf: 5m
+      period: 20
+      operator: "<"
+      value: 0
+risk:
+  min_ev: 0.029
+  min_confidence: 0.69
+  stake_fixed: 26
+tags:
+  - envelope
+  - reversion
+enabled_by_default: true

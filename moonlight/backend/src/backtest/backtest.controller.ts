@@ -1,5 +1,7 @@
 import { Controller, Post, Get, Param, Body, Query, BadRequestException } from '@nestjs/common';
 import { BacktestService } from './backtest.service';
+import { MonteCarloService } from './monte-carlo.service';
+import { WalkForwardService } from './walk-forward.service';
 import {
   BacktestRunRequestDTO,
   BacktestRunSummaryDTO,
@@ -9,7 +11,11 @@ import {
 
 @Controller('backtest')
 export class BacktestController {
-  constructor(private readonly backtestService: BacktestService) {}
+  constructor(
+    private readonly backtestService: BacktestService,
+    private readonly monteCarloService: MonteCarloService,
+    private readonly walkForwardService: WalkForwardService,
+  ) {}
 
   @Post('run')
   async startRun(
@@ -76,6 +82,24 @@ export class BacktestController {
   @Get('runs/:id')
   async getRunById(@Param('id') id: string): Promise<BacktestRunSummaryDTO | null> {
     return this.backtestService.getBacktestRunById(id);
+  }
+
+  @Get('runs/:id/monte-carlo')
+  async runMonteCarlo(
+    @Param('id') id: string,
+    @Query('simulations') simulations?: string,
+  ) {
+    const sims = simulations ? parseInt(simulations, 10) : 1000;
+    return this.monteCarloService.runMonteCarloSimulation(id, sims);
+  }
+
+  @Get('runs/:id/walk-forward')
+  async runWalkForward(
+    @Param('id') id: string,
+    @Query('windowSize') windowSize?: string,
+  ) {
+    const window = windowSize ? parseInt(windowSize, 10) : 100;
+    return this.walkForwardService.analyzeWalkForward(id, window);
   }
 
   @Post('runs/:id/tags')

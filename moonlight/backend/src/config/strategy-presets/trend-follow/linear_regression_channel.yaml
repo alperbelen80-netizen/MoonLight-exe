@@ -1,0 +1,27 @@
+id: linear_regression_channel
+name: "Linear Regression Channel"
+category: trend_follow
+version: 1
+symbols:
+  - EURUSD
+  - GBPUSD
+timeframes:
+  - 1h
+  - 4h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 1h
+      period: 50
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.036
+  min_confidence: 0.73
+  stake_fixed: 31
+tags:
+  - regression
+  - channel
+enabled_by_default: true

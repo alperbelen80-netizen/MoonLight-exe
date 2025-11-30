@@ -1,0 +1,27 @@
+id: price_channel_breakout
+name: "Price Channel Breakout"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - BTCUSD
+timeframes:
+  - 1h
+  - 4h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 1h
+      period: 50
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.037
+  min_confidence: 0.74
+  stake_fixed: 32
+tags:
+  - price_channel
+  - breakout
+enabled_by_default: true

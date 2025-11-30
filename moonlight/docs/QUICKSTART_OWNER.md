@@ -1,326 +1,298 @@
-# MoonLight Owner Console - Quickstart Guide
+# MoonLight Owner Console v1.5 - Quickstart Guide
 
-**Target Audience:** MoonLight Owner (non-developer)
-
----
-
-## What is MoonLight?
-
-MoonLight is your **automated trading assistant** for fixed-time (binary/turbo) markets. It helps you:
-
-- Execute **60+ pre-built trading strategies** automatically
-- Manage **risk** with circuit breakers and fail-safes
-- Monitor **live trades** and performance
-- Run **backtests** to validate strategies before going live
-- Control everything from a **single desktop app**
+**Target Audience:** MoonLight Owner (Trading System User)
 
 ---
 
-## Installation
+## What's New in v1.5?
 
-### Option 1: Using Installer (Recommended)
+### 🌐 Multi-Provider Live Data
 
-1. Download **MoonLight-Owner-Console-Setup-1.0.0.exe**
-2. Run the installer
-3. Follow on-screen instructions
-4. Launch "MoonLight Owner Console" from Start Menu or Desktop shortcut
+You can now connect to **real market data** from:
+- **Binance** - Crypto markets (BTC, ETH, etc.)
+- **TradingView** - Custom alerts for any market
+- **IQ Option** - Forex & binary options
 
-### Option 2: Development Mode
+### ⚡ Semi-Automatic Execution
 
-If you have the source code:
+Instead of just seeing signals, you can now:
+1. Review the signal
+2. Click **"EXECUTE"** button
+3. System automatically places the order for you
+
+### 🧠 50+ Strategies
+
+Strategy library expanded:
+- 15+ Scalping strategies
+- 22+ Trend Following strategies
+- 12+ Mean Reversion strategies
+
+---
+
+## Getting Started with Live Signals
+
+### Step 1: Enable Live Signal Mode
+
+1. Open MoonLight Owner Console
+2. Go to **Settings** page
+3. Check "Data Feed Provider" section
+4. Verify provider is connected (green dot)
+
+### Step 2: Configure Symbols & Timeframes
+
+Edit `backend/.env` file:
 
 ```bash
-# Open PowerShell in project root
-.\scripts\start-dev.ps1
+LIVE_SIGNAL_SYMBOLS=XAUUSD,EURUSD,BTCUSD
+LIVE_SIGNAL_TIMEFRAMES=1m,5m,15m
 ```
 
-This will start both backend and desktop UI.
+Restart backend for changes to take effect.
 
----
+### Step 3: Monitor Live Signals
 
-## First Launch
-
-### Step 1: Dashboard Overview
-
-When you first open MoonLight, you'll see the **Dashboard**:
-
-- **Health Score:** Overall system health (0-100)
-  - 🟢 **GREEN (80-100):** System performing well
-  - 🟡 **AMBER (60-79):** Watch mode
-  - 🔴 **RED (40-59):** Issues detected
-  - ⚫ **BLACKOUT (<40):** Critical problems
-
-- **KPI Cards:**
-  - **Win Rate (7d):** Your recent success rate
-  - **PnL Today:** Daily profit/loss
-  - **Trades Today:** Number of trades executed
-  - **Pending Approvals:** Trades waiting for your decision (GUARD mode)
-
-### Step 2: Execution Mode
-
-Top-right corner shows **Execution Mode**:
-
-- 🔴 **OFF:** System is paused, no trading
-- 🟢 **AUTO:** Fully automatic (strategies execute trades without approval)
-- 🟡 **GUARD:** Semi-automatic (high-uncertainty trades need your approval)
-- 🔵 **ANALYSIS:** Dry-run mode (simulates but doesn't execute)
-
-**How to change mode:**
-1. Click on the mode buttons (OFF/AUTO/GUARD/ANALYSIS)
-2. Confirm the change
-3. System updates immediately
-
-**⚠ WARNING:** Switching to AUTO means trades will execute automatically. Make sure you understand your risk settings first!
-
----
-
-## Understanding the Kill-Switch
-
-**What is it?**
-The **Kill-Switch** is an emergency stop button. When activated:
-- ALL automatic trading stops immediately
-- Existing open positions remain (they will close at expiry)
-- System enters Circuit Breaker L3 (GLOBAL HALT)
-
-**When to use:**
-- Market is behaving unexpectedly
-- You see unexpected losses
-- You want to pause and review settings
-- Technical issues detected
-
-**How to activate:**
-1. Click **"Activate Kill-Switch"** (red button, top-right)
-2. Confirm (this action is logged)
-3. System halts all new trades
-
-**How to deactivate:**
-1. Click **"Deactivate Kill-Switch"** (yellow button when active)
-2. Confirm
-3. System resumes based on current Execution Mode
-
----
-
-## Managing Broker Accounts
-
-### Viewing Accounts
-
-Go to **Accounts** page (left sidebar):
-
-- See all connected broker accounts
-- Check **Session Health:**
-  - 🟢 **UP:** Connection stable
-  - 🟡 **DEGRADED:** Minor issues
-  - 🔵 **RECONNECTING:** Attempting to reconnect
-  - 🟠 **COOLDOWN:** Temporary pause (will retry soon)
-  - 🔴 **DOWN:** Connection lost
-
-### Adding an Account
-
-1. Click **"Add Account"** button
-2. Fill in:
-   - **Alias:** Friendly name (e.g., "My Olymp Real Account")
-   - **Broker:** Select broker (FakeBroker for testing)
-   - **Type:** REAL, DEMO, SIM_INTERNAL, or READ_ONLY
-3. Save
-4. Account appears in table
-
-**Note:** v1.0 uses FakeBroker for testing. Real broker integration coming in v1.1.
-
----
-
-## Product Execution Matrix
-
-### What is it?
-
-The **Execution Matrix** lets you control which products (symbols) and timeframes (TF) are:
-- Collecting data
-- Generating signals
-- Executing trades
-
-### How to use:
-
-Go to **Execution Matrix** page:
-
-1. See table with columns:
-   - **Symbol** (e.g., XAUUSD, EURUSD)
-   - **TF** (1m, 5m, 15m, etc.)
-   - **Data** ☐ (checkbox)
-   - **Signal** ☐ (checkbox)
-   - **Auto-Trade** ☐ (checkbox)
-
-2. **Toggle checkboxes:**
-   - **Data OFF:** System stops capturing data for this product/TF
-   - **Signal OFF:** Strategies won't generate signals for this product/TF
-   - **Auto-Trade OFF:** Signals generate but trades don't execute (manual review only)
-
-**Use Case Example:**
-
-You want to analyze EURUSD 5m but not trade it yet:
-- Data: ☑ ON
-- Signal: ☑ ON
-- Auto-Trade: ☐ OFF
-
-Signals will appear in logs/reports, but no actual trades will execute.
-
----
-
-## Alerts & Health Center
-
-### What are Alerts?
-
-Alerts notify you when:
-- Circuit breakers trigger (DayCap exceeded, loss streak, etc.)
-- Session health degrades
-- Reconciliation finds mismatches
-- Kill-switch is activated/deactivated
-
-### Severity Levels:
-
-- 🔴 **CRITICAL:** Immediate attention needed (e.g., kill-switch, DayCap exceeded)
-- 🟡 **WARNING:** Watch closely (e.g., session degraded, loss streak approaching limit)
-- 🔵 **INFO:** Informational (e.g., backtest completed, config changed)
-
-### Managing Alerts:
-
-1. Go to **Alerts** page
-2. Filter by severity or status
-3. Click **ACK** (acknowledge) to mark as seen
-4. Click **RESOLVE** to close the alert
-
----
-
-## Approval Queue (GUARD Mode)
-
-### What is GUARD mode?
-
-In **GUARD mode**, high-uncertainty trades require your manual approval before execution.
-
-### How it works:
-
-1. Set Execution Mode to **GUARD**
-2. When a trade signal is uncertain (U2 or U3 HIGH), it goes to **Approval Queue**
-3. You see:
-   - Symbol, TF, direction (CALL/PUT)
-   - Expected Value (EV)
+1. Go to **Live Signals** page (sidebar)
+2. You'll see real-time signals as they're generated
+3. Each signal shows:
+   - Time
+   - Symbol (e.g., XAUUSD)
+   - Direction (CALL/PUT or BUY/SELL)
    - Confidence score
-   - Uncertainty level (LOW/MEDIUM/HIGH)
-   - Reason summary
-4. You decide:
-   - **APPROVE:** Trade executes
-   - **REJECT:** Trade is cancelled
+   - Strategy name
+   - Status
 
-**Approval Queue Panel:**
-- Visible on Dashboard (top pending items)
-- Full list in Alerts page (Approval Queue tab)
+### Step 4: Execute a Signal (Semi-Auto)
+
+**Option A: One-Click Execute**
+1. Click on a signal row (opens detail drawer)
+2. Review signal details
+3. Click **"⚡ OTOMATİĞE ÇALIŞTIR"** button
+4. Confirm execution
+5. System sends order to broker
+6. Signal status → MARKED_EXECUTED
+
+**Option B: Manual Execute**
+1. Review signal
+2. Open your broker platform manually
+3. Place order yourself
+4. Click **"Manuel Girdim"** button
+5. Signal marked as executed
+
+**Option C: Skip**
+1. Click **"Atladım"** button
+2. Signal marked as skipped
 
 ---
 
-## Risk Settings (Advanced)
+## Understanding Data Providers
 
-**Note:** v1.0'da risk settings API var ama UI tam değil. İleride:
+### Binance (CCXT)
 
-- DayCap (daily loss limit)
-- Max lot per symbol
-- Loss streak limit
-- Cooldown periods
+**Best for:** Cryptocurrency trading
 
-Owner Console'da ayarlanabilir olacak.
+**Supported symbols:**
+- BTC/USDT, ETH/USDT, BNB/USDT
+- XAU/USD (gold)
+- Major crypto pairs
 
-Şimdilik varsayılan ayarlar:
+**Setup:**
+```bash
+DATA_FEED_PROVIDER=BINANCE_CCXT
+BINANCE_API_KEY=your_key  # optional for public data
+```
+
+### TradingView
+
+**Best for:** Any market (stocks, forex, crypto, commodities)
+
+**How it works:**
+1. Create alert in TradingView
+2. Set webhook URL to MoonLight backend
+3. MoonLight receives alert → generates signal
+
+**Setup:**
+```bash
+DATA_FEED_PROVIDER=TRADINGVIEW
+# No API key needed
+# Configure webhook in TradingView:
+# http://localhost:8001/webhook/tradingview/{symbol}/{timeframe}
+```
+
+### IQ Option
+
+**Best for:** Binary options, forex
+
+**Supported symbols:**
+- EUR/USD, GBP/USD, USD/JPY
+- XAU/USD (gold)
+- Major forex pairs
+
+**Setup:**
+```bash
+DATA_FEED_PROVIDER=IQ_OPTION
+IQ_OPTION_API_KEY=your_api_key
+IQ_OPTION_WS_URL=wss://iqoption.com/echo/websocket
+```
+
+---
+
+## Using Semi-Automatic Mode
+
+### What is Semi-Automatic?
+
+Instead of manually opening every trade, you:
+1. Review signals as they come
+2. Approve the ones you like
+3. System executes them for you
+
+### Safety Features
+
+**Before execution, system checks:**
+- ✅ Risk guardrails (DayCap, max lot)
+- ✅ Triple-Check uncertainty
+- ✅ Circuit breaker status
+- ✅ Account balance
+
+**If any check fails:**
+- ❌ Execution blocked
+- 📝 Reason logged
+- 🔔 Owner notified
+
+### Execution Workflow
+
+```
+Signal Generated → Triple-Check → EVVetoSlot → 
+  ↓
+Owner Reviews in Live Signals
+  ↓
+Owner Clicks "EXECUTE"
+  ↓
+Risk Guardrails Check → ART Token → Broker Order
+  ↓
+Order Confirmed → Signal Status Updated
+```
+
+---
+
+## Advanced Features
+
+### Monte Carlo Simulation
+
+**What it does:** Runs 1000+ simulations of your backtest with randomized trade order.
+
+**How to use:**
+1. Go to Backtests page
+2. Click on a backtest run
+3. In detail drawer, click "Monte Carlo"
+4. View confidence intervals (5th-95th percentile)
+
+**Interpretation:**
+- **Expected PnL:** Average across simulations
+- **5th percentile:** Worst-case scenario
+- **95th percentile:** Best-case scenario
+
+### Walk-Forward Analysis
+
+**What it does:** Tests if strategy works on unseen data.
+
+**How to use:**
+1. Backtests page → select run
+2. Click "Walk-Forward"
+3. View in-sample vs out-sample performance
+
+**Interpretation:**
+- **Degradation < 5%:** Robust strategy ✅
+- **Degradation > 10%:** Overfitting risk ⚠️
+
+---
+
+## Strategy Explorer
+
+**New in v1.5:** Browse all 50+ strategies
+
+**How to use:**
+1. Go to **Strategies** page
+2. Filter by:
+   - Category (Scalping/Trend/Mean Revert)
+   - Search by name
+3. View strategy details:
+   - Supported symbols
+   - Timeframes
+   - Tags
+
+**Strategy Categories:**
+- **Scalping:** Quick trades, 1-15m timeframes
+- **Trend Follow:** Ride momentum, 15m-4h
+- **Mean Revert:** Counter-trend, 5m-1h
+
+---
+
+## Troubleshooting (v1.5)
+
+### Live signals not appearing
+
+**Check:**
+1. LIVE_SIGNAL_ENABLED=true in backend/.env
+2. DATA_FEED_PROVIDER correctly set
+3. Backend logs for connection errors
+4. Provider API keys (if required)
+
+### Execute button not working
+
+**Check:**
+1. SEMI_AUTO_ENABLED=true
+2. Signal status is "NEW"
+3. Account connected
+4. Risk limits not exceeded
+
+### Provider connection issues
+
+**Binance:**
+- Check internet connection
+- Verify API keys (if private data)
+- Check rate limits
+
+**TradingView:**
+- Verify webhook URL
+- Check TradingView alert configuration
+
+**IQ Option:**
+- Verify API credentials
+- Check WebSocket connection
+- Review session status
+
+---
+
+## Risk Management (v1.5)
+
+### Before Using Semi-Auto
+
+**Set your limits:**
+1. DayCap (daily loss limit)
+2. Max lot per trade
+3. Max concurrent trades
+
+**Default limits (SAFE profile):**
 - DayCap: $500/day
 - Max lot: $50/trade
-- Loss streak: 5 consecutive losses → PAUSE
+- Concurrent trades: 2
+
+**Test first:**
+1. Use MOCK_LIVE provider
+2. Use FakeBroker
+3. Verify signal quality
+4. Then switch to real data
 
 ---
 
-## Running Backtests
+## Next Steps
 
-### From API (for now):
-
-```bash
-curl -X POST http://localhost:8001/backtest/run \
-  -H "Content-Type: application/json" \
-  -d '{
-    "symbols": ["XAUUSD"],
-    "timeframes": ["1m"],
-    "strategy_ids": ["bb_rsi_buy_v1"],
-    "from_date": "2025-01-01",
-    "to_date": "2025-01-31",
-    "initial_balance": 1000,
-    "risk_profile_id": "PROFILE_DEFAULT",
-    "environment": "BACKTEST"
-  }'
-```
-
-### Check Results:
-
-```bash
-curl http://localhost:8001/backtest/status/<runId>
-curl http://localhost:8001/reporting/backtest/<runId>/advanced
-```
-
-### Export to Excel:
-
-Navigate to:
-```
-http://localhost:8001/reporting/backtest/<runId>/export/xlsx
-```
-
-File downloads automatically.
-
-**UI for backtest:** Coming in v1.1 (Backtest page in Owner Console).
+**After v1.5 mastery:**
+1. **Test with demo accounts** (when available)
+2. **Optimize strategy selection** (use backtest analytics)
+3. **Fine-tune risk parameters**
+4. **Wait for v1.6** (full automatic mode)
 
 ---
 
-## Troubleshooting
-
-### Backend won't start
-
-**Problem:** "Redis connection error"
-
-**Solution:**
-- Make sure Redis is running (port 6379)
-- Windows: Use Redis for Windows or WSL2
-
-### Desktop app won't connect to backend
-
-**Problem:** "API Error: Network request failed"
-
-**Solution:**
-- Check backend is running: http://localhost:8001/owner/dashboard/summary
-- Verify `desktop/.env` has `VITE_API_BASE_URL=http://localhost:8001`
-
-### Execution Mode stuck on OFF
-
-**Problem:** Can't switch to AUTO
-
-**Solution:**
-- Check Circuit Breaker state (GET /risk/circuit-breaker/state)
-- If kill-switch is active, deactivate it first
-- Check alerts for fail-safe triggers
-
-### No data in Dashboard
-
-**Problem:** All metrics show 0
-
-**Solution:**
-- v1.0 uses FakeBroker, so no real trades yet
-- Run a backtest to generate sample data
-- Or wait for live trades in AUTO mode with FakeBroker
-
----
-
-## Support
-
-For technical issues:
-- Check logs: `backend/*.log`
-- Run smoke test: `yarn smoke`
-- Review alerts in Owner Console
-
-For operational questions:
-- See **[README.md](../README.md)** for architecture details
-- Contact: moonlight-support@example.com
-
----
-
-**MoonLight v1.0 - Production-Ready Owner Console** ✅
+**MoonLight v1.5 - Real Signals, Real Data, Real Power** 🚀

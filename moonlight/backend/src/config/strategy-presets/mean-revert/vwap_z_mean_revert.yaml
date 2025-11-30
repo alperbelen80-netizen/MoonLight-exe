@@ -1,0 +1,29 @@
+id: vwap_z_mean_revert
+name: "VWAP-Z Mean Reversion"
+category: mean_revert
+version: 1
+symbols:
+  - EURUSD
+  - GBPUSD
+  - USDJPY
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 5m
+      period: 14
+      operator: "<"
+      value: 25
+risk:
+  min_ev: 0.031
+  min_confidence: 0.70
+  stake_fixed: 27
+tags:
+  - vwap
+  - z_score
+  - mean_revert
+enabled_by_default: true

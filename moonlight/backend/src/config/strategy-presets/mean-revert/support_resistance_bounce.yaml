@@ -1,0 +1,28 @@
+id: support_resistance_bounce
+name: "Support/Resistance Bounce"
+category: mean_revert
+version: 1
+symbols:
+  - XAUUSD
+  - EURUSD
+  - GBPUSD
+timeframes:
+  - 15m
+  - 1h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 15m
+      period: 14
+      operator: "<"
+      value: 30
+risk:
+  min_ev: 0.031
+  min_confidence: 0.70
+  stake_fixed: 27
+tags:
+  - support
+  - bounce
+enabled_by_default: true

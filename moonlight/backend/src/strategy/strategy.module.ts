@@ -1,5 +1,6 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { StrategyService } from './strategy.service';
+import { StrategyController } from './strategy.controller';
 import { StrategyFactoryService } from './factory/strategy-factory.service';
 import { IndicatorService } from './indicators/indicator.service';
 import { PresetLoaderService } from './preset/preset-loader.service';
@@ -8,6 +9,7 @@ import { PackFactoryService } from './pack-factory/pack-factory.service';
 import { GatingService } from './gating/gating.service';
 
 @Module({
+  controllers: [StrategyController],
   providers: [
     StrategyService,
     StrategyFactoryService,

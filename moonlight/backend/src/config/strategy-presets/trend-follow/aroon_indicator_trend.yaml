@@ -1,0 +1,27 @@
+id: aroon_indicator_trend
+name: "Aroon Indicator Trend"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - BTCUSD
+timeframes:
+  - 1h
+  - 4h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 1h
+      period: 50
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.036
+  min_confidence: 0.73
+  stake_fixed: 31
+tags:
+  - aroon
+  - trend
+enabled_by_default: true

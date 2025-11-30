@@ -1,0 +1,28 @@
+id: z_score_channel_revert
+name: "Z-Score Channel Reversion"
+category: mean_revert
+version: 1
+symbols:
+  - EURUSD
+  - GBPUSD
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 5m
+      period: 14
+      operator: "<"
+      value: 25
+risk:
+  min_ev: 0.030
+  min_confidence: 0.70
+  stake_fixed: 27
+tags:
+  - z_score
+  - channel
+  - reversion
+enabled_by_default: true

@@ -1,0 +1,29 @@
+id: ema_crossover_long
+name: "EMA 9/21 Crossover Long"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - BTCUSD
+  - ETHUSD
+timeframes:
+  - 15m
+  - 1h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 15m
+      period: 9
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.032
+  min_confidence: 0.70
+  stake_fixed: 28
+tags:
+  - ema
+  - crossover
+  - trend
+enabled_by_default: true

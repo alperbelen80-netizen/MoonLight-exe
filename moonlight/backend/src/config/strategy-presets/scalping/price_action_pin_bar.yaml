@@ -1,0 +1,27 @@
+id: price_action_pin_bar
+name: "Price Action Pin Bar"
+category: scalping
+version: 1
+symbols:
+  - EURUSD
+  - GBPUSD
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 5m
+      period: 14
+      operator: "<"
+      value: 35
+risk:
+  min_ev: 0.027
+  min_confidence: 0.67
+  stake_fixed: 24
+tags:
+  - price_action
+  - pin_bar
+enabled_by_default: true

@@ -1,0 +1,27 @@
+id: parabolic_sar_trend
+name: "Parabolic SAR Trend Following"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - EURUSD
+timeframes:
+  - 15m
+  - 1h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 15m
+      period: 50
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.034
+  min_confidence: 0.72
+  stake_fixed: 29
+tags:
+  - psar
+  - trend
+enabled_by_default: true

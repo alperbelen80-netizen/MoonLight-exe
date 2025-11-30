@@ -1,0 +1,28 @@
+id: qqe_kama_trend_filter
+name: "QQE + KAMA Trend Filter"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - EURUSD
+timeframes:
+  - 15m
+  - 1h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 15m
+      period: 50
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.035
+  min_confidence: 0.72
+  stake_fixed: 30
+tags:
+  - qqe
+  - kama
+  - filter
+enabled_by_default: true

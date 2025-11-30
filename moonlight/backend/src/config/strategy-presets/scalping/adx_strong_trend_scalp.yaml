@@ -1,0 +1,27 @@
+id: adx_strong_trend_scalp
+name: "ADX Strong Trend Scalp"
+category: scalping
+version: 1
+symbols:
+  - XAUUSD
+  - EURUSD
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: ADX
+      tf: 5m
+      period: 14
+      operator: ">"
+      value: 22
+risk:
+  min_ev: 0.029
+  min_confidence: 0.69
+  stake_fixed: 26
+tags:
+  - adx
+  - strong_trend
+enabled_by_default: true

@@ -1,0 +1,34 @@
+id: bb_rsi_overbought_short
+name: "BB + RSI Overbought Short (5m)"
+category: scalping
+version: 1
+symbols:
+  - XAUUSD
+  - EURUSD
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: PUT
+  conditions_mode: ALL
+  conditions:
+    - indicator: BB
+      tf: 5m
+      period: 20
+      operator: ">"
+      value: 0
+    - indicator: RSI
+      tf: 5m
+      period: 14
+      operator: ">"
+      value: 75
+risk:
+  min_ev: 0.025
+  min_confidence: 0.68
+  stake_fixed: 25
+tags:
+  - bb
+  - rsi
+  - overbought
+  - short
+enabled_by_default: true

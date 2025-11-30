@@ -1,0 +1,30 @@
+id: triple_confirmation_ema50_st_obv
+name: "Triple Confirmation (EMA50+SuperTrend+OBV)"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - BTCUSD
+  - ETHUSD
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 5m
+      period: 50
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.034
+  min_confidence: 0.72
+  stake_fixed: 28
+tags:
+  - ema
+  - supertrend
+  - obv
+  - triple
+enabled_by_default: true

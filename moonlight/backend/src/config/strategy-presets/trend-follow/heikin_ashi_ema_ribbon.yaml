@@ -1,0 +1,27 @@
+id: heikin_ashi_ema_ribbon
+name: "Heikin-Ashi + EMA Ribbon"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - EURUSD
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 5m
+      period: 8
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.029
+  min_confidence: 0.69
+  stake_fixed: 26
+tags:
+  - heikin_ashi
+  - ema_ribbon
+enabled_by_default: true

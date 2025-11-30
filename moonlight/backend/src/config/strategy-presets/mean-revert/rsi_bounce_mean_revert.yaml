@@ -1,0 +1,29 @@
+id: rsi_bounce_mean_revert
+name: "RSI Bounce Mean Reversion"
+category: mean_revert
+version: 1
+symbols:
+  - EURUSD
+  - GBPUSD
+  - USDJPY
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 5m
+      period: 14
+      operator: "<"
+      value: 20
+risk:
+  min_ev: 0.028
+  min_confidence: 0.70
+  stake_fixed: 20
+tags:
+  - rsi
+  - mean_revert
+  - bounce
+enabled_by_default: true

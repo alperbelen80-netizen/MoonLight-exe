@@ -1,0 +1,29 @@
+id: triple_ema_9_21_50_long
+name: "Triple EMA 9/21/50 Long"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - EURUSD
+  - BTCUSD
+timeframes:
+  - 15m
+  - 1h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 15m
+      period: 9
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.035
+  min_confidence: 0.72
+  stake_fixed: 30
+tags:
+  - ema
+  - triple
+  - long
+enabled_by_default: true

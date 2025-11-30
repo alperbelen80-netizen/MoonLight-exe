@@ -1,0 +1,27 @@
+id: williams_r_reversal
+name: "Williams %R Reversal"
+category: scalping
+version: 1
+symbols:
+  - GBPUSD
+  - AUDUSD
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 5m
+      period: 14
+      operator: "<"
+      value: 25
+risk:
+  min_ev: 0.026
+  min_confidence: 0.67
+  stake_fixed: 24
+tags:
+  - williams
+  - reversal
+enabled_by_default: true

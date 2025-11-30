@@ -1,0 +1,28 @@
+id: pivot_point_reversal
+name: "Pivot Point Reversal"
+category: mean_revert
+version: 1
+symbols:
+  - EURUSD
+  - GBPUSD
+  - USDJPY
+timeframes:
+  - 15m
+  - 1h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 15m
+      period: 14
+      operator: "<"
+      value: 28
+risk:
+  min_ev: 0.031
+  min_confidence: 0.70
+  stake_fixed: 27
+tags:
+  - pivot
+  - reversal
+enabled_by_default: true

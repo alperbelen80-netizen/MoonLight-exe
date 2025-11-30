@@ -1,0 +1,28 @@
+id: trix_rvi_momentum
+name: "TRIX + RVI Momentum"
+category: trend_follow
+version: 1
+symbols:
+  - BTCUSD
+  - ETHUSD
+timeframes:
+  - 1h
+  - 4h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 1h
+      period: 50
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.037
+  min_confidence: 0.74
+  stake_fixed: 32
+tags:
+  - trix
+  - rvi
+  - momentum
+enabled_by_default: true

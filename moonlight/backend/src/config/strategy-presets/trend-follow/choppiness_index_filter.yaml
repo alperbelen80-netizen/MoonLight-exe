@@ -1,0 +1,27 @@
+id: choppiness_index_filter
+name: "Choppiness Index Filter"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - BTCUSD
+timeframes:
+  - 1h
+  - 4h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: ADX
+      tf: 1h
+      period: 14
+      operator: ">"
+      value: 25
+risk:
+  min_ev: 0.038
+  min_confidence: 0.75
+  stake_fixed: 33
+tags:
+  - choppiness
+  - filter
+enabled_by_default: true

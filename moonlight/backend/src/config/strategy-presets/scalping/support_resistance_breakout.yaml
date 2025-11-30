@@ -1,0 +1,28 @@
+id: support_resistance_breakout
+name: "Support/Resistance Breakout"
+category: scalping
+version: 1
+symbols:
+  - XAUUSD
+  - BTCUSD
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: RSI
+      tf: 5m
+      period: 14
+      operator: ">"
+      value: 50
+risk:
+  min_ev: 0.029
+  min_confidence: 0.68
+  stake_fixed: 26
+tags:
+  - support
+  - resistance
+  - breakout
+enabled_by_default: true

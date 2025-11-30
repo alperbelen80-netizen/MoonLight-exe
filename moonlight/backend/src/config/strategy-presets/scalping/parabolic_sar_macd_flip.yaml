@@ -1,0 +1,28 @@
+id: parabolic_sar_macd_flip
+name: "Parabolic SAR + MACD Histogram Flip"
+category: scalping
+version: 1
+symbols:
+  - EURUSD
+  - GBPUSD
+timeframes:
+  - 1m
+  - 5m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: MACD
+      tf: 1m
+      period: 12
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.026
+  min_confidence: 0.67
+  stake_fixed: 23
+tags:
+  - psar
+  - macd
+  - flip
+enabled_by_default: true

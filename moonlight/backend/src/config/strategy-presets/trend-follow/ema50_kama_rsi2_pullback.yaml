@@ -1,0 +1,35 @@
+id: ema50_kama_rsi2_pullback
+name: "EMA50 + KAMA + RSI(2) Pullback"
+category: trend_follow
+version: 1
+symbols:
+  - XAUUSD
+  - EURUSD
+  - BTCUSD
+timeframes:
+  - 5m
+  - 15m
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 5m
+      period: 50
+      operator: ">"
+      value: 0
+    - indicator: RSI
+      tf: 5m
+      period: 2
+      operator: "<"
+      value: 10
+risk:
+  min_ev: 0.036
+  min_confidence: 0.73
+  stake_fixed: 31
+tags:
+  - ema
+  - kama
+  - rsi
+  - pullback
+enabled_by_default: true

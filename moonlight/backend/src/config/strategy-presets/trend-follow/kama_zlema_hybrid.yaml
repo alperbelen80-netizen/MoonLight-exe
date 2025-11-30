@@ -1,0 +1,28 @@
+id: kama_zlema_hybrid
+name: "KAMA + ZLEMA Hybrid"
+category: trend_follow
+version: 1
+symbols:
+  - EURUSD
+  - GBPUSD
+timeframes:
+  - 15m
+  - 1h
+entry:
+  direction: CALL
+  conditions_mode: ALL
+  conditions:
+    - indicator: EMA
+      tf: 15m
+      period: 50
+      operator: ">"
+      value: 0
+risk:
+  min_ev: 0.033
+  min_confidence: 0.71
+  stake_fixed: 28
+tags:
+  - kama
+  - zlema
+  - hybrid
+enabled_by_default: true
