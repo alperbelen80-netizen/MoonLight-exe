@@ -80,3 +80,8 @@ agenthub/agents/youtube/db
 android-sdk/ moonlight/desktop/node_modules/electron/dist/electron
 moonlight/desktop/node_modules/electron/dist/electron
 moonlight/node_modules/electron/dist/electron
+-e 
+# Environment files
+*.env
+*.env.*
+projem.zip

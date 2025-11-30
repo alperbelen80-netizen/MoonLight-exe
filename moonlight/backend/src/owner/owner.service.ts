@@ -11,6 +11,7 @@ import { ProductExecutionConfigDTO } from '../shared/dto/product-execution-confi
 import { OwnerAccountDTO } from '../shared/dto/owner-account.dto';
 import { OwnerDashboardSummaryDTO, HealthColor } from '../shared/dto/owner-dashboard-summary.dto';
 import { PackStatsDTO, ExecutionHealthDTO } from '../shared/dto/telemetry.dto';
+import { PnlHistoryDTO, DailyPnlPoint } from '../shared/dto/pnl-history.dto';
 import { SessionManagerService } from '../broker/session/session-manager.service';
 import { ApprovalQueueService } from '../risk/approval-queue.service';
 import { CircuitBreakerService } from '../risk/fail-safe/circuit-breaker.service';
@@ -66,6 +67,60 @@ export class OwnerService {
       top_symbols: [],
       environment,
       hardware_profile: hardwareProfile.name,
+      generated_at_utc: new Date().toISOString(),
+    };
+  }
+
+  async getPnlHistory(params: {
+    range: '7d' | '30d' | '90d';
+    environment?: 'LIVE' | 'SANDBOX' | 'ALL';
+  }): Promise<PnlHistoryDTO> {
+    const { range, environment = 'ALL' } = params;
+
+    const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - (days - 1));
+    startDate.setHours(0, 0, 0, 0);
+
+    const mockPoints: DailyPnlPoint[] = [];
+
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+
+      if (environment === 'ALL' || environment === 'LIVE') {
+        mockPoints.push({
+          date: dateStr,
+          environment: 'LIVE',
+          trades: 0,
+          wins: 0,
+          losses: 0,
+          blocked_by_risk: 0,
+          blocked_by_ev: 0,
+          blocked_by_hw_profile: 0,
+          net_pnl: 0,
+        });
+      }
+
+      if (environment === 'ALL' || environment === 'SANDBOX') {
+        mockPoints.push({
+          date: dateStr,
+          environment: 'SANDBOX',
+          trades: 0,
+          wins: 0,
+          losses: 0,
+          blocked_by_risk: 0,
+          blocked_by_ev: 0,
+          blocked_by_hw_profile: 0,
+          net_pnl: 0,
+        });
+      }
+    }
+
+    return {
+      points: mockPoints,
+      range,
       generated_at_utc: new Date().toISOString(),
     };
   }

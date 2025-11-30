@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query } from '@nestjs/common';
 import { OwnerService } from './owner.service';
 import {
   OwnerDashboardSummaryDTO,
@@ -8,6 +8,7 @@ import { ProductExecutionConfigDTO } from '../shared/dto/product-execution-confi
 import { OwnerAccountDTO } from '../shared/dto/owner-account.dto';
 import { ExecutionMode } from '../shared/enums/execution-mode.enum';
 import { PackStatsDTO, ExecutionHealthDTO } from '../shared/dto/telemetry.dto';
+import { PnlHistoryDTO } from '../shared/dto/pnl-history.dto';
 
 @Controller('owner')
 export class OwnerController {
@@ -26,6 +27,17 @@ export class OwnerController {
   @Get('dashboard/execution-health')
   async getExecutionHealth(): Promise<ExecutionHealthDTO> {
     return this.ownerService.getExecutionHealth();
+  }
+
+  @Get('history/pnl')
+  async getPnlHistory(
+    @Query('range') range?: '7d' | '30d' | '90d',
+    @Query('environment') environment?: 'LIVE' | 'SANDBOX' | 'ALL',
+  ): Promise<PnlHistoryDTO> {
+    return this.ownerService.getPnlHistory({
+      range: range || '30d',
+      environment: environment || 'ALL',
+    });
   }
 
   @Get('accounts')
