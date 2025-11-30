@@ -1,4 +1,4 @@
-import { IsString, IsArray, IsEnum, IsNumber, IsOptional, Min, Matches } from 'class-validator';
+import { IsString, IsArray, IsEnum, IsNumber, IsOptional, Min, Matches, IsBoolean, IsISO8601 } from 'class-validator';
 import { Timeframe } from '../enums/timeframe.enum';
 import { Environment } from './canonical-signal.dto';
 
@@ -84,17 +84,58 @@ export class BacktestRunSummaryDTO {
 
   @IsNumber()
   @IsOptional()
+  sharpe?: number;
+
+  @IsNumber()
+  @IsOptional()
+  profit_factor?: number;
+
+  @IsNumber()
+  @IsOptional()
+  expectancy?: number;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  tags?: string[];
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+
+  @IsBoolean()
+  is_favorite: boolean;
+
+  @IsString()
+  environment: string;
+
+  @IsString()
+  hardware_profile: string;
+
+  @IsNumber()
+  @IsOptional()
   blocked_by_risk_count?: number;
 
   @IsNumber()
   @IsOptional()
   cancelled_trades_count?: number;
 
-  @IsString()
+  @IsISO8601({ strict: true })
   created_at_utc: string;
 
-  @IsString()
+  @IsISO8601({ strict: true })
   updated_at_utc: string;
+
+  @IsISO8601({ strict: true })
+  @IsOptional()
+  completed_at_utc?: string;
+}
+
+export class BacktestRunListResponse {
+  items: BacktestRunSummaryDTO[];
+  page: number;
+  page_size: number;
+  total: number;
 }
 
 export class BacktestRunDetailDTO {

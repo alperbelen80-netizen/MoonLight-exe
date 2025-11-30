@@ -11,11 +11,14 @@ import {
   BacktestRunSummaryDTO,
   BacktestRunDetailDTO,
   BacktestRunStatus,
+  BacktestRunListResponse,
 } from '../shared/dto/backtest.dto';
 import { ConfigSnapshotService } from '../config/config-snapshot.service';
 import { RiskProfileService } from '../risk/risk-profile.service';
 import { StrategyFactoryService } from '../strategy/factory/strategy-factory.service';
 import { PresetLoaderService } from '../strategy/preset/preset-loader.service';
+import { HardwareProfileService } from '../shared/config/hardware-profile.service';
+import { EnvironmentService } from '../shared/config/environment.service';
 
 @Injectable()
 export class BacktestService {
@@ -32,6 +35,8 @@ export class BacktestService {
     private readonly riskProfileService: RiskProfileService,
     private readonly strategyFactory: StrategyFactoryService,
     private readonly presetLoader: PresetLoaderService,
+    private readonly hardwareProfileService: HardwareProfileService,
+    private readonly environmentService: EnvironmentService,
   ) {}
 
   async startBacktest(
@@ -39,6 +44,8 @@ export class BacktestService {
   ): Promise<BacktestRunSummaryDTO> {
     const runId = `RUN_${uuidv4()}`;
     const now = new Date();
+    const hardwareProfile = this.hardwareProfileService.getActiveProfile();
+    const environment = this.environmentService.getEnvironment();
 
     const riskProfile = await this.riskProfileService.getById(dto.risk_profile_id);
     const profile = riskProfile || (await this.riskProfileService.getDefaultProfile());
@@ -76,8 +83,13 @@ export class BacktestService {
       total_trades: 0,
       blocked_by_risk_count: 0,
       cancelled_trades_count: 0,
+      environment: environment,
+      hardware_profile: hardwareProfile.name,
       created_at_utc: now,
       updated_at_utc: now,
+      tags: null,
+      notes: null,
+      is_favorite: false,
     });
 
     await this.backtestRunRepo.save(run);
@@ -91,12 +103,134 @@ export class BacktestService {
     return this.mapRunToSummary(run);
   }
 
-  async getSummary(runId: string): Promise<BacktestRunSummaryDTO | null> {
-    const run = await this.backtestRunRepo.findOne({ where: { run_id: runId } });
+  async getBacktestRuns(params: {
+    page?: number;
+    pageSize?: number;
+    symbol?: string;
+    timeframe?: string;
+    strategyCode?: string;
+    environment?: string;
+    hardwareProfile?: string;
+    from?: string;
+    to?: string;
+    minWinRate?: number;
+    maxWinRate?: number;
+    minNetPnl?: number;
+    maxNetPnl?: number;
+    tag?: string;
+    isFavorite?: boolean;
+  }): Promise<BacktestRunListResponse> {
+    const page = params.page || 1;
+    const pageSize = Math.min(params.pageSize || 20, 100);
+    const skip = (page - 1) * pageSize;
+
+    const queryBuilder = this.backtestRunRepo.createQueryBuilder('run');
+
+    if (params.symbol) {
+      queryBuilder.andWhere('run.symbols LIKE :symbol', { symbol: `%${params.symbol}%` });
+    }
+
+    if (params.timeframe) {
+      queryBuilder.andWhere('run.timeframes LIKE :timeframe', {
+        timeframe: `%${params.timeframe}%`,
+      });
+    }
+
+    if (params.strategyCode) {
+      queryBuilder.andWhere('run.strategy_ids LIKE :strategyCode', {
+        strategyCode: `%${params.strategyCode}%`,
+      });
+    }
+
+    if (params.environment) {
+      queryBuilder.andWhere('run.environment = :environment', {
+        environment: params.environment,
+      });
+    }
+
+    if (params.hardwareProfile) {
+      queryBuilder.andWhere('run.hardware_profile = :hardwareProfile', {
+        hardwareProfile: params.hardwareProfile,
+      });
+    }
+
+    if (params.from) {
+      queryBuilder.andWhere('run.created_at_utc >= :from', { from: new Date(params.from) });
+    }
+
+    if (params.to) {
+      queryBuilder.andWhere('run.created_at_utc <= :to', { to: new Date(params.to) });
+    }
+
+    if (params.minWinRate !== undefined) {
+      queryBuilder.andWhere('run.win_rate >= :minWinRate', { minWinRate: params.minWinRate });
+    }
+
+    if (params.maxWinRate !== undefined) {
+      queryBuilder.andWhere('run.win_rate <= :maxWinRate', { maxWinRate: params.maxWinRate });
+    }
+
+    if (params.minNetPnl !== undefined) {
+      queryBuilder.andWhere('run.net_pnl >= :minNetPnl', { minNetPnl: params.minNetPnl });
+    }
+
+    if (params.maxNetPnl !== undefined) {
+      queryBuilder.andWhere('run.net_pnl <= :maxNetPnl', { maxNetPnl: params.maxNetPnl });
+    }
+
+    if (params.tag) {
+      queryBuilder.andWhere('run.tags LIKE :tag', { tag: `%${params.tag}%` });
+    }
+
+    if (params.isFavorite !== undefined) {
+      queryBuilder.andWhere('run.is_favorite = :isFavorite', {
+        isFavorite: params.isFavorite,
+      });
+    }
+
+    queryBuilder.orderBy('run.created_at_utc', 'DESC');
+
+    const [runs, total] = await queryBuilder.skip(skip).take(pageSize).getManyAndCount();
+
+    return {
+      items: runs.map((r) => this.mapRunToSummary(r)),
+      page,
+      page_size: pageSize,
+      total,
+    };
+  }
+
+  async getBacktestRunById(id: string): Promise<BacktestRunSummaryDTO | null> {
+    const run = await this.backtestRunRepo.findOne({ where: { run_id: id } });
     if (!run) {
       return null;
     }
     return this.mapRunToSummary(run);
+  }
+
+  async updateTags(id: string, tags: string[]): Promise<void> {
+    await this.backtestRunRepo.update(
+      { run_id: id },
+      { tags: JSON.stringify(tags), updated_at_utc: new Date() },
+    );
+  }
+
+  async updateNotes(id: string, notes: string): Promise<void> {
+    await this.backtestRunRepo.update(
+      { run_id: id },
+      { notes, updated_at_utc: new Date() },
+    );
+  }
+
+  async updateFavorite(id: string, isFavorite: boolean): Promise<void> {
+    await this.backtestRunRepo.update(
+      { run_id: id },
+      { is_favorite: isFavorite, updated_at_utc: new Date() },
+    );
+  }
+
+  async getSummary(runId: string): Promise<BacktestRunSummaryDTO | null> {
+    return this.getBacktestRunById(runId);
   }
 
   async getDetail(runId: string): Promise<BacktestRunDetailDTO | null> {
@@ -130,10 +264,19 @@ export class BacktestService {
       win_rate: run.win_rate,
       net_pnl: run.net_pnl,
       max_drawdown: run.max_drawdown,
+      sharpe: run.sharpe,
+      profit_factor: run.profit_factor,
+      expectancy: run.expectancy,
       blocked_by_risk_count: run.blocked_by_risk_count,
       cancelled_trades_count: run.cancelled_trades_count,
+      tags: run.tags ? JSON.parse(run.tags) : [],
+      notes: run.notes,
+      is_favorite: run.is_favorite,
+      environment: run.environment,
+      hardware_profile: run.hardware_profile,
       created_at_utc: run.created_at_utc.toISOString(),
       updated_at_utc: run.updated_at_utc.toISOString(),
+      completed_at_utc: run.completed_at_utc?.toISOString(),
     };
   }
 }

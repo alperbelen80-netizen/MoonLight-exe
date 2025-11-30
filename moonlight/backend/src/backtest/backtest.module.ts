@@ -11,6 +11,9 @@ import { BacktestTrade } from '../database/entities/backtest-trade.entity';
 import { StrategyModule } from '../strategy/strategy.module';
 import { ConfigModule } from '../config/config.module';
 import { RiskModule } from '../risk/risk.module';
+import { ReportingModule } from '../reporting/reporting.module';
+import { HardwareProfileService } from '../shared/config/hardware-profile.service';
+import { EnvironmentService } from '../shared/config/environment.service';
 
 @Module({
   imports: [
@@ -19,6 +22,7 @@ import { RiskModule } from '../risk/risk.module';
     StrategyModule,
     ConfigModule,
     RiskModule,
+    ReportingModule,
   ],
   controllers: [BacktestController],
   providers: [
@@ -26,6 +30,8 @@ import { RiskModule } from '../risk/risk.module';
     ReplayRunnerService,
     SimFactoryService,
     BacktestProcessor,
+    HardwareProfileService,
+    EnvironmentService,
   ],
   exports: [BacktestService, SimFactoryService],
 })

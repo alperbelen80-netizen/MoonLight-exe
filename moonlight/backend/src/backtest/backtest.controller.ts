@@ -1,9 +1,10 @@
-import { Controller, Post, Get, Body, Param } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, Query } from '@nestjs/common';
 import { BacktestService } from './backtest.service';
 import {
   BacktestRunRequestDTO,
   BacktestRunSummaryDTO,
   BacktestRunDetailDTO,
+  BacktestRunListResponse,
 } from '../shared/dto/backtest.dto';
 
 @Controller('backtest')
@@ -15,6 +16,75 @@ export class BacktestController {
     @Body() request: BacktestRunRequestDTO,
   ): Promise<BacktestRunSummaryDTO> {
     return this.backtestService.startBacktest(request);
+  }
+
+  @Get('runs')
+  async listRuns(
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('symbol') symbol?: string,
+    @Query('timeframe') timeframe?: string,
+    @Query('strategyCode') strategyCode?: string,
+    @Query('environment') environment?: string,
+    @Query('hardwareProfile') hardwareProfile?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('minWinRate') minWinRate?: string,
+    @Query('maxWinRate') maxWinRate?: string,
+    @Query('minNetPnl') minNetPnl?: string,
+    @Query('maxNetPnl') maxNetPnl?: string,
+    @Query('tag') tag?: string,
+    @Query('isFavorite') isFavorite?: string,
+  ): Promise<BacktestRunListResponse> {
+    return this.backtestService.getBacktestRuns({
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+      symbol,
+      timeframe,
+      strategyCode,
+      environment,
+      hardwareProfile,
+      from,
+      to,
+      minWinRate: minWinRate ? parseFloat(minWinRate) : undefined,
+      maxWinRate: maxWinRate ? parseFloat(maxWinRate) : undefined,
+      minNetPnl: minNetPnl ? parseFloat(minNetPnl) : undefined,
+      maxNetPnl: maxNetPnl ? parseFloat(maxNetPnl) : undefined,
+      tag,
+      isFavorite: isFavorite === 'true' ? true : isFavorite === 'false' ? false : undefined,
+    });
+  }
+
+  @Get('runs/:id')
+  async getRunById(@Param('id') id: string): Promise<BacktestRunSummaryDTO | null> {
+    return this.backtestService.getBacktestRunById(id);
+  }
+
+  @Post('runs/:id/tags')
+  async updateTags(
+    @Param('id') id: string,
+    @Body() body: { tags: string[] },
+  ) {
+    await this.backtestService.updateTags(id, body.tags);
+    return { status: 'OK', id };
+  }
+
+  @Post('runs/:id/notes')
+  async updateNotes(
+    @Param('id') id: string,
+    @Body() body: { notes: string },
+  ) {
+    await this.backtestService.updateNotes(id, body.notes);
+    return { status: 'OK', id };
+  }
+
+  @Post('runs/:id/favorite')
+  async updateFavorite(
+    @Param('id') id: string,
+    @Body() body: { is_favorite: boolean },
+  ) {
+    await this.backtestService.updateFavorite(id, body.is_favorite);
+    return { status: 'OK', id };
   }
 
   @Get('status/:runId')

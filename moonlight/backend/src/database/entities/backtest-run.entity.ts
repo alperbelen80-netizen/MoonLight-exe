@@ -44,9 +44,36 @@ export class BacktestRun {
   @Column('integer', { default: 0 })
   cancelled_trades_count: number;
 
+  @Column('real', { nullable: true })
+  sharpe: number;
+
+  @Column('real', { nullable: true })
+  profit_factor: number;
+
+  @Column('real', { nullable: true })
+  expectancy: number;
+
+  @Column('text', { nullable: true })
+  tags: string;
+
+  @Column('text', { nullable: true })
+  notes: string;
+
+  @Column('boolean', { default: false })
+  is_favorite: boolean;
+
+  @Column({ default: 'SANDBOX' })
+  environment: string;
+
+  @Column({ default: 'SAFE' })
+  hardware_profile: string;
+
   @Column('datetime')
   created_at_utc: Date;
 
   @Column('datetime')
   updated_at_utc: Date;
+
+  @Column('datetime', { nullable: true })
+  completed_at_utc: Date;
 }

@@ -7,6 +7,7 @@ import { BacktestRun } from '../database/entities/backtest-run.entity';
 import { BacktestTrade } from '../database/entities/backtest-trade.entity';
 import { BacktestRunRequestDTO, BacktestRunStatus } from '../shared/dto/backtest.dto';
 import { ReplayRunnerService } from './replay-runner.service';
+import { BacktestReportingService } from '../reporting/backtest-reporting.service';
 
 @Processor('backtest')
 export class BacktestProcessor {
@@ -18,6 +19,7 @@ export class BacktestProcessor {
     @InjectRepository(BacktestTrade)
     private readonly backtestTradeRepo: Repository<BacktestTrade>,
     private readonly replayRunner: ReplayRunnerService,
+    private readonly backtestReportingService: BacktestReportingService,
   ) {}
 
   @Process('run')
@@ -57,6 +59,21 @@ export class BacktestProcessor {
 
       await this.backtestTradeRepo.save(tradeEntities);
 
+      let sharpe: number | null = null;
+      let profitFactor: number | null = null;
+      let expectancy: number | null = null;
+
+      try {
+        const advancedReport = await this.backtestReportingService.buildAdvancedReport(runId);
+        sharpe = advancedReport.sharpe_ratio;
+        profitFactor = advancedReport.profit_factor;
+        expectancy = advancedReport.expectancy_per_trade;
+      } catch (error: any) {
+        this.logger.warn(
+          `Could not compute advanced metrics for ${runId}: ${error?.message || String(error)}`,
+        );
+      }
+
       await this.backtestRunRepo.update(
         { run_id: runId },
         {
@@ -66,6 +83,10 @@ export class BacktestProcessor {
           net_pnl: result.net_pnl,
           max_drawdown: result.max_drawdown,
           blocked_by_risk_count: result.blocked_by_risk_count,
+          sharpe,
+          profit_factor: profitFactor,
+          expectancy,
+          completed_at_utc: new Date(),
           updated_at_utc: new Date(),
         },
       );
