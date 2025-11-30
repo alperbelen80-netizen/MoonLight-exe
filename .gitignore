@@ -94,3 +94,7 @@ projem.zip
 *.env
 *.env.*
 moonlight_v1_3.zip
+-e 
+# Environment files
+*.env
+*.env.*
