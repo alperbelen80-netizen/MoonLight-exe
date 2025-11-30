@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Patch, Param, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, BadRequestException } from '@nestjs/common';
 import { OwnerService } from './owner.service';
+import { HistoryService } from './history/history.service';
 import {
   OwnerDashboardSummaryDTO,
 } from '../shared/dto/owner-dashboard-summary.dto';
@@ -12,7 +13,10 @@ import { PnlHistoryDTO } from '../shared/dto/pnl-history.dto';
 
 @Controller('owner')
 export class OwnerController {
-  constructor(private readonly ownerService: OwnerService) {}
+  constructor(
+    private readonly ownerService: OwnerService,
+    private readonly historyService: HistoryService,
+  ) {}
 
   @Get('dashboard/summary')
   async getDashboardSummary(): Promise<OwnerDashboardSummaryDTO> {
@@ -34,7 +38,7 @@ export class OwnerController {
     @Query('range') range?: '7d' | '30d' | '90d',
     @Query('environment') environment?: 'LIVE' | 'SANDBOX' | 'ALL',
   ): Promise<PnlHistoryDTO> {
-    return this.ownerService.getPnlHistory({
+    return this.historyService.getPnlHistory({
       range: range || '30d',
       environment: environment || 'ALL',
     });
