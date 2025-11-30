@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from './api-client';
+import { apiGet } from './api-client';
 import {
   DashboardSummaryDTO,
   AccountDTO,
@@ -6,10 +6,20 @@ import {
   ExecutionMatrixRowDTO,
   ExecutionModeDTO,
   ExecutionMode,
+  PackStatsDTO,
+  ExecutionHealthDTO,
 } from '../lib/types';
 
 export async function getDashboardSummary(): Promise<DashboardSummaryDTO> {
   return apiGet<DashboardSummaryDTO>('/owner/dashboard/summary');
+}
+
+export async function getPackStats(): Promise<PackStatsDTO> {
+  return apiGet<PackStatsDTO>('/owner/dashboard/pack-stats');
+}
+
+export async function getExecutionHealth(): Promise<ExecutionHealthDTO> {
+  return apiGet<ExecutionHealthDTO>('/owner/dashboard/execution-health');
 }
 
 export async function getAccounts(): Promise<AccountDTO[]> {
@@ -45,3 +55,5 @@ export async function setExecutionMode(
 ): Promise<ExecutionModeDTO> {
   return apiPost<ExecutionModeDTO>('/owner/execution-mode', { mode });
 }
+
+import { apiPost, apiPatch } from './api-client';

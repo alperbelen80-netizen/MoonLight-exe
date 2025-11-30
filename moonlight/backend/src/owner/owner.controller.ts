@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body } from '@nestjs/common';
 import { OwnerService } from './owner.service';
 import {
   OwnerDashboardSummaryDTO,
@@ -7,6 +7,7 @@ import { ExecutionModeDTO } from '../shared/dto/execution-mode.dto';
 import { ProductExecutionConfigDTO } from '../shared/dto/product-execution-config.dto';
 import { OwnerAccountDTO } from '../shared/dto/owner-account.dto';
 import { ExecutionMode } from '../shared/enums/execution-mode.enum';
+import { PackStatsDTO, ExecutionHealthDTO } from '../shared/dto/telemetry.dto';
 
 @Controller('owner')
 export class OwnerController {
@@ -15,6 +16,16 @@ export class OwnerController {
   @Get('dashboard/summary')
   async getDashboardSummary(): Promise<OwnerDashboardSummaryDTO> {
     return this.ownerService.getDashboardSummary();
+  }
+
+  @Get('dashboard/pack-stats')
+  async getPackStats(): Promise<PackStatsDTO> {
+    return this.ownerService.getPackStats();
+  }
+
+  @Get('dashboard/execution-health')
+  async getExecutionHealth(): Promise<ExecutionHealthDTO> {
+    return this.ownerService.getExecutionHealth();
   }
 
   @Get('accounts')

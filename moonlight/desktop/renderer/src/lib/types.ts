@@ -6,6 +6,8 @@ export type AlertSeverity = 'CRITICAL' | 'WARNING' | 'INFO';
 export type AlertStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
 export type SignalDirection = 'CALL' | 'PUT';
 export type QualityGrade = 'A' | 'B' | 'C' | 'REJECTED';
+export type Environment = 'LIVE' | 'SANDBOX';
+export type HardwareProfileName = 'SAFE' | 'BALANCED' | 'MAXPOWER';
 
 export interface ExecutionModeDTO {
   mode: ExecutionMode;
@@ -25,6 +27,8 @@ export interface DashboardSummaryDTO {
   approval_queue_pending_count: number;
   fail_safe_active: boolean;
   last_fail_safe_reason?: string;
+  environment: Environment;
+  hardware_profile: HardwareProfileName;
   top_strategies: {
     strategy_id: string;
     wr: number;
@@ -107,4 +111,24 @@ export interface DataHealthItemDTO {
 export interface DataHealthMatrixDTO {
   items: DataHealthItemDTO[];
   generated_at_utc: string;
+}
+
+export interface PackStatsDTO {
+  total_trades: number;
+  selected_by_pack_count: number;
+  rejected_by_gating_count: number;
+  avg_selected_ev: number | null;
+  avg_rejected_ev: number | null;
+  last_updated_utc: string;
+}
+
+export interface ExecutionHealthDTO {
+  last_hour_trades: number;
+  last_day_trades: number;
+  win_rate_last_hour: number | null;
+  win_rate_last_day: number | null;
+  blocked_by_risk_count_last_day: number;
+  blocked_by_ev_count_last_day: number;
+  blocked_by_hw_profile_last_day: number;
+  last_updated_utc: string;
 }

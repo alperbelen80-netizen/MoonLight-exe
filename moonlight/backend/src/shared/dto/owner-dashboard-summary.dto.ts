@@ -75,6 +75,12 @@ export class OwnerDashboardSummaryDTO {
   @Type(() => TopSymbolItemDTO)
   top_symbols: TopSymbolItemDTO[];
 
+  @IsString()
+  environment: string;
+
+  @IsString()
+  hardware_profile: string;
+
   @IsISO8601({ strict: true })
   generated_at_utc: string;
 }

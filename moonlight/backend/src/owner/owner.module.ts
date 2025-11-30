@@ -10,6 +10,8 @@ import { OwnerService } from './owner.service';
 import { OwnerController } from './owner.controller';
 import { BrokerModule } from '../broker/broker.module';
 import { RiskModule } from '../risk/risk.module';
+import { HardwareProfileService } from '../shared/config/hardware-profile.service';
+import { EnvironmentService } from '../shared/config/environment.service';
 
 @Module({
   imports: [
@@ -25,7 +27,7 @@ import { RiskModule } from '../risk/risk.module';
     RiskModule,
   ],
   controllers: [OwnerController],
-  providers: [OwnerService],
+  providers: [OwnerService, HardwareProfileService, EnvironmentService],
   exports: [OwnerService],
 })
 export class OwnerModule {}

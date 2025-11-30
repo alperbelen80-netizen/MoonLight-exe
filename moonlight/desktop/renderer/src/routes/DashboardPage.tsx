@@ -39,6 +39,16 @@ export function DashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <div className="flex gap-4">
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            summary.environment === 'LIVE' 
+              ? 'bg-red-100 text-red-800' 
+              : 'bg-blue-100 text-blue-800'
+          }`}>
+            {summary.environment}
+          </span>
+          <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+            HW: {summary.hardware_profile}
+          </span>
           <ExecutionModeSwitch
             mode={summary.execution_mode}
             onChange={() => fetchSummary()}

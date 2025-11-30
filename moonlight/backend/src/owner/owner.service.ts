@@ -10,9 +10,12 @@ import { ExecutionModeDTO } from '../shared/dto/execution-mode.dto';
 import { ProductExecutionConfigDTO } from '../shared/dto/product-execution-config.dto';
 import { OwnerAccountDTO } from '../shared/dto/owner-account.dto';
 import { OwnerDashboardSummaryDTO, HealthColor } from '../shared/dto/owner-dashboard-summary.dto';
+import { PackStatsDTO, ExecutionHealthDTO } from '../shared/dto/telemetry.dto';
 import { SessionManagerService } from '../broker/session/session-manager.service';
 import { ApprovalQueueService } from '../risk/approval-queue.service';
 import { CircuitBreakerService } from '../risk/fail-safe/circuit-breaker.service';
+import { HardwareProfileService } from '../shared/config/hardware-profile.service';
+import { EnvironmentService } from '../shared/config/environment.service';
 
 @Injectable()
 export class OwnerService {
@@ -28,12 +31,15 @@ export class OwnerService {
     private readonly sessionManager: SessionManagerService,
     private readonly approvalQueueService: ApprovalQueueService,
     private readonly circuitBreakerService: CircuitBreakerService,
+    private readonly hardwareProfileService: HardwareProfileService,
+    private readonly environmentService: EnvironmentService,
   ) {}
 
   async getDashboardSummary(): Promise<OwnerDashboardSummaryDTO> {
     const execMode = await this.getExecutionMode();
-
     const pendingApprovals = await this.approvalQueueService.listPending(100);
+    const hardwareProfile = this.hardwareProfileService.getActiveProfile();
+    const environment = this.environmentService.getEnvironment();
 
     const globalHealthScore = 85;
     const globalHealthColor = HealthColor.GREEN;
@@ -58,7 +64,33 @@ export class OwnerService {
       fail_safe_active: false,
       top_strategies: [],
       top_symbols: [],
+      environment,
+      hardware_profile: hardwareProfile.name,
       generated_at_utc: new Date().toISOString(),
+    };
+  }
+
+  async getPackStats(): Promise<PackStatsDTO> {
+    return {
+      total_trades: 0,
+      selected_by_pack_count: 0,
+      rejected_by_gating_count: 0,
+      avg_selected_ev: null,
+      avg_rejected_ev: null,
+      last_updated_utc: new Date().toISOString(),
+    };
+  }
+
+  async getExecutionHealth(): Promise<ExecutionHealthDTO> {
+    return {
+      last_hour_trades: 0,
+      last_day_trades: 0,
+      win_rate_last_hour: null,
+      win_rate_last_day: null,
+      blocked_by_risk_count_last_day: 0,
+      blocked_by_ev_count_last_day: 0,
+      blocked_by_hw_profile_last_day: 0,
+      last_updated_utc: new Date().toISOString(),
     };
   }
 

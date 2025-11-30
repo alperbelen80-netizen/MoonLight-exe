@@ -1,0 +1,20 @@
+profiles:
+  SAFE:
+    maxConcurrentTrades: 2
+    maxConcurrentBacktests: 1
+    maxQueueConcurrency:
+      execution: 2
+      backtest: 1
+  BALANCED:
+    maxConcurrentTrades: 5
+    maxConcurrentBacktests: 3
+    maxQueueConcurrency:
+      execution: 4
+      backtest: 3
+  MAXPOWER:
+    maxConcurrentTrades: 15
+    maxConcurrentBacktests: 8
+    maxQueueConcurrency:
+      execution: 8
+      backtest: 6
+defaultProfile: SAFE
