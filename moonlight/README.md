@@ -1,67 +1,124 @@
-# MoonLight Trading OS v1.1
+# MoonLight Trading OS v1.3
 
-**Kurumsal Trading Otomasyon Platformu — Owner Console & Backtest Engine**
-
----
-
-## What's New in v1.1
-
-**✅ EVVetoSlot Engine (P60):**
-- Intelligent slot selection based on EV, payout, and reliability
-- Automatic expiry optimization (1m/5m/15m/30m/60m)
-- Veto mechanism for low-quality signals
-
-**✅ PackFactory & Gating (P67, P70):**
-- Strategy packs with ensemble scoring
-- Single-expert selection (gating) from multiple signals
-- Noise reduction in multi-strategy scenarios
-
-**✅ Data Health Dashboard (P34, P35):**
-- Real-time data quality monitoring
-- Coverage & gap tracking per symbol/TF
-- Quality grades (A/B/C/REJECTED)
-- Owner Console integration
-
-**✅ Enhanced Testing:**
-- EVVetoSlot unit tests
-- PackFactory & Gating unit tests
-- Extended smoke test coverage
+**Enterprise-Grade Algorithmic Trading Platform — Desktop Application**
 
 ---
 
-## Overview
+## 📢 Deployment Strategy
 
-MoonLight, Fixed-Time (binary/turbo) trading stratejileri için geliştirilmiş, kurumsal seviyede bir otomasyon ve risk yönetim platformudur. Sistem iki ana bileşenden oluşur:
+**MoonLight v1.3 is a desktop-only application.**
 
-- **Backend Engine (Node.js + NestJS):** Execution pipeline, risk management, backtest engine, strategy factory, data processing, EVVetoSlot, PackFactory.
-- **Owner Desktop Console (Electron + React):** Canlı kontrol paneli, risk yönetimi, execution mode kontrolü, alert & approval yönetimi, data health monitoring.
+### Official Deployment Target
 
-**Temel Özellikler:**
-- 60+ strateji desteği (scalping, mean revert, trend follow)
-- **EVVetoSlot Engine:** Intelligent slot selection & EV optimization
-- **PackFactory:** Strategy ensemble & weighted scoring
-- **Gating:** Single-expert selection from multi-strategy signals
-- Triple-Check risk katmanı (U1/U2/U3 uncertainty scoring)
-- M3 Defensive mechanism (AUTO/GUARD/ANALYSIS modes)
-- Circuit Breaker & Fail-Safe (DayCap, loss streak, WR degradation)
-- Backtest engine (historical data → strategies → PnL calculation)
-- Advanced reporting (Sharpe, Profit Factor, equity curve, CSV/XLSX export)
-- **Data Health Dashboard:** Real-time quality monitoring
-- Owner Console (execution mode control, kill-switch, product matrix, alerts, approval queue, data health)
+- **Platform:** Windows 10/11 (64-bit)
+- **Architecture:** Local backend + Electron desktop client
+- **Backend Services:** Node.js + NestJS (runs locally)
+- **Database:** SQLite (local file)
+- **Queue:** Redis (local instance)
+- **Client:** Electron desktop app
+
+### Why Not Kubernetes/Cloud?
+
+MoonLight's current architecture is optimized for desktop deployment:
+
+1. **Electron Desktop UI:** Built for Windows/Mac native experience, not web browsers
+2. **SQLite Database:** File-based database designed for single-user, local access
+3. **Redis Job Queues:** Requires external Redis instance (not provided by typical web platforms)
+4. **Low-Latency Requirements:** Trading algorithms benefit from local execution (no network hops)
+5. **Data Privacy:** All data stays on owner's machine (no cloud storage)
+
+### Future Roadmap (Hybrid Architecture)
+
+**Option 3 - Remote Backend + Local Client** is a possible v2.0+ direction:
+
+**Phase 1:** Database migration (SQLite → MongoDB cluster)
+**Phase 2:** Queue refactor (Redis → managed message queue or external Redis cluster)
+**Phase 3:** API hardening (authentication, multi-user support)
+**Phase 4:** Deploy backend to Kubernetes, keep Electron as local control panel
+
+**Estimated effort:** 8-12 weeks
+
+**Benefits:**
+- Centralized data & backtests
+- Multi-device access to Owner Console
+- Scalable strategy execution
+
+**Trade-offs:**
+- Increased latency (network roundtrip)
+- Dependency on cloud infrastructure
+- More complex deployment & security
+
+For now, **desktop-only is the supported and recommended deployment mode**.
+
+---
+
+## What's New in v1.3
+
+**✅ Backtest Console:**
+- Complete backtest run history
+- Advanced filtering (symbol, TF, strategy, environment, hardware profile, date range, WR, PnL, tags)
+- Tags & notes for organization
+- Favorite marking
+- Direct links to advanced reports & Excel export
+
+**✅ PNL History & Timeline:**
+- Daily PnL tracking (7d/30d/90d)
+- LIVE vs SANDBOX comparison
+- Blocked trade metrics (by risk, EV, hardware profile)
+- Visual timeline chart
+
+**✅ Enhanced Owner Dashboard:**
+- Environment badge (LIVE/SANDBOX)
+- Hardware profile indicator (SAFE/BALANCED/MAXPOWER)
+- Pack/Gating telemetry preview
+- Execution health metrics
+
+---
+
+## Quick Start
+
+### For Developers
+
+See **[WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md)** for detailed setup instructions.
+
+```bash
+# 1. Install dependencies
+yarn install
+
+# 2. Configure environment
+copy backend\.env.example backend\.env
+copy desktop\.env.example desktop\.env
+
+# 3. Start development servers
+yarn dev
+
+# Backend: http://localhost:8001
+# Desktop: http://localhost:5173
+```
+
+### For End Users (Owner)
+
+See **[QUICKSTART_OWNER.md](docs/QUICKSTART_OWNER.md)** for operational guide.
+
+1. Install **MoonLight-Owner-Console-Setup-1.3.0.exe**
+2. Ensure Redis is running
+3. Launch MoonLight from Start Menu
+4. Configure broker accounts (FakeBroker for testing)
+5. Set execution mode (OFF → AUTO → GUARD as you gain confidence)
 
 ---
 
 ## Architecture
 
-**Backend:**
+**Backend (NestJS):**
 - Runtime: Node.js 20
 - Framework: NestJS 10
-- Database: SQLite (trade logs, config)
+- Database: SQLite (trade logs, config, backtest results)
 - Time-series: Parquet (OHLCV data)
 - Queue: Redis + Bull
 - Language: TypeScript (strict mode)
 
-**Desktop:**
+**Desktop (Electron + React):**
 - Framework: Electron 28
 - UI: React 18 + TypeScript
 - Styling: TailwindCSS
@@ -70,201 +127,95 @@ MoonLight, Fixed-Time (binary/turbo) trading stratejileri için geliştirilmiş,
 
 ---
 
-## Requirements
+## Core Features
 
-- **Node.js:** 20.x LTS
-- **Package Manager:** Yarn 1.22+
-- **Redis:** 7.x (for job queues)
-- **OS:** Windows 10/11 (Owner Console), Linux/macOS (backend development)
+**Trading Engine:**
+- 60+ pre-built strategies (scalping, mean revert, trend follow)
+- EVVetoSlot Engine: Intelligent expiry slot selection
+- PackFactory: Strategy ensemble & weighted scoring
+- Gating: Single-expert selection from multi-strategy signals
 
----
+**Risk Management:**
+- Triple-Check risk layer (U1/U2/U3 uncertainty scoring)
+- M3 Defensive mechanism (AUTO/GUARD/ANALYSIS modes)
+- Circuit Breaker (L1/L2/L3) & Fail-Safe
+- DayCap, loss streak, exposure limits
 
-## Development Setup
+**Backtest & Analysis:**
+- Historical data backtesting
+- Advanced metrics (Sharpe, Profit Factor, expectancy)
+- Equity curve visualization
+- CSV/XLSX export
+- Backtest Console (v1.3)
 
-### 1. Clone & Install
-
-```bash
-git clone <repository-url>
-cd moonlight
-yarn install
-```
-
-### 2. Configure Environment
-
-```bash
-cp backend/.env.example backend/.env
-cp desktop/.env.example desktop/.env
-```
-
-Edit `backend/.env` if needed (default ports: backend=8001, redis=6379).
-
-### 3. Start Development Servers
-
-```bash
-yarn dev
-```
-
-This starts:
-- **Backend:** http://localhost:8001
-- **Desktop:** http://localhost:5173 (Vite dev server)
-
-Alternatively (PowerShell on Windows):
-
-```powershell
-.\scripts\start-dev.ps1
-```
-
----
-
-## Production Build
-
-### Backend Build
-
-```bash
-yarn build:backend
-```
-
-Output: `backend/dist/`
-
-### Desktop Installer (Windows)
-
-```bash
-yarn package:desktop
-```
-
-Output: `desktop/dist/MoonLight-Owner-Console-Setup-1.1.0.exe`
+**Owner Console:**
+- Real-time dashboard
+- Execution mode control
+- Kill-switch (emergency stop)
+- Product execution matrix
+- Alert & health monitoring
+- Approval queue (GUARD mode)
+- Data quality dashboard
+- **Backtest history & filtering (v1.3)**
+- **PNL timeline (v1.3)**
 
 ---
 
 ## Testing
 
-### Backend Unit Tests
+### Run All Tests
 
 ```bash
 cd backend
 yarn test
 ```
 
-**Coverage:** 23+ test suites, 90+ tests
+**Coverage:** 25+ test suites, 96+ tests
 
 ### Smoke Test
 
 ```bash
 yarn smoke
-```
 
-Or (PowerShell):
-
-```powershell
+# Or
 .\scripts\run-smoke.ps1
 ```
 
-Checks:
-- Backend health (GET /owner/dashboard/summary)
-- API contracts (accounts, execution-matrix, alerts, **data/health/matrix**)
-- EVVetoSlot & PackFactory endpoints
+**Checks:**
+- Backend health
+- Owner API
+- Backtest runs API
+- PNL history API
+- Data health matrix
+- Alerts API
 
 ---
 
-## Basic Workflow
+## Production Build
 
-### Step 1: Start System
+### Backend
 
 ```bash
-yarn dev
+cd backend
+yarn build
 ```
 
-### Step 2: Open Owner Console
+Output: `backend/dist/`
 
-Navigate to http://localhost:5173 (dev) or launch Electron app (production).
+### Desktop Installer
 
-### Step 3: Check Dashboard
+```bash
+cd desktop
+yarn dist
+```
 
-- View global health score
-- See daily PnL and win rate
-- Monitor execution mode (OFF/AUTO/GUARD/ANALYSIS)
-- **NEW:** View data health summary
+Output: `desktop/dist/MoonLight-Owner-Console-Setup-1.3.0.exe`
 
-### Step 4: Monitor Data Health
+Or from root:
 
-Go to **Data Health** page:
-- See coverage % and gap % per symbol/TF
-- Quality grades (A/B/C/REJECTED)
-- Identify data quality issues
-
-### Step 5: Configure Accounts
-
-Go to **Accounts** page:
-- View broker accounts
-- Check session health (UP/DEGRADED/COOLDOWN)
-- Add new account (FakeBroker for testing)
-
-### Step 6: Control Execution Matrix
-
-Go to **Execution Matrix** page:
-- Toggle data capture per product/TF
-- Toggle signal generation
-- Toggle auto-trade execution
-
-### Step 7: Monitor Alerts
-
-Go to **Alerts** page:
-- Filter by severity (CRITICAL/WARNING/INFO)
-- ACK or RESOLVE alerts
-- Review circuit breaker and fail-safe events
-
-### Step 8: Manage Approvals (GUARD mode)
-
-If execution mode = GUARD:
-- Dashboard shows pending approvals
-- Approve or reject trades manually
-
-### Step 9: Kill-Switch (Emergency Stop)
-
-If needed:
-- Click **Activate Kill-Switch** button
-- All automatic trading stops (Circuit Breaker L3 GLOBAL)
-- Deactivate when safe to resume
-
----
-
-## Key Endpoints (Backend)
-
-### Owner API
-- `GET /owner/dashboard/summary` - Dashboard metrics
-- `GET /owner/accounts` - Broker accounts
-- `GET /owner/execution-matrix` - Product/TF config
-- `GET /owner/execution-mode` - Global mode
-- `POST /owner/execution-mode` - Change mode
-
-### Risk API
-- `POST /risk/kill-switch/activate` - Emergency stop
-- `POST /risk/kill-switch/deactivate` - Resume
-- `GET /risk/approval/pending` - Approval queue
-- `POST /risk/approval/:id/approve` - Approve trade
-
-### Alerts API
-- `GET /alerts` - List alerts
-- `POST /alerts/:id/ack` - Acknowledge
-- `POST /alerts/:id/resolve` - Resolve
-
-### **Data API (NEW in v1.1)**
-- `GET /data/health/matrix` - Data quality matrix
-
-### Backtest API
-- `POST /backtest/run` - Start backtest
-- `GET /backtest/status/:runId` - Check status
-- `GET /reporting/backtest/:runId/advanced` - Advanced metrics
-- `GET /reporting/backtest/:runId/export/xlsx` - Excel export
-
----
-
-## Limitations (v1.1)
-
-- **Broker Support:** FakeBroker only (real broker adapters in development)
-- **Multi-Tenant:** Single owner scenario
-- **Data Sources:** Manual Parquet import + Auto-Inspector (TradingView webhook in development)
-- **Production Deployment:** Desktop app only (cloud deployment roadmap)
+```bash
+yarn package:desktop
+```
 
 ---
 
@@ -272,49 +223,134 @@ If needed:
 
 ```
 moonlight/
-├── backend/          # NestJS backend
+├── backend/              # NestJS backend
 │   ├── src/
-│   │   ├── execution/  # Execution pipeline
-│   │   ├── risk/       # Risk, ART, Triple-Check, Circuit Breaker
-│   │   ├── strategy/   # Strategy factory, indicators, EVVetoSlot, PackFactory, Gating
-│   │   ├── backtest/   # Backtest engine
-│   │   ├── data/       # Data capture, resample, Auto-Inspector
-│   │   ├── broker/     # Broker adapters
-│   │   ├── owner/      # Owner API
-│   │   └── alerts/     # Alerts module
+│   │   ├── execution/      # Execution pipeline, FSM, reconciliation
+│   │   ├── risk/           # ART, Triple-Check, Circuit Breaker, Fail-Safe
+│   │   ├── strategy/       # Strategy factory, indicators, EVVetoSlot, PackFactory, Gating
+│   │   ├── backtest/       # Backtest engine, replay runner
+│   │   ├── data/           # Data capture, resample, Auto-Inspector
+│   │   ├── broker/         # Broker adapters (FakeBroker)
+│   │   ├── owner/          # Owner API, dashboard, history
+│   │   ├── alerts/         # Alerts module
+│   │   └── reporting/      # Advanced reporting, Excel export
 │   └── tests/
-├── desktop/         # Electron + React
-│   ├── main/        # Electron main process
-│   └── renderer/    # React UI
+├── desktop/             # Electron + React
+│   ├── main/            # Electron main process
+│   └── renderer/        # React UI
 │       ├── src/
-│       │   ├── routes/      # Pages (Dashboard, Accounts, Matrix, Alerts, Data Health)
-│       │   ├── components/  # UI components
-│       │   ├── store/       # Zustand stores
-│       │   └── services/    # API clients
-├── data/            # Data storage (SQLite, Parquet)
-├── docs/            # Documentation
-├── scripts/         # PowerShell helpers
-└── .github/workflows/  # CI/CD
+│       │   ├── pages/      # Dashboard, Accounts, Matrix, Alerts, Data Health, Backtests
+│       │   ├── components/ # UI components
+│       │   ├── stores/     # Zustand stores
+│       │   └── api/        # API clients
+├── data/                # Data storage
+│   ├── db/              # SQLite database
+│   ├── raw/             # Raw Parquet data
+│   ├── bars/            # Resampled bars
+│   ├── sim/             # Simulation results
+│   └── reports/         # Generated reports
+├── docs/                # Documentation
+├── scripts/             # Helper scripts
+└── .github/workflows/   # CI/CD (for reference)
 ```
+
+---
+
+## Known Limitations (v1.3)
+
+**Broker Support:**
+- ⚠️ FakeBroker only (simulated trading)
+- Real broker adapters (IQ Option, Olymp Trade, Binomo, Expert Option) planned for v2.0 (QUAD-CORE)
+
+**Multi-User:**
+- Single owner scenario
+- No user authentication/authorization
+
+**Data Sources:**
+- Manual Parquet import
+- TradingView webhook integration planned but not active
+
+**Deployment:**
+- Desktop-only (no cloud/Kubernetes deployment)
+- Requires local Redis instance
+
+**Performance:**
+- SQLite suitable for single-user workloads
+- For high-frequency scenarios, database optimization may be needed
+
+---
+
+## API Endpoints (v1.3)
+
+### Owner API
+- `GET /owner/dashboard/summary` - Dashboard metrics
+- `GET /owner/accounts` - Broker accounts
+- `GET /owner/execution-matrix` - Product/TF config
+- `GET /owner/execution-mode` - Global mode
+- `POST /owner/execution-mode` - Change mode
+- `GET /owner/history/pnl` - PNL timeline (NEW)
+
+### Backtest API
+- `POST /backtest/run` - Start backtest
+- `GET /backtest/runs` - List with filters (NEW)
+- `GET /backtest/runs/:id` - Run details (NEW)
+- `POST /backtest/runs/:id/tags` - Update tags (NEW)
+- `POST /backtest/runs/:id/notes` - Update notes (NEW)
+- `POST /backtest/runs/:id/favorite` - Toggle favorite (NEW)
+- `GET /backtest/status/:runId` - Check status
+- `GET /backtest/detail/:runId` - Detailed results
+
+### Reporting API
+- `GET /reporting/backtest/:runId/advanced` - Advanced metrics
+- `GET /reporting/backtest/:runId/export/csv` - CSV export
+- `GET /reporting/backtest/:runId/export/xlsx` - Excel export
+
+### Risk API
+- `POST /risk/kill-switch/activate` - Emergency stop
+- `POST /risk/kill-switch/deactivate` - Resume
+- `GET /risk/approval/pending` - Approval queue
+
+### Alerts API
+- `GET /alerts` - List alerts
+- `POST /alerts/:id/ack` - Acknowledge
+- `POST /alerts/:id/resolve` - Resolve
+
+### Data API
+- `GET /data/health/matrix` - Data quality matrix
 
 ---
 
 ## Documentation
 
+- **[WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md)** - Windows installation & setup guide
 - **[QUICKSTART_OWNER.md](docs/QUICKSTART_OWNER.md)** - Owner operational guide
-- **[MASTER_BLUEPRINT.md](docs/MASTER_BLUEPRINT.md)** - Architecture deep dive (16 belgeden türetilmiş)
-- **[API_CONTRACTS.md](docs/API_CONTRACTS.md)** - REST API documentation
+- **[MASTER_BLUEPRINT.md](docs/MASTER_BLUEPRINT.md)** - Architecture deep dive (16 documents)
 
 ---
 
-## Contributing
+## Version History
 
-MoonLight is a proprietary system. For internal development:
+**v1.3 (Current)** - Backtest Console & PNL History
+- Backtest run management & filtering
+- Tags, notes, favorites
+- Daily PNL timeline
+- LIVE vs SANDBOX tracking
 
-1. Create feature branch from `develop`
-2. Run tests: `yarn test`
-3. Run smoke test: `yarn smoke`
-4. Submit PR to `develop`
+**v1.2** - Hardware Profiles & Telemetry
+- SAFE/BALANCED/MAXPOWER profiles
+- Environment service (LIVE/SANDBOX)
+- Pack/Gating telemetry
+
+**v1.1** - EVVetoSlot & Data Health
+- Intelligent slot selection
+- PackFactory & Gating
+- Data quality dashboard
+
+**v1.0** - Core Platform
+- Execution pipeline
+- Risk management (Triple-Check, M3, Circuit Breaker)
+- Backtest engine
+- Owner Console (Dashboard, Accounts, Matrix, Alerts)
 
 ---
 

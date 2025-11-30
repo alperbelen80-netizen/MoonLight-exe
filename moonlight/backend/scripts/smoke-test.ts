@@ -77,17 +77,21 @@ async function testEndpoint(
 }
 
 async function runSmokeTests() {
-  console.log('\n=== MoonLight Smoke Test v1.1 ===\n');
+  console.log('\n=== MoonLight Smoke Test v1.3 ===\n');
 
   await testEndpoint('/owner/dashboard/summary', [
     'global_health_score',
     'execution_mode',
+    'environment',
+    'hardware_profile',
   ]);
   await testEndpoint('/owner/accounts');
   await testEndpoint('/owner/execution-matrix');
   await testEndpoint('/alerts');
   await testEndpoint('/owner/execution-mode', ['mode']);
   await testEndpoint('/data/health/matrix', ['items']);
+  await testEndpoint('/backtest/runs?page=1&pageSize=1', ['items', 'total']);
+  await testEndpoint('/owner/history/pnl?range=7d', ['points', 'range']);
 
   console.log('\nResults:\n');
 
@@ -103,10 +107,13 @@ async function runSmokeTests() {
   });
 
   if (allSuccess) {
-    console.log('\n✅ MOONLIGHT_SMOKE_TEST: OK\n');
+    console.log('\n✅ MOONLIGHT_SMOKE_TEST v1.3: OK\n');
+    console.log('All critical endpoints responding correctly.');
+    console.log('Backend is healthy and ready for Owner Console.\n');
     process.exit(0);
   } else {
-    console.log('\n❌ MOONLIGHT_SMOKE_TEST: FAILED\n');
+    console.log('\n❌ MOONLIGHT_SMOKE_TEST v1.3: FAILED\n');
+    console.log('Some endpoints not responding. Check backend logs.\n');
     process.exit(1);
   }
 }
