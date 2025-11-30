@@ -115,3 +115,7 @@ moonlight_v1_3.zip
 *.env
 *.env.*
 moonlight-v1.5.zip
+-e 
+# Environment files
+*.env
+*.env.*
