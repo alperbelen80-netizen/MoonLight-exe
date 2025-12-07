@@ -45,20 +45,37 @@ export class IndicatorService {
     }
 
     const closes = bars.map((b) => b.close);
-    let gains = 0;
-    let losses = 0;
+    const changes: number[] = [];
 
-    for (let i = closes.length - period; i < closes.length; i++) {
-      const change = closes[i] - closes[i - 1];
-      if (change > 0) {
-        gains += change;
+    for (let i = 1; i < closes.length; i++) {
+      changes.push(closes[i] - closes[i - 1]);
+    }
+
+    if (changes.length < period) {
+      return null;
+    }
+
+    let avgGain = 0;
+    let avgLoss = 0;
+
+    for (let i = 0; i < period; i++) {
+      if (changes[i] > 0) {
+        avgGain += changes[i];
       } else {
-        losses += Math.abs(change);
+        avgLoss += Math.abs(changes[i]);
       }
     }
 
-    const avgGain = gains / period;
-    const avgLoss = losses / period;
+    avgGain /= period;
+    avgLoss /= period;
+
+    for (let i = period; i < changes.length; i++) {
+      const gain = changes[i] > 0 ? changes[i] : 0;
+      const loss = changes[i] < 0 ? Math.abs(changes[i]) : 0;
+
+      avgGain = (avgGain * (period - 1) + gain) / period;
+      avgLoss = (avgLoss * (period - 1) + loss) / period;
+    }
 
     if (avgLoss === 0) {
       return { value: 100 };
@@ -80,17 +97,33 @@ export class IndicatorService {
       return null;
     }
 
-    const fastEma = this.calculateEMA(bars, fastPeriod);
-    const slowEma = this.calculateEMA(bars, slowPeriod);
+    const closes = bars.map((b) => b.close);
+    const fastEmaValues = this.calculateEMASequence(closes, fastPeriod);
+    const slowEmaValues = this.calculateEMASequence(closes, slowPeriod);
 
-    if (!fastEma || !slowEma) {
+    if (fastEmaValues.length === 0 || slowEmaValues.length === 0) {
       return null;
     }
 
-    const macd = fastEma.value - slowEma.value;
+    const macdLine: number[] = [];
+    const minLength = Math.min(fastEmaValues.length, slowEmaValues.length);
 
-    const macdLine = Array.from({ length: signalPeriod }, (_, i) => macd);
-    const signal = macdLine.reduce((sum, v) => sum + v, 0) / signalPeriod;
+    for (let i = 0; i < minLength; i++) {
+      macdLine.push(fastEmaValues[i] - slowEmaValues[i]);
+    }
+
+    if (macdLine.length < signalPeriod) {
+      return null;
+    }
+
+    const signalEma = this.calculateEMASequence(macdLine, signalPeriod);
+
+    if (signalEma.length === 0) {
+      return null;
+    }
+
+    const macd = macdLine[macdLine.length - 1];
+    const signal = signalEma[signalEma.length - 1];
     const histogram = macd - signal;
 
     return {
@@ -100,37 +133,98 @@ export class IndicatorService {
     };
   }
 
+  private calculateEMASequence(values: number[], period: number): number[] {
+    if (values.length < period) {
+      return [];
+    }
+
+    const k = 2 / (period + 1);
+    const emaValues: number[] = [];
+
+    let ema = values.slice(0, period).reduce((sum, v) => sum + v, 0) / period;
+    emaValues.push(ema);
+
+    for (let i = period; i < values.length; i++) {
+      ema = values[i] * k + ema * (1 - k);
+      emaValues.push(ema);
+    }
+
+    return emaValues;
+  }
+
   calculateADX(bars: OhlcvBarDTO[], period: number): AdxResult | null {
-    if (bars.length < period + 1) {
+    if (bars.length < period * 2) {
       return null;
     }
 
-    let trSum = 0;
-    let dmPlusSum = 0;
-    let dmMinusSum = 0;
+    const trValues: number[] = [];
+    const dmPlusValues: number[] = [];
+    const dmMinusValues: number[] = [];
 
-    for (let i = bars.length - period; i < bars.length; i++) {
+    for (let i = 1; i < bars.length; i++) {
       const high = bars[i].high;
       const low = bars[i].low;
-      const prevClose = i > 0 ? bars[i - 1].close : bars[i].close;
+      const prevHigh = bars[i - 1].high;
+      const prevLow = bars[i - 1].low;
+      const prevClose = bars[i - 1].close;
 
-      const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
-      trSum += tr;
+      const tr = Math.max(
+        high - low,
+        Math.abs(high - prevClose),
+        Math.abs(low - prevClose),
+      );
+      trValues.push(tr);
 
-      if (i > 0) {
-        const dmPlus = Math.max(high - bars[i - 1].high, 0);
-        const dmMinus = Math.max(bars[i - 1].low - low, 0);
-        dmPlusSum += dmPlus;
-        dmMinusSum += dmMinus;
+      const highDiff = high - prevHigh;
+      const lowDiff = prevLow - low;
+
+      let dmPlus = 0;
+      let dmMinus = 0;
+
+      if (highDiff > lowDiff && highDiff > 0) {
+        dmPlus = highDiff;
       }
+      if (lowDiff > highDiff && lowDiff > 0) {
+        dmMinus = lowDiff;
+      }
+
+      dmPlusValues.push(dmPlus);
+      dmMinusValues.push(dmMinus);
     }
 
-    const atr = trSum / period;
-    const diPlus = (dmPlusSum / period / atr) * 100;
-    const diMinus = (dmMinusSum / period / atr) * 100;
+    if (trValues.length < period) {
+      return null;
+    }
 
-    const dx = Math.abs(diPlus - diMinus) / (diPlus + diMinus) * 100;
-    const adx = dx;
+    let atr = trValues.slice(0, period).reduce((sum, v) => sum + v, 0) / period;
+    let smoothDmPlus = dmPlusValues.slice(0, period).reduce((sum, v) => sum + v, 0) / period;
+    let smoothDmMinus = dmMinusValues.slice(0, period).reduce((sum, v) => sum + v, 0) / period;
+
+    const dxValues: number[] = [];
+
+    for (let i = period; i < trValues.length; i++) {
+      atr = (atr * (period - 1) + trValues[i]) / period;
+      smoothDmPlus = (smoothDmPlus * (period - 1) + dmPlusValues[i]) / period;
+      smoothDmMinus = (smoothDmMinus * (period - 1) + dmMinusValues[i]) / period;
+
+      const diPlus = atr !== 0 ? (smoothDmPlus / atr) * 100 : 0;
+      const diMinus = atr !== 0 ? (smoothDmMinus / atr) * 100 : 0;
+
+      const diSum = diPlus + diMinus;
+      const dx = diSum !== 0 ? (Math.abs(diPlus - diMinus) / diSum) * 100 : 0;
+
+      dxValues.push(dx);
+    }
+
+    if (dxValues.length < period) {
+      return null;
+    }
+
+    let adx = dxValues.slice(0, period).reduce((sum, v) => sum + v, 0) / period;
+
+    for (let i = period; i < dxValues.length; i++) {
+      adx = (adx * (period - 1) + dxValues[i]) / period;
+    }
 
     return { adx };
   }

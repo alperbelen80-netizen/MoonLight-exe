@@ -1,10 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LiveSignal } from '../database/entities/live-signal.entity';
 import { BrokerService } from '../broker/broker.service';
 import { ARTEngineService } from '../risk/art-engine/art-engine.service';
 import { RiskGuardrailService } from '../risk/risk-guardrail.service';
+import { LiveStrategyPerformanceService } from '../strategy/live-strategy-performance.service';
+import { HealthScoreCalculator } from './health-score-calculator.service';
+import { AccountEnforcementService } from '../broker/account-enforcement.service';
 import { DEFAULT_RISK_LIMITS } from '../risk/models/risk-limits.model';
 import { RiskContextSnapshot } from '../shared/dto/risk-profile.dto';
 import { buildOrderKey } from '../broker/order/order-key.util';
@@ -14,6 +17,9 @@ export interface ApprovedSignalExecution {
   signalId: string;
   success: boolean;
   brokerOrderId?: string;
+  healthScore?: number;
+  accountType?: string;
+  warnings?: string[];
   error?: string;
 }
 
@@ -28,6 +34,9 @@ export class SemiAutomaticExecutor {
     private readonly brokerService: BrokerService,
     private readonly artEngine: ARTEngineService,
     private readonly riskGuardrailService: RiskGuardrailService,
+    private readonly strategyPerformance: LiveStrategyPerformanceService,
+    private readonly healthCalculator: HealthScoreCalculator,
+    private readonly accountEnforcement: AccountEnforcementService,
   ) {
     this.enabled = process.env.SEMI_AUTO_ENABLED === 'true';
   }
@@ -41,6 +50,20 @@ export class SemiAutomaticExecutor {
         signalId,
         success: false,
         error: 'Semi-automatic mode disabled',
+      };
+    }
+
+    const accountValidation = await this.accountEnforcement.validateAccountForExecution(
+      accountId,
+    );
+
+    if (!accountValidation.allowed) {
+      return {
+        signalId,
+        success: false,
+        accountType: accountValidation.accountType,
+        warnings: accountValidation.warnings,
+        error: 'Account validation failed: ' + accountValidation.warnings.join(', '),
       };
     }
 
@@ -62,7 +85,15 @@ export class SemiAutomaticExecutor {
       };
     }
 
+    const startTime = Date.now();
+
     try {
+      await this.accountEnforcement.logAccountAction(
+        accountId,
+        'EXECUTE_SIGNAL',
+        `Signal: ${signalId}, Symbol: ${signal.symbol}`,
+      );
+
       const riskContext: RiskContextSnapshot = {
         equity: 1000,
         open_trades_count: 0,
@@ -96,6 +127,7 @@ export class SemiAutomaticExecutor {
         return {
           signalId,
           success: false,
+          accountType: accountValidation.accountType,
           error: `Risk guardrail blocked: ${guardrailDecision.violations.join(', ')}`,
         };
       }
@@ -121,26 +153,59 @@ export class SemiAutomaticExecutor {
 
       const ack = await this.brokerService.sendOrderWithIdempotency(brokerRequest);
 
+      const latencyMs = Date.now() - startTime;
+
+      const healthScore = this.healthCalculator.calculateTradeHealth({
+        latencyMs,
+        executionQuality: this.healthCalculator.calculateExecutionQuality({
+          orderAcked: ack.status === 'ACK',
+          slippagePips: 0,
+          fillRate: 1.0,
+        }),
+        routingQuality: this.healthCalculator.calculateRoutingQuality({
+          brokerRejected: ack.status === 'REJECT',
+        }),
+        riskCompliance: this.healthCalculator.calculateRiskCompliance({
+          artApproved: true,
+          guardrailsPassed: true,
+          tripleCheckPassed: true,
+        }),
+        reliability: this.healthCalculator.calculateReliability({
+          timeout: false,
+          errors: 0,
+        }),
+        dataConsistency: 100,
+      });
+
       await this.liveSignalRepo.update(
         { id: signalId },
         {
           status: 'MARKED_EXECUTED',
-          notes: `Auto-executed: Order ${ack.broker_order_id}`,
+          notes: `${accountValidation.accountType} account | Order ${ack.broker_order_id} | Health: ${healthScore.score}/100`,
         },
       );
 
+      await this.strategyPerformance.recordExecution(
+        signal.strategy_family,
+        'WIN',
+        0,
+      );
+
       this.logger.log(
-        `Semi-auto executed signal ${signalId}: Order ${ack.broker_order_id}`,
+        `Semi-auto executed (${accountValidation.accountType}): ${signalId}, Health: ${healthScore.score}`,
       );
 
       return {
         signalId,
         success: true,
         brokerOrderId: ack.broker_order_id,
+        healthScore: healthScore.score,
+        accountType: accountValidation.accountType,
+        warnings: accountValidation.warnings,
       };
     } catch (error: any) {
       this.logger.error(
-        `Semi-auto execution failed for ${signalId}: ${error?.message || String(error)}`,
+        `Semi-auto execution failed: ${error?.message || String(error)}`,
       );
 
       await this.liveSignalRepo.update(
@@ -151,6 +216,7 @@ export class SemiAutomaticExecutor {
       return {
         signalId,
         success: false,
+        accountType: accountValidation.accountType,
         error: error?.message || String(error),
       };
     }

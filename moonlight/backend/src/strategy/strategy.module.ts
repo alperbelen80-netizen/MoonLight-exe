@@ -1,4 +1,5 @@
 import { Module, OnModuleInit } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { StrategyService } from './strategy.service';
 import { StrategyController } from './strategy.controller';
 import { StrategyFactoryService } from './factory/strategy-factory.service';
@@ -7,8 +8,12 @@ import { PresetLoaderService } from './preset/preset-loader.service';
 import { EVVetoSlotEngine } from './evvetoslot/evvetoslot-engine.service';
 import { PackFactoryService } from './pack-factory/pack-factory.service';
 import { GatingService } from './gating/gating.service';
+import { LiveStrategyPerformance } from '../database/entities/live-strategy-performance.entity';
+import { LiveStrategyPerformanceService } from './live-strategy-performance.service';
+import { PayoutMatrixService } from '../broker/payout/payout-matrix.service';
 
 @Module({
+  imports: [TypeOrmModule.forFeature([LiveStrategyPerformance])],
   controllers: [StrategyController],
   providers: [
     StrategyService,
@@ -18,8 +23,16 @@ import { GatingService } from './gating/gating.service';
     EVVetoSlotEngine,
     PackFactoryService,
     GatingService,
+    LiveStrategyPerformanceService,
+    PayoutMatrixService,
   ],
-  exports: [StrategyService, PresetLoaderService, IndicatorService],
+  exports: [
+    StrategyService,
+    PresetLoaderService,
+    IndicatorService,
+    LiveStrategyPerformanceService,
+    PayoutMatrixService,
+  ],
 })
 export class StrategyModule implements OnModuleInit {
   constructor(

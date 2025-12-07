@@ -7,10 +7,13 @@ import { DataFeedOrchestrator } from '../data/sources/data-feed-orchestrator.ser
 import { StrategyService } from '../strategy/strategy.service';
 import { TripleCheckService } from '../risk/triple-check/triple-check.service';
 import { EVVetoSlotEngine } from '../strategy/evvetoslot/evvetoslot-engine.service';
+import { RegimeDetectorService } from '../data/regime-detector.service';
+import { LiveStrategyPerformanceService } from '../strategy/live-strategy-performance.service';
 import { StrategyContext } from '../shared/dto/strategy-context.dto';
 import { OhlcvBarDTO } from '../shared/dto/ohlcv-bar.dto';
 import { Environment } from '../shared/dto/canonical-signal.dto';
 import { Timeframe } from '../shared/enums/timeframe.enum';
+import { MarketRegime } from '../shared/enums/market-regime.enum';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -18,6 +21,7 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(LiveSignalEngine.name);
   private enabled: boolean;
   private candleBuffers: Map<string, OhlcvBarDTO[]> = new Map();
+  private regimeCache: Map<string, { regime: MarketRegime; timestamp: Date }> = new Map();
   private signalCount = 0;
   private lastResetTime = Date.now();
   private maxSignalsPerMinute: number;
@@ -29,6 +33,8 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
     private readonly strategyService: StrategyService,
     private readonly tripleCheckService: TripleCheckService,
     private readonly evvetoSlotEngine: EVVetoSlotEngine,
+    private readonly regimeDetector: RegimeDetectorService,
+    private readonly strategyPerformance: LiveStrategyPerformanceService,
   ) {
     this.enabled = process.env.LIVE_SIGNAL_ENABLED === 'true';
     this.maxSignalsPerMinute = parseInt(
@@ -43,7 +49,7 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    this.logger.log('Live Signal Engine STARTING with MULTI-PROVIDER support');
+    this.logger.log('Live Signal Engine STARTING with REGIME DETECTION');
 
     const symbols = (process.env.LIVE_SIGNAL_SYMBOLS || 'XAUUSD,EURUSD').split(',');
     const timeframes = (process.env.LIVE_SIGNAL_TIMEFRAMES || '1m,5m').split(',');
@@ -59,7 +65,7 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
     }
 
     this.logger.log(
-      `Live Signal Engine ACTIVE: Provider=${this.dataFeedOrchestrator.getActiveProviderName()}, ${symbols.length} symbols x ${timeframes.length} TFs`,
+      `Live Signal Engine ACTIVE: ${symbols.length} symbols x ${timeframes.length} TFs`,
     );
   }
 
@@ -72,7 +78,6 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
 
   private async handleNewCandle(candle: CandleData): Promise<void> {
     if (!this.checkRateLimit()) {
-      this.logger.warn('Signal rate limit exceeded, skipping candle');
       return;
     }
 
@@ -102,6 +107,19 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
       buffer.shift();
     }
 
+    const regimeResult = this.regimeDetector.detectRegime([...buffer]);
+    this.regimeCache.set(key, {
+      regime: regimeResult.regime,
+      timestamp: regimeResult.timestamp,
+    });
+
+    if (regimeResult.regime === MarketRegime.SHOCK) {
+      this.logger.warn(
+        `SHOCK regime detected for ${key}, skipping signal generation`,
+      );
+      return;
+    }
+
     try {
       const context: StrategyContext = {
         symbol: candle.symbol,
@@ -117,25 +135,43 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
       });
 
       for (const signal of signals) {
+        const strategyCategory =
+          signal.strategy_id?.includes('trend')
+            ? 'trend_follow'
+            : signal.strategy_id?.includes('revert')
+            ? 'mean_revert'
+            : 'scalping';
+
+        const isSuitable = this.regimeDetector.classifyRegimeForStrategy(
+          regimeResult.regime,
+          strategyCategory,
+        );
+
+        if (!isSuitable) {
+          this.logger.log(
+            `Strategy ${signal.strategy_id} not suitable for ${regimeResult.regime}, skipping`,
+          );
+          continue;
+        }
+
         const tripleCheckResult = this.tripleCheckService.evaluate({
           data_quality: { quality_grade: 'A' },
         });
 
         if (tripleCheckResult.level === 'HIGH') {
-          this.logger.log(
-            `Signal rejected by Triple-Check: ${signal.symbol} (uncertainty: HIGH)`,
-          );
           continue;
         }
 
         const slotResult = this.evvetoSlotEngine.selectSlotForSignal(signal);
 
         if (slotResult.decision === 'REJECT') {
-          this.logger.log(
-            `Signal rejected by EVVetoSlot: ${signal.symbol} (${slotResult.reason_codes.join(', ')})`,
-          );
           continue;
         }
+
+        await this.strategyPerformance.recordSignal(
+          signal.strategy_id || signal.source,
+          signal.confidence_score,
+        );
 
         const liveSignal = this.liveSignalRepo.create({
           id: `LIVE_${uuidv4()}`,
@@ -152,6 +188,7 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
           status: 'NEW',
           entry_price: candle.close,
           current_price: candle.close,
+          notes: `Regime: ${regimeResult.regime} (ADX: ${regimeResult.adx.toFixed(1)})`,
         });
 
         await this.liveSignalRepo.save(liveSignal);
@@ -159,13 +196,11 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
         this.signalCount++;
 
         this.logger.log(
-          `NEW LIVE SIGNAL: ${signal.symbol} ${signal.direction} (confidence: ${signal.confidence_score.toFixed(2)}, slot: ${slotResult.selected_expiry_minutes}m)`,
+          `NEW SIGNAL: ${signal.symbol} ${signal.direction} | Regime: ${regimeResult.regime} | ADX: ${regimeResult.adx.toFixed(1)}`,
         );
       }
     } catch (error: any) {
-      this.logger.error(
-        `Error processing candle for ${key}: ${error?.message || String(error)}`,
-      );
+      this.logger.error(`Error processing candle: ${error?.message}`);
     }
   }
 
@@ -179,5 +214,21 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
     }
 
     return this.signalCount < this.maxSignalsPerMinute;
+  }
+
+  getCurrentRegime(symbol: string, timeframe: string): MarketRegime | null {
+    const key = `${symbol}_${timeframe}`;
+    const cached = this.regimeCache.get(key);
+
+    if (!cached) {
+      return null;
+    }
+
+    const age = Date.now() - cached.timestamp.getTime();
+    if (age > 300000) {
+      return null;
+    }
+
+    return cached.regime;
   }
 }

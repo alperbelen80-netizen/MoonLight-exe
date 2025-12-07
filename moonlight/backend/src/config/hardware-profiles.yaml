@@ -2,18 +2,24 @@ profiles:
   SAFE:
     maxConcurrentTrades: 2
     maxConcurrentBacktests: 1
+    riskMultiplier: 0.5
+    stakeMultiplier: 0.8
     maxQueueConcurrency:
       execution: 2
       backtest: 1
   BALANCED:
     maxConcurrentTrades: 5
     maxConcurrentBacktests: 3
+    riskMultiplier: 1.0
+    stakeMultiplier: 1.0
     maxQueueConcurrency:
       execution: 4
       backtest: 3
   MAXPOWER:
     maxConcurrentTrades: 15
     maxConcurrentBacktests: 8
+    riskMultiplier: 1.5
+    stakeMultiplier: 1.2
     maxQueueConcurrency:
       execution: 8
       backtest: 6

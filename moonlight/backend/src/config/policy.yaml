@@ -1,0 +1,129 @@
+# MoonLight Central Policy Configuration
+# Single source of truth for all system policies
+
+version: "1.0"
+last_updated: "2025-01-XX"
+
+risk:
+  global:
+    dayCap:
+      enabled: true
+      maxDailyLossUsd: 500
+      maxDailyLossPct: 0.10
+    
+    guardrails:
+      maxLotPerSymbol: 50
+      maxConcurrentTrades: 5
+      maxExposurePerSymbolPct: 0.30
+      lossStreakLimit: 5
+      cooldownPeriodMinutes: 30
+  
+  profiles:
+    SAFE:
+      minStrategyWR: 0.65
+      minStrategyEV: 0.03
+      minTradeCount: 100
+    
+    BALANCED:
+      minStrategyWR: 0.60
+      minStrategyEV: 0.02
+      minTradeCount: 50
+    
+    AGGRESSIVE:
+      minStrategyWR: 0.55
+      minStrategyEV: 0.015
+      minTradeCount: 30
+
+execution:
+  modes:
+    OFF:
+      description: "No trading, data collection only"
+    
+    AUTO:
+      description: "Full automatic with safety protocols"
+      requiresConfirmation: false
+      maxExecutionsPerDay: 100
+    
+    GUARD:
+      description: "Human approval for high-uncertainty signals"
+      requiresConfirmation: true
+      uncertaintyThreshold: "MEDIUM"
+    
+    ANALYSIS:
+      description: "Dry-run mode, no real execution"
+      requiresConfirmation: false
+
+  circuitBreaker:
+    L1_PRODUCT:
+      triggers:
+        - "DayCap exceeded"
+        - "WR degradation > 10%"
+      action: "Pause product/strategy"
+      cooldownMinutes: 30
+    
+    L2_BROKER:
+      triggers:
+        - "Broker reject rate > 10%"
+        - "Latency p95 > 1000ms"
+      action: "Suspend broker"
+      cooldownMinutes: 60
+    
+    L3_GLOBAL:
+      triggers:
+        - "Manual kill-switch"
+        - "Multiple L1/L2 breakers"
+      action: "Halt all trading"
+      requiresManualReset: true
+
+strategy:
+  signals:
+    maxSignalsPerMinute: 10
+    minEV: 0.02
+    minConfidence: 0.60
+  
+  evvetoSlot:
+    allowedSlotsMinutes: [1, 5, 15, 30, 60, 240]
+    minPayoutRatio: 0.80
+    reliabilityFactor: 0.90
+  
+  tripleCheck:
+    weights:
+      u1_regime: 0.30
+      u2_data_quality: 0.40
+      u3_model_confidence: 0.30
+    
+    thresholds:
+      LOW: 0.33
+      MEDIUM: 0.66
+      HIGH: 1.00
+
+data:
+  capture:
+    enabledTimeframes: ["1s", "3s", "5s", "1m", "5m", "15m"]
+    bufferSize: 100
+  
+  quality:
+    minCoveragePct: 95
+    maxGapPct: 5
+    grades:
+      A: { coveragePct: 99, gapPct: 1 }
+      B: { coveragePct: 95, gapPct: 3 }
+      C: { coveragePct: 90, gapPct: 10 }
+      REJECTED: { coveragePct: 0, gapPct: 100 }
+
+brokers:
+  scoring:
+    weights:
+      latency: 0.35
+      reliability: 0.25
+      payout: 0.30
+      routing: 0.10
+  
+  latency:
+    targetP95Ms: 120
+    maxP95Ms: 1000
+    warningP95Ms: 500
+  
+  availability:
+    minHealthScore: 40
+    minReliabilityPct: 50

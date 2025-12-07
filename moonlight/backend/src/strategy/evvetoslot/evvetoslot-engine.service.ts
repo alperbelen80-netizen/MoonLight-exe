@@ -3,17 +3,19 @@ import { CanonicalSignalDTO } from '../../shared/dto/canonical-signal.dto';
 import {
   SlotSelectionResult,
   SlotDecision,
-  SlotEvaluationContext,
 } from './evvetoslot.types';
-import { DEFAULT_SLOT_CONFIG, MOCK_PAYOUT_MATRIX, SlotConfig } from './evvetoslot.config';
+import { DEFAULT_SLOT_CONFIG, SlotConfig } from './evvetoslot.config';
+import { PayoutMatrixService } from '../../broker/payout/payout-matrix.service';
 
 @Injectable()
 export class EVVetoSlotEngine {
   private readonly logger = new Logger(EVVetoSlotEngine.name);
   private config: SlotConfig = DEFAULT_SLOT_CONFIG;
 
-  selectSlotForSignal(signal: CanonicalSignalDTO): SlotSelectionResult {
-    const { ev, confidence_score } = signal;
+  constructor(private readonly payoutMatrix: PayoutMatrixService) {}
+
+  async selectSlotForSignal(signal: CanonicalSignalDTO): Promise<SlotSelectionResult> {
+    const { ev, confidence_score, symbol } = signal;
 
     if (ev < this.config.min_ev) {
       return {
@@ -42,7 +44,8 @@ export class EVVetoSlotEngine {
     }[] = [];
 
     for (const slotMinutes of this.config.allowed_slots_minutes) {
-      const payoutRatio = MOCK_PAYOUT_MATRIX[slotMinutes] || 0.85;
+      const payoutData = await this.payoutMatrix.getPayoutForSlot(symbol, slotMinutes);
+      const payoutRatio = payoutData?.payout_ratio || 0.85;
 
       if (payoutRatio < this.config.min_payout_ratio) {
         continue;
@@ -72,7 +75,7 @@ export class EVVetoSlotEngine {
     const best = eligibleSlots[0];
 
     this.logger.log(
-      `Selected slot ${best.slot}m for signal ${signal.signal_id}: EV=${best.ev.toFixed(4)}, Payout=${best.payout}`,
+      `Selected slot ${best.slot}m for ${symbol}: EV=${best.ev.toFixed(4)}, Payout=${(best.payout * 100).toFixed(1)}% (source: ${await this.payoutMatrix.getActiveProvider()})`,
     );
 
     return {

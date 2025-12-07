@@ -17,10 +17,12 @@ import { LiveSignalEngine } from './live-signal-engine.service';
 import { LiveSignalService } from './live-signal.service';
 import { LiveSignalController } from './live-signal.controller';
 import { SemiAutomaticExecutor } from './semi-automatic-executor.service';
+import { HealthScoreCalculator } from './health-score-calculator.service';
 import { DataFeedOrchestrator } from '../data/sources/data-feed-orchestrator.service';
 import { RiskModule } from '../risk/risk.module';
 import { BrokerModule } from '../broker/broker.module';
 import { StrategyModule } from '../strategy/strategy.module';
+import { DataModule } from '../data/data.module';
 
 @Module({
   imports: [
@@ -28,6 +30,7 @@ import { StrategyModule } from '../strategy/strategy.module';
     RiskModule,
     BrokerModule,
     StrategyModule,
+    DataModule,
   ],
   controllers: [ExecutionController, ReconciliationController, LiveSignalController],
   providers: [
@@ -43,8 +46,15 @@ import { StrategyModule } from '../strategy/strategy.module';
     LiveSignalEngine,
     LiveSignalService,
     SemiAutomaticExecutor,
+    HealthScoreCalculator,
   ],
-  exports: [ExecutionFSM, ExecutionService, LiveSignalService, DataFeedOrchestrator],
+  exports: [
+    ExecutionFSM,
+    ExecutionService,
+    LiveSignalService,
+    DataFeedOrchestrator,
+    HealthScoreCalculator,
+  ],
 })
 export class ExecutionModule implements OnModuleInit {
   constructor(

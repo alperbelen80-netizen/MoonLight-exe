@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
+import { ScheduleModule } from '@nestjs/schedule';
+import { SharedModule } from './shared/shared.module';
 import { ExecutionModule } from './execution/execution.module';
 import { RiskModule } from './risk/risk.module';
 import { BrokerModule } from './broker/broker.module';
@@ -27,6 +29,8 @@ import { AlertsModule } from './alerts/alerts.module';
         port: parseInt(process.env.REDIS_PORT || '6379', 10),
       },
     }),
+    ScheduleModule.forRoot(),
+    SharedModule,
     ExecutionModule,
     RiskModule,
     BrokerModule,
