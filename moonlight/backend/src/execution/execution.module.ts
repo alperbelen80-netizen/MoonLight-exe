@@ -13,10 +13,12 @@ import { ReconciliationWorker } from './reconciliation/reconciliation.worker';
 import { ReconciliationController } from './reconciliation/reconciliation.controller';
 import { ReconciliationRun } from '../database/entities/reconciliation-run.entity';
 import { LiveSignal } from '../database/entities/live-signal.entity';
+import { ExecutionConfig } from '../database/entities/execution-config.entity';
 import { LiveSignalEngine } from './live-signal-engine.service';
 import { LiveSignalService } from './live-signal.service';
 import { LiveSignalController } from './live-signal.controller';
 import { SemiAutomaticExecutor } from './semi-automatic-executor.service';
+import { FullAutomaticExecutor } from './full-automatic-executor.service';
 import { HealthScoreCalculator } from './health-score-calculator.service';
 import { DataFeedOrchestrator } from '../data/sources/data-feed-orchestrator.service';
 import { RiskModule } from '../risk/risk.module';
@@ -26,7 +28,7 @@ import { DataModule } from '../data/data.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ReconciliationRun, LiveSignal]),
+    TypeOrmModule.forFeature([ReconciliationRun, LiveSignal, ExecutionConfig]),
     RiskModule,
     BrokerModule,
     StrategyModule,
@@ -46,12 +48,15 @@ import { DataModule } from '../data/data.module';
     LiveSignalEngine,
     LiveSignalService,
     SemiAutomaticExecutor,
+    FullAutomaticExecutor,
     HealthScoreCalculator,
   ],
   exports: [
     ExecutionFSM,
     ExecutionService,
     LiveSignalService,
+    SemiAutomaticExecutor,
+    FullAutomaticExecutor,
     DataFeedOrchestrator,
     HealthScoreCalculator,
   ],
