@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { IDataFeedAdapter, CandleData, CandleHandler } from './data-feed.interface';
 import axios from 'axios';
-import * as WebSocket from 'ws';
+import { WebSocket, RawData } from 'ws';
 
 @Injectable()
 export class IQOptionAPIAdapter implements IDataFeedAdapter {
@@ -78,7 +78,7 @@ export class IQOptionAPIAdapter implements IDataFeedAdapter {
         resolve();
       });
 
-      this.ws.on('message', (data: WebSocket.Data) => {
+      this.ws.on('message', (data: RawData) => {
         this.handleMessage(data);
       });
 
@@ -147,7 +147,7 @@ export class IQOptionAPIAdapter implements IDataFeedAdapter {
     this.ws.send(JSON.stringify(unsubscribeMsg));
   }
 
-  private handleMessage(data: WebSocket.Data): void {
+  private handleMessage(data: RawData): void {
     try {
       const message = JSON.parse(data.toString());
 

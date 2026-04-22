@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { DataFeedOrchestrator } from '../../services/data-api';
+import { useEffect, useState } from 'react';
 
 export function SettingsPage() {
   const [providers, setProviders] = useState<any[]>([]);

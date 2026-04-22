@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
-import { BacktestTrade } from '../database/entities/backtest-trade.entity';
-import { PnlHistoryDTO, DailyPnlPoint } from '../shared/dto/pnl-history.dto';
+import { BacktestTrade } from '../../database/entities/backtest-trade.entity';
+import { PnlHistoryDTO, DailyPnlPoint } from '../../shared/dto/pnl-history.dto';
 
 @Injectable()
 export class HistoryService {

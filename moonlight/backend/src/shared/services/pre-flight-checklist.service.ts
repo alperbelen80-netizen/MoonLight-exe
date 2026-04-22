@@ -3,8 +3,8 @@ import { InjectConnection } from '@nestjs/typeorm';
 import { Connection } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { DataFeedOrchestrator } from '../data/sources/data-feed-orchestrator.service';
-import { PolicyLoaderService } from '../config/policy-loader.service';
+import { DataFeedOrchestrator } from '../../data/sources/data-feed-orchestrator.service';
+import { PolicyLoaderService } from '../../config/policy-loader.service';
 
 export interface PreFlightCheckResult {
   passed: boolean;

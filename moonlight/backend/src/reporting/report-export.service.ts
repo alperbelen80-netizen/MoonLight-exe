@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BacktestTrade } from '../../database/entities/backtest-trade.entity';
+import { BacktestTrade } from '../database/entities/backtest-trade.entity';
 import { BacktestReportingService } from './backtest-reporting.service';
 import * as ExcelJS from 'exceljs';
 

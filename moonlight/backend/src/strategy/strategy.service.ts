@@ -97,9 +97,9 @@ export class StrategyService {
     return finalSignals;
   }
 
-  getOptimizedExpiryForSignal(
+  async getOptimizedExpiryForSignal(
     signal: CanonicalSignalDTO,
-  ): SlotSelectionResult {
+  ): Promise<SlotSelectionResult> {
     return this.evvetoSlotEngine.selectSlotForSignal(signal);
   }
 }

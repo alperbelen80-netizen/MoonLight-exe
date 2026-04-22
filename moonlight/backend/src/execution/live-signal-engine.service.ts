@@ -162,7 +162,7 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
           continue;
         }
 
-        const slotResult = this.evvetoSlotEngine.selectSlotForSignal(signal);
+        const slotResult = await this.evvetoSlotEngine.selectSlotForSignal(signal);
 
         if (slotResult.decision === 'REJECT') {
           continue;

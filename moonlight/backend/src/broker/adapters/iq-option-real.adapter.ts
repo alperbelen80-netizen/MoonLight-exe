@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { BrokerAdapterInterface } from './broker-adapter.interface';
 import { BrokerOrderRequestDTO, BrokerOrderAckDTO, BrokerOrderStatus } from '../../shared/dto/broker-order.dto';
 import { BrokerPositionDTO, BrokerPositionStatus } from '../../shared/dto/broker-position.dto';
-import * as WebSocket from 'ws';
+import { WebSocket, RawData } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -119,7 +119,7 @@ export class IQOptionRealAdapter implements BrokerAdapterInterface {
         }, 2000);
       });
 
-      this.ws.on('message', (data: WebSocket.Data) => {
+      this.ws.on('message', (data: RawData) => {
         this.handleMessage(data);
       });
 
@@ -169,7 +169,7 @@ export class IQOptionRealAdapter implements BrokerAdapterInterface {
         resolve({ isSuccessful: false, message: 'Timeout' });
       }, 5000);
 
-      const messageHandler = (data: WebSocket.Data) => {
+      const messageHandler = (data: RawData) => {
         try {
           const response = JSON.parse(data.toString());
 
@@ -187,7 +187,7 @@ export class IQOptionRealAdapter implements BrokerAdapterInterface {
     });
   }
 
-  private handleMessage(data: WebSocket.Data): void {
+  private handleMessage(data: RawData): void {
     try {
       const message = JSON.parse(data.toString());
 

@@ -5,11 +5,13 @@ import * as path from 'path';
 
 export interface SystemPolicy {
   version: string;
+  last_updated?: string;
   risk: any;
   execution: any;
   strategy: any;
   data: any;
   brokers: any;
+  [key: string]: any;
 }
 
 @Injectable()

@@ -1,14 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BacktestRun } from '../../database/entities/backtest-run.entity';
-import { BacktestTrade } from '../../database/entities/backtest-trade.entity';
+import { BacktestRun } from '../database/entities/backtest-run.entity';
+import { BacktestTrade } from '../database/entities/backtest-trade.entity';
 import {
   BacktestAdvancedReportDTO,
   BacktestMetricBreakdownItemDTO,
   EquityPointDTO,
-} from '../../shared/dto/backtest-report.dto';
-import { BacktestRunSummaryDTO } from '../../shared/dto/backtest.dto';
+} from '../shared/dto/backtest-report.dto';
+import { BacktestRunSummaryDTO } from '../shared/dto/backtest.dto';
 
 @Injectable()
 export class BacktestReportingService {
@@ -46,6 +46,9 @@ export class BacktestReportingService {
       win_rate: run.win_rate,
       net_pnl: run.net_pnl,
       max_drawdown: run.max_drawdown,
+      is_favorite: (run as any).is_favorite ?? false,
+      environment: (run as any).environment ?? 'SANDBOX',
+      hardware_profile: (run as any).hardware_profile ?? 'DEFAULT',
       created_at_utc: run.created_at_utc.toISOString(),
       updated_at_utc: run.updated_at_utc.toISOString(),
     };
