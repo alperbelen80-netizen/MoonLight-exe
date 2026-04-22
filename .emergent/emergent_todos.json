@@ -1,42 +1,62 @@
 [
   {
-    "content": "Explore /app/moonlight current state and check git status",
+    "content": "Examine existing 4 broker adapters + interface (baseline)",
     "status": "completed"
   },
   {
-    "content": "Run yarn test to identify all failing tests",
+    "content": "Design unified BrokerAdapterInterface v2 (session, auth, heartbeat, reconnect)",
     "status": "completed"
   },
   {
-    "content": "Fix evvetoslot-engine.spec.ts failures",
+    "content": "Create BaseWSAdapter abstract class (shared WSS logic for IQ/Binomo/ExpertOption)",
     "status": "completed"
   },
   {
-    "content": "Fix backend build errors (paths, WebSocket, DTOs, Promise)",
+    "content": "Create BaseCDPAdapter / lazy-load Playwright for Olymp Trade",
     "status": "completed"
   },
   {
-    "content": "Fix desktop build errors (types.ts missing, vite-env, tsconfig)",
+    "content": "B.2 - Implement IQ Option Real Adapter (full WSS: auth, order, payout cache)",
     "status": "completed"
   },
   {
-    "content": "Verify yarn build passes for backend + desktop",
+    "content": "B.3 - Implement Olymp Trade Adapter (CDP/DOM automation skeleton)",
     "status": "completed"
   },
   {
-    "content": "Run smoke test to ensure system integrity",
+    "content": "B.4 - Implement Binomo Protocol Adapter (WSS)",
     "status": "completed"
   },
   {
-    "content": "Quick scan of 5 newly uploaded docs (deltas only)",
+    "content": "B.5 - Implement Expert Option High-Freq Adapter (WSS)",
     "status": "completed"
   },
   {
-    "content": "Update plan.md with phase breakdown",
+    "content": "B.6 - MockWSServer for local testing (no real broker needed)",
     "status": "completed"
   },
   {
-    "content": "Report status to user and await next direction",
+    "content": "B.7 - Unit tests for each adapter against MockWSServer (18 new tests)",
+    "status": "completed"
+  },
+  {
+    "content": "B.8 - Multi-Broker Router v2 wired to BrokerAdapterRegistry",
+    "status": "completed"
+  },
+  {
+    "content": "B.9 - Broker Credential Vault (.env docs + validation)",
+    "status": "completed"
+  },
+  {
+    "content": "B.10 - Run full test suite (114/114), backend+desktop builds PASS",
+    "status": "completed"
+  },
+  {
+    "content": "B.11 - Documentation (docs/BROKER_ADAPTERS.md + CHANGELOG v1.6)",
+    "status": "completed"
+  },
+  {
+    "content": "Report Plan B completion to user + ask direction for DevSecOps Atlas",
     "status": "in_progress"
   }
 ]

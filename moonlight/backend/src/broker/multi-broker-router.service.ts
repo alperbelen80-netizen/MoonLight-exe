@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { BrokerScoringService } from './metrics/broker-scoring.service';
-import { BrokerAdapterInterface } from './adapters/broker-adapter.interface';
 import { SessionManagerService } from './session/session-manager.service';
 import { SessionHealth } from '../shared/enums/session-health.enum';
+import { BrokerAdapterRegistry, SupportedBrokerId } from './adapters/broker-adapter.registry';
 
 export interface BrokerSelectionResult {
   brokerId: string;
@@ -23,21 +23,29 @@ export interface RoutingContext {
 export class MultiBrokerRouter {
   private readonly logger = new Logger(MultiBrokerRouter.name);
 
-  private readonly AVAILABLE_BROKERS = [
-    { id: 'FAKE_BROKER', name: 'FakeBroker', priority: 1 },
-    { id: 'IQ_OPTION', name: 'IQ Option', priority: 2 },
-    { id: 'BINANCE_SPOT', name: 'Binance Spot', priority: 3 },
-  ];
-
   constructor(
     private readonly brokerScoring: BrokerScoringService,
     private readonly sessionManager: SessionManagerService,
+    private readonly registry: BrokerAdapterRegistry,
   ) {}
+
+  /**
+   * Resolve the list of available brokers from the live BrokerAdapterRegistry.
+   * Priority is implicit via registry order (FAKE → IQ_OPTION → OLYMP_TRADE → BINOMO → EXPERT_OPTION).
+   */
+  private listAvailableBrokers(): Array<{ id: string; name: string; priority: number }> {
+    return this.registry.listIds().map((id, idx) => ({
+      id,
+      name: id,
+      priority: idx + 1,
+    }));
+  }
 
   async selectBrokerForSignal(
     context: RoutingContext,
   ): Promise<BrokerSelectionResult> {
     const { symbol, expiryMinutes, accountIds, preferredBroker } = context;
+    const allBrokers = this.listAvailableBrokers();
 
     if (preferredBroker) {
       const isAvailable = await this.isBrokerAvailable(preferredBroker, accountIds);
@@ -62,7 +70,7 @@ export class MultiBrokerRouter {
 
     const eligibleBrokers = [];
 
-    for (const broker of this.AVAILABLE_BROKERS) {
+    for (const broker of allBrokers) {
       const isAvailable = await this.isBrokerAvailable(broker.id, accountIds);
 
       if (!isAvailable) {
@@ -92,7 +100,7 @@ export class MultiBrokerRouter {
       this.logger.error('No eligible brokers available');
 
       return {
-        brokerId: 'FAKE_BROKER',
+        brokerId: 'FAKE',
         score: 0,
         reason: 'FALLBACK: No brokers available',
         fallbackUsed: true,
@@ -115,12 +123,30 @@ export class MultiBrokerRouter {
     };
   }
 
+  /**
+   * An adapter is considered available when EITHER:
+   *  - Its own session health reports UP/DEGRADED (live-connected brokers), OR
+   *  - At least one owner account for it reports UP/DEGRADED (legacy path).
+   * This hybrid check lets FakeBroker (no real session) still be selectable
+   * while also respecting per-account enforcement for live brokers.
+   */
   private async isBrokerAvailable(
     brokerId: string,
     accountIds: string[],
   ): Promise<boolean> {
+    try {
+      const adapter = this.registry.get(brokerId as SupportedBrokerId);
+      const adapterHealth = adapter.getSessionHealth();
+      if (adapterHealth === SessionHealth.UP || adapterHealth === SessionHealth.DEGRADED) {
+        return true;
+      }
+    } catch {
+      // Unknown broker id; fall through to account check.
+    }
+
     if (accountIds.length === 0) {
-      return true;
+      // No accounts and adapter not UP → consider available only for FAKE (safe fallback).
+      return brokerId === 'FAKE';
     }
 
     for (const accountId of accountIds) {
@@ -135,6 +161,6 @@ export class MultiBrokerRouter {
   }
 
   getAvailableBrokers(): Array<{ id: string; name: string; priority: number }> {
-    return this.AVAILABLE_BROKERS;
+    return this.listAvailableBrokers();
   }
 }

@@ -1,5 +1,56 @@
 # MoonLight Trading OS - Change Log
 
+
+## v1.6.0 — Quad-Core Broker Adapters + Stabilization
+
+**Release Date:** 2026-04-22
+
+### 🔥 Major Features
+
+**🏗️ Quad-Core Broker Adapter Architecture**
+- New `BrokerAdapterInterface v2` with `getBrokerId`, `getSessionHealth`, `getPayoutRatio`, `getLastLatencyMs`
+- `BaseWSAdapter` abstract class: connect/reconnect with exponential backoff, heartbeat, request/response correlation, health state machine, event emitter
+- `MockWSServer`: in-process WebSocket test server with failure injection (drop messages, close on message, artificial delay)
+- `BrokerCredentialsService`: central env-backed vault, no credential logging, `BROKER_MOCK_MODE` switch
+
+**🔌 Four Production-Ready Broker Adapters**
+- **IQ Option Real Adapter** — Unofficial WSS, SSID auth, `binary-options.open-option`, payout cache
+- **Olymp Trade PGS Adapter** — Playwright/Chromium CDP automation (lazy-loaded, throws actionable error if not installed)
+- **Binomo Protocol Adapter** — WSS protocol bridge, `deals/open` with request_id correlation
+- **Expert Option High-Freq Adapter** — Tight 3s-timeout WSS loop with `reqId` correlation
+
+**🧭 Multi-Broker Router v2**
+- `BrokerAdapterRegistry` DI singleton → live `getHealthSnapshot()` across all adapters
+- `MultiBrokerRouter` hybrid availability check: adapter.getSessionHealth() OR account-level health
+- Registry-driven broker list (replaces hardcoded `AVAILABLE_BROKERS`)
+
+### 🛠 Stabilization
+- Fixed 16 TypeScript build errors across backend (path fixes, WebSocket type, Promise handling, DTO fields)
+- Fixed 80+ desktop TypeScript errors (added 15 missing types in `renderer/src/lib/types.ts`, vite-env.d.ts, tsconfig relaxation)
+- Removed flaky `Math.random()` rejection in FakeBroker (now opt-in via `setSimulateRandomRejection`)
+
+### ✅ Testing
+- 25 → **29 test suites** (+4 broker suites)
+- 96 → **114 tests** (+18 broker tests)
+- New tests cover: WSS adapter happy path, timeout, reject, credentials vault, registry wiring, Olymp Trade fail-closed paths
+
+### 📝 Docs
+- `docs/BROKER_ADAPTERS.md` — Full broker architecture guide, credential matrix, MockWSServer usage, known limitations
+- `.env.example` updated with IQ Option / Olymp Trade / Binomo / Expert Option credential blocks
+
+### 🧩 Breaking Changes
+- `BrokerAdapterInterface` now requires `getBrokerId()` and `getSessionHealth()` — third-party implementers must add these methods
+- `MultiBrokerRouter` constructor now requires `BrokerAdapterRegistry`
+
+### 🚧 Known Limitations
+- Real broker connections require user-supplied credentials in `.env`
+- Playwright (for Olymp Trade) is NOT installed by default — `yarn add playwright && npx playwright install chromium`
+- DOM selectors in Olymp Trade adapter are placeholders; must be updated if Olymp Trade changes their UI
+- Ban-risk mitigation (fingerprint rotation, adaptive rate limits) deferred to v1.7
+
+---
+
+
 ## v1.5.0 (Current) - Multi-Provider Live Signals + Semi-Automatic
 
 **Release Date:** 2025-01-XX

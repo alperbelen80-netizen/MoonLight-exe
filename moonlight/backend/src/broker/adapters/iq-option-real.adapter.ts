@@ -1,213 +1,223 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { BaseWSAdapter } from './base/base-ws.adapter';
 import { BrokerAdapterInterface } from './broker-adapter.interface';
 import { BrokerOrderRequestDTO, BrokerOrderAckDTO, BrokerOrderStatus } from '../../shared/dto/broker-order.dto';
 import { BrokerPositionDTO, BrokerPositionStatus } from '../../shared/dto/broker-position.dto';
-import { WebSocket, RawData } from 'ws';
-import { v4 as uuidv4 } from 'uuid';
+import { SignalDirection } from '../../shared/dto/canonical-signal.dto';
+import { SessionHealth } from '../../shared/enums/session-health.enum';
+import { BrokerCredentialsService } from './broker-credentials.service';
 
+interface IQOrderResponse {
+  id?: number | string;
+  isSuccessful: boolean;
+  price?: number;
+  message?: string;
+}
+
+/**
+ * IQ Option Real Adapter
+ *
+ * Connects to IQ Option's unofficial WebSocket (wss://iqoption.com/echo/websocket).
+ * Protocol notes (reverse-engineered, subject to change):
+ *  - Auth: { name: 'ssid', msg: '<SSID_TOKEN>' }
+ *  - Order: { name: 'sendMessage', msg: { name: 'binary-options.open-option', ... } }
+ *  - Response carries request_id which we use for correlation.
+ *
+ * Credentials:
+ *  - IQ_OPTION_SSID
+ *  - IQ_OPTION_BALANCE_ID
+ *  - IQ_OPTION_WS_URL (optional override)
+ *
+ * When credentials are absent AND BROKER_MOCK_MODE!=true → sendOrder returns REJECT
+ * with code NOT_CONFIGURED instead of attempting to connect.
+ */
 @Injectable()
-export class IQOptionRealAdapter implements BrokerAdapterInterface {
-  private readonly logger = new Logger(IQOptionRealAdapter.name);
-  private ws?: WebSocket;
-  private authenticated = false;
-  private ssid: string;
-  private positions: Map<string, BrokerPositionDTO> = new Map();
+export class IQOptionRealAdapter extends BaseWSAdapter implements BrokerAdapterInterface {
+  private readonly accountPositions: Map<string, BrokerPositionDTO[]> = new Map();
+  private lastKnownBalance = 0;
+  private readonly payoutCache: Map<string, number> = new Map();
 
-  constructor() {
-    this.ssid = process.env.IQ_OPTION_SSID || '';
+  constructor(private readonly creds: BrokerCredentialsService) {
+    const url = process.env.IQ_OPTION_WS_URL || 'wss://iqoption.com/echo/websocket';
+    super('IQOptionRealAdapter', {
+      url,
+      heartbeatIntervalMs: 25000,
+      requestTimeoutMs: 5000,
+      maxReconnectAttempts: 6,
+      reconnectBaseDelayMs: 1000,
+    });
+  }
+
+  getBrokerId(): string {
+    return 'IQ_OPTION';
+  }
+
+  async connectSession(_accountId: string): Promise<void> {
+    const { present } = this.creds.getIQOption();
+    if (!present && !this.creds.isMockMode()) {
+      this.logger.warn('IQ Option credentials not configured. Session will not open.');
+      this.setHealth(SessionHealth.DOWN);
+      throw new Error('IQ_OPTION_CREDENTIALS_MISSING');
+    }
+    await this.connect();
+  }
+
+  async disconnectSession(_accountId: string): Promise<void> {
+    await this.disconnect();
+  }
+
+  protected buildAuthMessage(): string | null {
+    const { creds } = this.creds.getIQOption();
+    if (!creds) return null;
+    return JSON.stringify({ name: 'ssid', msg: creds.ssid });
+  }
+
+  protected parseInboundMessage(raw: string) {
+    let obj: any;
+    try {
+      obj = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+    if (!obj || typeof obj !== 'object') return null;
+
+    if (obj.name === 'binary-options.open-option' && obj.request_id) {
+      return { requestId: obj.request_id, payload: obj.msg as IQOrderResponse };
+    }
+    if (obj.name === 'profile.balance' && obj.msg?.amount !== undefined) {
+      this.lastKnownBalance = Number(obj.msg.amount);
+      return { event: 'balance', payload: obj.msg };
+    }
+    if (obj.name === 'instruments.binary.payout' && obj.msg) {
+      const symbol = obj.msg.active;
+      const exp = obj.msg.expiry_minutes;
+      const payout = obj.msg.profit_percent;
+      if (symbol && exp && typeof payout === 'number') {
+        this.payoutCache.set(this.payoutKey(symbol, exp), payout / 100);
+      }
+      return { event: 'payout', payload: obj.msg };
+    }
+    return { event: obj.name, payload: obj.msg };
   }
 
   async sendOrder(request: BrokerOrderRequestDTO): Promise<BrokerOrderAckDTO> {
-    if (!this.authenticated) {
-      throw new Error('IQ Option not authenticated. Call connectSession() first.');
+    const startTs = Date.now();
+    const { creds } = this.creds.getIQOption();
+
+    if (!creds && !this.creds.isMockMode()) {
+      return {
+        broker_request_id: request.broker_request_id,
+        broker_order_id: 'NOT_CONFIGURED',
+        status: BrokerOrderStatus.REJECT,
+        response_ts_utc: new Date().toISOString(),
+        latency_ms: 0,
+        reject_code: 'NOT_CONFIGURED',
+        reject_message: 'IQ Option credentials not set. Populate .env or enable BROKER_MOCK_MODE=true.',
+      };
     }
 
-    const startTime = Date.now();
+    if (this.getSessionHealth() !== SessionHealth.UP) {
+      return {
+        broker_request_id: request.broker_request_id,
+        broker_order_id: 'SESSION_DOWN',
+        status: BrokerOrderStatus.REJECT,
+        response_ts_utc: new Date().toISOString(),
+        latency_ms: 0,
+        reject_code: 'SESSION_DOWN',
+        reject_message: `IQ Option session is ${this.getSessionHealth()}`,
+      };
+    }
+
+    const requestId = this.newRequestId();
+    const payload = {
+      name: 'sendMessage',
+      request_id: requestId,
+      msg: {
+        name: 'binary-options.open-option',
+        version: '1.0',
+        body: {
+          user_balance_id: creds?.balanceId ?? 0,
+          active_id: this.resolveActiveId(request.symbol),
+          option_type_id: 3,
+          direction: request.direction === SignalDirection.CALL ? 'call' : 'put',
+          expired: request.expiry_minutes * 60,
+          price: request.stake_amount,
+          value: request.stake_amount,
+          request_id: requestId,
+        },
+      },
+    };
 
     try {
-      const requestId = uuidv4();
+      const resp = await this.sendRequest<IQOrderResponse>(requestId, payload, 5000);
+      const latency = Date.now() - startTs;
 
-      const orderMessage = {
-        name: 'sendMessage',
-        msg: {
-          name: 'binary-options.open-option',
-          version: '1.0',
-          body: {
-            user_balance_id: parseInt(process.env.IQ_OPTION_BALANCE_ID || '1'),
-            active_id: this.getActiveId(request.symbol),
-            option_type_id: 3,
-            direction: request.direction === 'CALL' ? 'call' : 'put',
-            expired: request.expiry_minutes * 60,
-            price: request.stake_amount,
-            value: request.stake_amount,
-            request_id: requestId,
-          },
-        },
-      };
-
-      const response = await this.sendWSMessage(orderMessage);
-
-      const latency = Date.now() - startTime;
-
-      if (response && response.isSuccessful) {
-        const positionId = response.id || uuidv4();
-
+      if (resp?.isSuccessful) {
         return {
           broker_request_id: request.broker_request_id,
-          broker_order_id: positionId.toString(),
+          broker_order_id: String(resp.id ?? requestId),
           status: BrokerOrderStatus.ACK,
           response_ts_utc: new Date().toISOString(),
           latency_ms: latency,
-          open_price: response.price || 0,
+          open_price: resp.price ?? 0,
           open_ts_utc: new Date().toISOString(),
         };
-      } else {
-        return {
-          broker_request_id: request.broker_request_id,
-          broker_order_id: 'REJECTED',
-          status: BrokerOrderStatus.REJECT,
-          response_ts_utc: new Date().toISOString(),
-          latency_ms: latency,
-          reject_code: 'IQ_OPTION_ERROR',
-          reject_message: response?.message || 'Order rejected',
-        };
       }
-    } catch (error: any) {
-      const latency = Date.now() - startTime;
-
-      this.logger.error(`IQ Option order error: ${error.message}`);
 
       return {
         broker_request_id: request.broker_request_id,
-        broker_order_id: 'ERROR',
+        broker_order_id: 'REJECTED',
         status: BrokerOrderStatus.REJECT,
         response_ts_utc: new Date().toISOString(),
         latency_ms: latency,
-        reject_code: 'EXCEPTION',
-        reject_message: error.message,
+        reject_code: 'BROKER_REJECT',
+        reject_message: resp?.message || 'Order rejected by IQ Option',
+      };
+    } catch (err: any) {
+      const latency = Date.now() - startTs;
+      const isTimeout = /timeout/i.test(err?.message || '');
+      return {
+        broker_request_id: request.broker_request_id,
+        broker_order_id: isTimeout ? 'TIMEOUT' : 'ERROR',
+        status: isTimeout ? BrokerOrderStatus.TIMEOUT : BrokerOrderStatus.REJECT,
+        response_ts_utc: new Date().toISOString(),
+        latency_ms: latency,
+        reject_code: isTimeout ? 'TIMEOUT' : 'EXCEPTION',
+        reject_message: err?.message || 'Unknown error',
       };
     }
   }
 
   async getOpenPositions(accountId: string): Promise<BrokerPositionDTO[]> {
-    return Array.from(this.positions.values()).filter(
-      (p) => p.status === BrokerPositionStatus.OPEN,
-    );
+    return this.accountPositions.get(accountId) ?? [];
   }
 
-  async getBalance(accountId: string): Promise<number> {
-    if (!this.authenticated) {
-      return 0;
-    }
-
-    return 10000;
+  async getBalance(_accountId: string): Promise<number> {
+    return this.lastKnownBalance;
   }
 
-  async connectSession(accountId: string): Promise<void> {
-    const wsUrl = process.env.IQ_OPTION_WS_URL || 'wss://iqoption.com/echo/websocket';
-
-    return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(wsUrl);
-
-      this.ws.on('open', () => {
-        this.logger.log('IQ Option WebSocket connected');
-        this.sendAuthMessage();
-
-        setTimeout(() => {
-          this.authenticated = true;
-          resolve();
-        }, 2000);
-      });
-
-      this.ws.on('message', (data: RawData) => {
-        this.handleMessage(data);
-      });
-
-      this.ws.on('error', (error) => {
-        this.logger.error(`IQ Option WebSocket error: ${error.message}`);
-        reject(error);
-      });
-
-      this.ws.on('close', () => {
-        this.logger.warn('IQ Option WebSocket closed');
-        this.authenticated = false;
-      });
-    });
+  async getPayoutRatio(symbol: string, expiryMinutes: number): Promise<number | null> {
+    return this.payoutCache.get(this.payoutKey(symbol, expiryMinutes)) ?? null;
   }
 
-  async disconnectSession(accountId: string): Promise<void> {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = undefined;
-    }
-    this.authenticated = false;
-    this.logger.log('IQ Option session disconnected');
+  private payoutKey(symbol: string, exp: number): string {
+    return `${symbol}:${exp}`;
   }
 
-  private sendAuthMessage(): void {
-    if (!this.ws || !this.ssid) return;
-
-    const authMsg = {
-      name: 'ssid',
-      msg: this.ssid,
-    };
-
-    this.ws.send(JSON.stringify(authMsg));
-    this.logger.log('IQ Option auth message sent');
-  }
-
-  private sendWSMessage(message: any): Promise<any> {
-    return new Promise((resolve, reject) => {
-      if (!this.ws) {
-        reject(new Error('WebSocket not connected'));
-        return;
-      }
-
-      this.ws.send(JSON.stringify(message));
-
-      const timeout = setTimeout(() => {
-        resolve({ isSuccessful: false, message: 'Timeout' });
-      }, 5000);
-
-      const messageHandler = (data: RawData) => {
-        try {
-          const response = JSON.parse(data.toString());
-
-          if (response.name === 'binary-options.open-option') {
-            clearTimeout(timeout);
-            this.ws?.removeListener('message', messageHandler);
-            resolve(response.msg);
-          }
-        } catch (error) {
-          // Ignore parse errors, wait for next message
-        }
-      };
-
-      this.ws.on('message', messageHandler);
-    });
-  }
-
-  private handleMessage(data: RawData): void {
-    try {
-      const message = JSON.parse(data.toString());
-
-      if (message.name === 'profile.balance') {
-        this.logger.debug('Balance update received');
-      }
-    } catch (error) {
-      // Silent fail for unknown messages
-    }
-  }
-
-  private getActiveId(symbol: string): number {
-    const mapping: Record<string, number> = {
+  private resolveActiveId(symbol: string): number {
+    const map: Record<string, number> = {
       EURUSD: 1,
       GBPUSD: 2,
       USDJPY: 3,
       AUDUSD: 5,
       USDCAD: 7,
       XAUUSD: 81,
+      BTCUSD: 816,
+      ETHUSD: 817,
     };
-    return mapping[symbol] || 1;
+    return map[symbol] ?? 1;
   }
 }
+
+// Status accessor required by BrokerPositionStatus import
+void BrokerPositionStatus;

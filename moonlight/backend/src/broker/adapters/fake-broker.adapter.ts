@@ -1,17 +1,40 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { BrokerAdapterInterface } from './broker-adapter.interface';
-import { BrokerOrderRequestDTO, BrokerOrderAckDTO, BrokerOrderStatus } from '../../shared/dto/broker-order.dto';
-import { BrokerPositionDTO, BrokerPositionStatus } from '../../shared/dto/broker-position.dto';
+import {
+  BrokerOrderRequestDTO,
+  BrokerOrderAckDTO,
+  BrokerOrderStatus,
+} from '../../shared/dto/broker-order.dto';
+import {
+  BrokerPositionDTO,
+  BrokerPositionStatus,
+} from '../../shared/dto/broker-position.dto';
+import { SessionHealth } from '../../shared/enums/session-health.enum';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class FakeBrokerAdapter implements BrokerAdapterInterface {
   private readonly logger = new Logger(FakeBrokerAdapter.name);
-  
+
   private shouldFail = false;
   private failCount = 0;
+  private simulateRandomRejection = false;
   private openPositions: Map<string, BrokerPositionDTO> = new Map();
   private balances: Map<string, number> = new Map();
+  private health: SessionHealth = SessionHealth.DOWN;
+  private lastLatencyMs: number | null = null;
+
+  getBrokerId(): string {
+    return 'FAKE';
+  }
+
+  getSessionHealth(): SessionHealth {
+    return this.health;
+  }
+
+  getLastLatencyMs(): number | null {
+    return this.lastLatencyMs;
+  }
 
   setShouldFail(fail: boolean): void {
     this.shouldFail = fail;
@@ -20,6 +43,10 @@ export class FakeBrokerAdapter implements BrokerAdapterInterface {
 
   setFailOnce(): void {
     this.failCount = 1;
+  }
+
+  setSimulateRandomRejection(v: boolean): void {
+    this.simulateRandomRejection = v;
   }
 
   async sendOrder(request: BrokerOrderRequestDTO): Promise<BrokerOrderAckDTO> {
@@ -36,8 +63,9 @@ export class FakeBrokerAdapter implements BrokerAdapterInterface {
 
     const latency = 40 + Math.random() * 80;
     await new Promise((resolve) => setTimeout(resolve, latency));
+    this.lastLatencyMs = latency;
 
-    const isAccept = Math.random() > 0.1;
+    const isAccept = this.simulateRandomRejection ? Math.random() > 0.1 : true;
 
     if (!isAccept) {
       return {
@@ -79,7 +107,7 @@ export class FakeBrokerAdapter implements BrokerAdapterInterface {
     };
   }
 
-  async getOpenPositions(accountId: string): Promise<BrokerPositionDTO[]> {
+  async getOpenPositions(_accountId: string): Promise<BrokerPositionDTO[]> {
     return Array.from(this.openPositions.values());
   }
 
@@ -90,10 +118,12 @@ export class FakeBrokerAdapter implements BrokerAdapterInterface {
   async connectSession(accountId: string): Promise<void> {
     this.logger.log(`[FakeBroker] Session connected for ${accountId}`);
     this.balances.set(accountId, 10000);
+    this.health = SessionHealth.UP;
   }
 
   async disconnectSession(accountId: string): Promise<void> {
     this.logger.log(`[FakeBroker] Session disconnected for ${accountId}`);
+    this.health = SessionHealth.DOWN;
   }
 
   clearPositions(): void {
