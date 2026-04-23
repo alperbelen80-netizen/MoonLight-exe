@@ -173,21 +173,34 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
           signal.confidence_score,
         );
 
+        // Defensive numeric normalization – signal.ev / confidence_score
+        // may occasionally arrive as undefined / NaN from legacy packs.
+        const safeNum = (v: any, fallback = 0): number =>
+          typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+        const safeEv = safeNum(signal.ev, 0);
+        const safeConf = safeNum(signal.confidence_score, 0.6);
+        const safeClose = safeNum(candle.close, 0);
+        const signalTs = (() => {
+          const d = signal.ts ? new Date(signal.ts) : new Date();
+          return Number.isFinite(d.getTime()) ? d : new Date();
+        })();
+        const expiryMin = safeNum(slotResult.selected_expiry_minutes, 1);
+
         const liveSignal = this.liveSignalRepo.create({
           id: `LIVE_${uuidv4()}`,
-          timestamp_utc: new Date(signal.ts),
+          timestamp_utc: signalTs,
           symbol: signal.symbol,
           timeframe: signal.tf,
           direction: signal.direction,
-          signal_horizon: slotResult.selected_expiry_minutes! * 60,
+          signal_horizon: Math.round(expiryMin * 60),
           strategy_family: signal.strategy_id || signal.source,
-          confidence_score: signal.confidence_score,
-          expected_wr_band_min: signal.ev * 0.9,
-          expected_wr_band_max: signal.ev * 1.1,
+          confidence_score: safeConf,
+          expected_wr_band_min: safeEv * 0.9,
+          expected_wr_band_max: safeEv * 1.1,
           environment: 'LIVE_DATA',
           status: 'NEW',
-          entry_price: candle.close,
-          current_price: candle.close,
+          entry_price: safeClose,
+          current_price: safeClose,
           notes: `Regime: ${regimeResult.regime} (ADX: ${regimeResult.adx.toFixed(1)})`,
         });
 

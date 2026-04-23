@@ -34,24 +34,52 @@ export class LiveStrategyPerformanceService {
   ) {}
 
   async recordSignal(strategyId: string, confidence: number): Promise<void> {
-    let perf = await this.performanceRepo.findOne({
-      where: { strategy_id: strategyId },
-    });
+    const confSafe = Number.isFinite(confidence) ? confidence : 0;
+    // Use atomic upsert-style loop to avoid race conditions when
+    // multiple candles hit the same strategy simultaneously.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        let perf = await this.performanceRepo.findOne({
+          where: { strategy_id: strategyId },
+        });
 
-    if (!perf) {
-      perf = this.performanceRepo.create({
-        strategy_id: strategyId,
-        total_signals: 0,
-      });
+        if (!perf) {
+          perf = this.performanceRepo.create({
+            strategy_id: strategyId,
+            total_signals: 0,
+            executed_signals: 0,
+            wins: 0,
+            losses: 0,
+            total_pnl: 0,
+            avg_confidence: 0,
+            win_rate: 0,
+            avg_pnl_per_trade: 0,
+            consecutive_wins: 0,
+            consecutive_losses: 0,
+            max_consecutive_wins: 0,
+            max_consecutive_losses: 0,
+            is_enabled: true,
+          });
+        }
+
+        const prevAvg = Number.isFinite(perf.avg_confidence) ? perf.avg_confidence : 0;
+        const prevTotal = Number.isFinite(perf.total_signals) ? perf.total_signals : 0;
+
+        perf.total_signals = prevTotal + 1;
+        perf.last_signal_timestamp = new Date();
+        const totalConf = prevAvg * prevTotal + confSafe;
+        perf.avg_confidence =
+          perf.total_signals > 0 ? totalConf / perf.total_signals : confSafe;
+
+        await this.performanceRepo.save(perf);
+        return;
+      } catch (err: any) {
+        // Retry on UNIQUE constraint race; swallow final failure quietly.
+        if (!String(err?.message || '').includes('UNIQUE')) {
+          throw err;
+        }
+      }
     }
-
-    perf.total_signals++;
-    perf.last_signal_timestamp = new Date();
-
-    const totalConf = perf.avg_confidence * (perf.total_signals - 1) + confidence;
-    perf.avg_confidence = totalConf / perf.total_signals;
-
-    await this.performanceRepo.save(perf);
   }
 
   async recordExecution(

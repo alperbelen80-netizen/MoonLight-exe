@@ -11,6 +11,8 @@ import { LiveSignalsPage } from './routes/LiveSignalsPage';
 import { StrategiesPage } from './routes/StrategiesPage';
 import { SessionManagerPage } from './routes/SessionManagerPage';
 import { SettingsPage } from './routes/SettingsPage';
+import { DataSourcesPage } from './routes/DataSourcesPage';
+import { AICoachPage } from './routes/AICoachPage';
 
 function App() {
   return (
@@ -23,6 +25,8 @@ function App() {
           <Route path="strategies" element={<StrategiesPage />} />
           <Route path="accounts" element={<AccountsPage />} />
           <Route path="sessions" element={<SessionManagerPage />} />
+          <Route path="data-sources" element={<DataSourcesPage />} />
+          <Route path="ai-coach" element={<AICoachPage />} />
           <Route path="matrix" element={<ExecutionMatrixPage />} />
           <Route path="backtests" element={<BacktestsPage />} />
           <Route path="data-health" element={<DataHealthPage />} />

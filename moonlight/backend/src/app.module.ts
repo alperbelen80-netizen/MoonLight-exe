@@ -13,6 +13,7 @@ import { ReportingModule } from './reporting/reporting.module';
 import { OwnerModule } from './owner/owner.module';
 import { ConfigModule } from './config/config.module';
 import { AlertsModule } from './alerts/alerts.module';
+import { AICoachModule } from './ai-coach/ai-coach.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { AlertsModule } from './alerts/alerts.module';
     OwnerModule,
     ConfigModule,
     AlertsModule,
+    AICoachModule,
   ],
   controllers: [],
   providers: [],

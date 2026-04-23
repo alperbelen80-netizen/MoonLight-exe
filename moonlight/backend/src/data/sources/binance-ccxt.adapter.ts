@@ -109,6 +109,21 @@ export class BinanceCCXTAdapter implements IDataFeedAdapter {
     return this.connected;
   }
 
+  /**
+   * Lightweight latency probe used by the DataFeedOrchestrator.
+   * Does one fetchTicker() call with 5s cap and returns the round-trip time.
+   */
+  async probe(symbol = 'BTCUSDT'): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
+    const ccxtSymbol = this.convertSymbol(symbol);
+    const t0 = Date.now();
+    try {
+      await this.exchange.fetchTicker(ccxtSymbol);
+      return { ok: true, latencyMs: Date.now() - t0 };
+    } catch (error: any) {
+      return { ok: false, latencyMs: Date.now() - t0, error: error?.message || 'probe failed' };
+    }
+  }
+
   async disconnect(): Promise<void> {
     for (const [key, interval] of this.subscriptions) {
       clearInterval(interval);

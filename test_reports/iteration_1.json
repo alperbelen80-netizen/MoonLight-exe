@@ -1,0 +1,52 @@
+{
+  "summary": "Completed comprehensive backend testing for MoonLight Trading OS Scenario B (Live Signals) + Multi-Source Data Feed + AI Coach integration. All 11 specified API endpoints tested successfully with 129/129 Jest tests passing.",
+  "backend_issues": {
+    "critical_bugs": [],
+    "flaky_endpoints": [],
+    "expected_geo_blocks": [
+      {
+        "endpoint": "BINANCE_CCXT adapter",
+        "issue": "HTTP 451 - Service unavailable from restricted location",
+        "impact": "Expected behavior - geo-blocked as documented",
+        "fix_priority": "NONE"
+      },
+      {
+        "endpoint": "BYBIT_CCXT adapter", 
+        "issue": "HTTP 403 - CloudFront blocks access from current country",
+        "impact": "Expected behavior - geo-blocked as documented",
+        "fix_priority": "NONE"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "GET /api/live/signals - Returns 1635+ signals with proper pagination",
+    "GET /api/ai-coach/status - Returns available:true, model:'gemini-2.5-flash'",
+    "POST /api/ai-coach/chat - Turkish chat working, returns proper reply",
+    "POST /api/ai-coach/validate-feed - Returns MOCK_LIVE approved with confidence 0.95",
+    "GET /api/data/providers/health - Lists all 5 providers, MOCK_LIVE connected",
+    "POST /api/data/providers/auto-select (with AI) - AI validation working with confidence 0.90",
+    "POST /api/data/providers/auto-select (deterministic) - Deterministic path working",
+    "POST /api/data/providers/switch - Provider switching functional",
+    "GET /api/owner/dashboard/summary - Returns global_health_score: 85",
+    "GET /api/broker/adapters/health - Returns all 5 broker adapters",
+    "Jest test suite - All 129/129 tests passing"
+  ],
+  "test_report_links": [
+    "/app/moonlight/backend_test.py"
+  ],
+  "action_item_for_main_agent": "",
+  "updated_files": [
+    "/app/moonlight/backend_test.py"
+  ],
+  "success_percentage": {
+    "backend": "100%",
+    "frontend": "N/A - backend only testing"
+  },
+  "should_call_test_agent_after_fix": "false",
+  "should_main_agent_test_itself": "true"
+}

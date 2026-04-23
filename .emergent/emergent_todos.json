@@ -1,34 +1,50 @@
 [
   {
-    "content": "B.1 — Inspect LiveSignalEngine + current data feed wiring",
+    "content": "Stabilite: yarn verify (build + 114 tests) koş ve PASS doğrula",
+    "status": "completed"
+  },
+  {
+    "content": "Backend'i MOCK_FEED_FAST_DEMO=true ile başlat, /api/health doğrula",
+    "status": "completed"
+  },
+  {
+    "content": "Senaryo B: Live Signal akışını /api/live/signals ile doğrula (295 sinyal)",
+    "status": "completed"
+  },
+  {
+    "content": "Senaryo B: LiveSignalsPage UI'da sinyallerin aktığını screenshot ile göster",
+    "status": "completed"
+  },
+  {
+    "content": "Bybit CCXT Adapter ekle (geo-block yemez fallback)",
+    "status": "completed"
+  },
+  {
+    "content": "DataFeedOrchestrator: paralel health check + latency scoring",
+    "status": "completed"
+  },
+  {
+    "content": "GET /api/data/providers/health + POST /api/data/providers/auto-select endpoint'leri",
+    "status": "completed"
+  },
+  {
+    "content": "Gemma/Gemini integration playbook al + AICoachService oluştur",
+    "status": "completed"
+  },
+  {
+    "content": "AI-destekli provider auto-selection (fail-closed validation)",
+    "status": "completed"
+  },
+  {
+    "content": "Frontend: Data Sources paneli + AI Coach sohbet sayfası",
+    "status": "completed"
+  },
+  {
+    "content": "Yeni testler: DataFeedOrchestrator + AICoachService (129/129 PASS)",
+    "status": "completed"
+  },
+  {
+    "content": "testing_agent_v3 ile backend + frontend kapsamlı test",
     "status": "in_progress"
-  },
-  {
-    "content": "B.2 — Wire BinanceCCXT as default data feed + auto-subscribe on startup",
-    "status": "pending"
-  },
-  {
-    "content": "B.3 — Live Signals UI: Execute button → MultiBrokerRouter → broker",
-    "status": "pending"
-  },
-  {
-    "content": "B.4 — Session Manager UI (connect/disconnect per broker + health)",
-    "status": "pending"
-  },
-  {
-    "content": "B.5 — Credentials UI (secure form for .env style keys, opsiyonel)",
-    "status": "pending"
-  },
-  {
-    "content": "B.6 — E2E test: Binance live data → signal → execute → FakeBroker ACK",
-    "status": "pending"
-  },
-  {
-    "content": "B.7 — CHANGELOG v1.7 + docs/LIVE_SIGNAL_SETUP.md",
-    "status": "pending"
-  },
-  {
-    "content": "B.8 — yarn verify final pass",
-    "status": "pending"
   }
 ]
