@@ -15,9 +15,10 @@ import { PayoutMatrixService } from '../broker/payout/payout-matrix.service';
 import { IndicatorRegistryModule } from '../indicators/indicator-registry.module';
 import { TemplateStrategyBuilderService } from './factory/template-strategy-builder.service';
 import { TemplateStrategyController } from './factory/template-strategy.controller';
+import { AICoachModule } from '../ai-coach/ai-coach.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([LiveStrategyPerformance, LiveSignal]), IndicatorRegistryModule],
+  imports: [TypeOrmModule.forFeature([LiveStrategyPerformance, LiveSignal]), IndicatorRegistryModule, AICoachModule],
   controllers: [StrategyController, TemplateStrategyController],
   providers: [
     StrategyService,

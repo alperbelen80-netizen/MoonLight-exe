@@ -16,6 +16,9 @@ import { SynapticController } from './synaptic/synaptic.controller';
 import { ClosedLoopLearnerService } from './learning/closed-loop-learner.service';
 import { ClosedLoopController } from './learning/closed-loop.controller';
 import { ClosedLoopSchedulerService } from './learning/closed-loop-scheduler.service';
+import { ABWeightingHarnessService } from './learning/ab-weighting-harness.service';
+import { ABWeightingController } from './learning/ab-weighting.controller';
+import { LearningTickHistory } from '../database/entities/learning-tick-history.entity';
 
 /**
  * V2.0-γ: adds Global MoE Orchestrator + Ensemble controller.
@@ -29,7 +32,7 @@ import { ClosedLoopSchedulerService } from './learning/closed-loop-scheduler.ser
   imports: [
     TrinityOversightModule,
     AICoachModule,
-    TypeOrmModule.forFeature([ProductExecutionConfig]),
+    TypeOrmModule.forFeature([ProductExecutionConfig, LearningTickHistory]),
   ],
   providers: [
     V2SeedService,
@@ -40,8 +43,9 @@ import { ClosedLoopSchedulerService } from './learning/closed-loop-scheduler.ser
     SynapticRulesService,
     ClosedLoopLearnerService,
     ClosedLoopSchedulerService,
+    ABWeightingHarnessService,
   ],
-  controllers: [V2SeedController, MoeBrainController, MoeEnsembleController, SynapticController, ClosedLoopController],
+  controllers: [V2SeedController, MoeBrainController, MoeEnsembleController, SynapticController, ClosedLoopController, ABWeightingController],
   exports: [
     V2SeedService,
     CEOBrainService,
@@ -50,6 +54,7 @@ import { ClosedLoopSchedulerService } from './learning/closed-loop-scheduler.ser
     GlobalMoEOrchestratorService,
     SynapticRulesService,
     ClosedLoopLearnerService,
+    ABWeightingHarnessService,
     TrinityOversightModule,
   ],
 })

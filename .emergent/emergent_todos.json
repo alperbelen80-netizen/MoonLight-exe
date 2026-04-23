@@ -1,22 +1,18 @@
 [
   {
-    "content": "V2.2-A: ClosedLoopSchedulerService — @Cron auto-step (budget-aware, GÖZ-1 defer)",
+    "content": "V2.3-A: 17 dormant template → Gemini persona expert ile LLM-augmented evaluator",
     "status": "completed"
   },
   {
-    "content": "V2.2-B: Brain'ler ClosedLoopLearner'dan dinamik prior okusun (CEO/TRADE/TEST refactor)",
+    "content": "V2.3-B: LearningTickHistory entity + DB persist + migrations",
     "status": "completed"
   },
   {
-    "content": "V2.2-C: Orchestrator'a health-weighted ensemble (brain sağlığı w_ceo/w_trade/w_test'e çarpılır)",
+    "content": "V2.3-C: A/B weighting harness (health-weighted vs static, decision sampling)",
     "status": "completed"
   },
   {
-    "content": "V2.2-D: Trinity UI'a scheduler status + manual trigger panel (auto/manual toggle)",
-    "status": "completed"
-  },
-  {
-    "content": "V2.2: Jest testler + build + CHANGELOG v2.2.0 + rapor",
+    "content": "V2.3: Jest testler + build + CHANGELOG v2.3.0 + rapor",
     "status": "completed"
   }
 ]

@@ -13,13 +13,14 @@
 // This gives full breadth (100 strategies discoverable to UI + Strategy Factory)
 // without ever leaking unvalidated signals into execution.
 
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { IndicatorRegistryService, TemplateEntry } from '../../indicators/indicator-registry.service';
 import { StrategyFactoryService, StrategyInstance } from './strategy-factory.service';
 import { IndicatorService } from '../indicators/indicator.service';
 import type { StrategyContext } from '../../shared/dto/strategy-context.dto';
 import type { CanonicalSignalDTO } from '../../shared/dto/canonical-signal.dto';
 import { v4 as uuidv4 } from 'uuid';
+import { AICoachService } from '../../ai-coach/ai-coach.service';
 
 type Primitive =
   | 'RSI'
@@ -58,12 +59,18 @@ export class TemplateStrategyBuilderService implements OnModuleInit {
   private readonly logger = new Logger(TemplateStrategyBuilderService.name);
   private implementedCount = 0;
   private dormantCount = 0;
+  private llmAugmentedCount = 0;
+  private readonly llmEnabled: boolean;
 
   constructor(
     private readonly registry: IndicatorRegistryService,
     private readonly factory: StrategyFactoryService,
     private readonly indicators: IndicatorService,
-  ) {}
+    @Optional() private readonly coach?: AICoachService,
+  ) {
+    this.llmEnabled =
+      process.env.MOE_TEMPLATE_LLM_ENABLED === 'true' && !!coach?.isAvailable?.();
+  }
 
   onModuleInit(): void {
     if (process.env.V2_TEMPLATE_AUTOLOAD === 'false') {
@@ -73,9 +80,10 @@ export class TemplateStrategyBuilderService implements OnModuleInit {
     this.registerAll();
   }
 
-  registerAll(): { implemented: number; dormant: number; total: number } {
+  registerAll(): { implemented: number; dormant: number; llmAugmented: number; total: number } {
     this.implementedCount = 0;
     this.dormantCount = 0;
+    this.llmAugmentedCount = 0;
     const templates = this.registry.listTemplates();
     for (const t of templates) {
       const rule = this.buildRule(t);
@@ -83,16 +91,19 @@ export class TemplateStrategyBuilderService implements OnModuleInit {
       this.factory.registerStrategy(instance);
       if (rule.primitives.length > 0 && (rule.hasLong || rule.hasShort)) {
         this.implementedCount++;
+      } else if (this.llmEnabled) {
+        this.llmAugmentedCount++;
       } else {
         this.dormantCount++;
       }
     }
     this.logger.log(
-      `TemplateStrategyBuilder registered ${templates.length} (implemented=${this.implementedCount}, dormant=${this.dormantCount})`,
+      `TemplateStrategyBuilder registered ${templates.length} (implemented=${this.implementedCount}, llm=${this.llmAugmentedCount}, dormant=${this.dormantCount})`,
     );
     return {
       implemented: this.implementedCount,
       dormant: this.dormantCount,
+      llmAugmented: this.llmAugmentedCount,
       total: templates.length,
     };
   }
@@ -118,7 +129,12 @@ export class TemplateStrategyBuilderService implements OnModuleInit {
     const evaluator = async (
       ctx: StrategyContext,
     ): Promise<CanonicalSignalDTO | CanonicalSignalDTO[] | null> => {
-      if (dormant) return null;
+      if (dormant) {
+        // V2.3-A: augment dormant templates with Gemini persona if enabled.
+        if (!this.llmEnabled || !this.coach) return null;
+        if (!ctx.bars || ctx.bars.length < 30) return null;
+        return this.evaluateLlmTemplate(t, ctx, id);
+      }
       if (!ctx.bars || ctx.bars.length < 30) return null;
 
       // Compute relevant indicators only.
@@ -231,6 +247,80 @@ export class TemplateStrategyBuilderService implements OnModuleInit {
       total: this.registry.listTemplates().length,
       implemented: this.implementedCount,
       dormant: this.dormantCount,
+      llmAugmented: this.llmAugmentedCount,
+      llmEnabled: this.llmEnabled,
     };
+  }
+
+  /**
+   * V2.3-A: LLM-augmented dormant template evaluator.
+   *
+   * Sends the template's long/short rule + last 3 bars summary to Gemini
+   * and expects a STRICT JSON: `{"direction":"LONG|SHORT|NEUTRAL","confidence":0..1,"rationale":"<=160"}`.
+   * Fail-closed: any parse / timeout / coach error → null (no signal).
+   */
+  private async evaluateLlmTemplate(
+    t: TemplateEntry,
+    ctx: StrategyContext,
+    id: string,
+  ): Promise<CanonicalSignalDTO | null> {
+    if (!this.coach) return null;
+    try {
+      const last = ctx.bars[ctx.bars.length - 1];
+      const prev3 = ctx.bars.slice(-3).map((b) => ({
+        o: b.open,
+        h: b.high,
+        l: b.low,
+        c: b.close,
+        v: b.volume,
+      }));
+      const sys = [
+        `You are a single-template trading expert for template #${t.n} "${t.name}".`,
+        `Template purpose: ${t.purpose}`,
+        `Long rule: ${t.longRule}`,
+        `Short rule: ${t.shortRule}`,
+        `Components: ${t.components}`,
+        'Return STRICT JSON only, no prose:',
+        '{"direction":"LONG|SHORT|NEUTRAL","confidence":0..1,"rationale":"<=160 chars"}',
+        'If you cannot decide confidently, return NEUTRAL with low confidence.',
+      ].join('\n');
+      const user = `Symbol: ${ctx.symbol} TF: ${ctx.tf}\nLast 3 bars: ${JSON.stringify(prev3)}`;
+      const raw = await Promise.race([
+        this.coach.chat(
+          [
+            { role: 'system', content: sys },
+            { role: 'user', content: user },
+          ],
+          220,
+        ),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error('tpl_llm_timeout')), 8000),
+        ),
+      ]);
+      const cleaned = (raw || '')
+        .replace(/^\s*```(?:json)?\s*/i, '')
+        .replace(/```\s*$/i, '')
+        .trim();
+      const parsed = JSON.parse(cleaned);
+      const dir = String(parsed?.direction || 'NEUTRAL').toUpperCase();
+      const conf = Math.max(0, Math.min(1, Number(parsed?.confidence ?? 0)));
+      if (dir !== 'LONG' && dir !== 'SHORT') return null;
+      if (conf < 0.55) return null;
+      return {
+        signal_id: uuidv4(),
+        source: 'TEMPLATE_STRATEGY_LLM',
+        strategy_id: id,
+        symbol: ctx.symbol,
+        tf: ctx.tf as never,
+        direction: dir as 'LONG' | 'SHORT',
+        entry_price: last.close,
+        confidence_score: Number(conf.toFixed(3)),
+        ev: 0,
+        ts: new Date().toISOString(),
+      } as unknown as CanonicalSignalDTO;
+    } catch (err) {
+      this.logger.debug(`tpl LLM eval failed for ${id}: ${(err as Error).message}`);
+      return null;
+    }
   }
 }

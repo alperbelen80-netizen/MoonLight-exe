@@ -1,6 +1,69 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.3.0 — Dormant Template LLM Augmentation + Tick Persistence + A/B Harness
+
+**Release Date:** 2026-04-23
+**Scope:** V2.2'nin üç açığı kapatıldı: dormant şablonlar Gemini persona ile canlandırıldı, scheduler tick'leri DB'ye kalıcılaştırıldı, health-weighted vs static ensemble karşılaştırma harness'i kuruldu.
+
+### 🧠 V2.3-A — Dormant Template LLM Augmentation
+- `TemplateStrategyBuilderService` constructor'ına `@Optional() coach` eklendi.
+- `MOE_TEMPLATE_LLM_ENABLED=true` + coach available → dormant şablonlar için **Gemini persona evaluator** devreye girer:
+  - System prompt: template #N purpose + long/short rule + components.
+  - User payload: symbol + TF + last 3 bars (o/h/l/c/v).
+  - Timeout: **8s** (Promise.race).
+  - Strict JSON parse: `{direction, confidence, rationale}`.
+- **Fail-closed gate'ler**:
+  - Coach unavailable → silent.
+  - LLM throws/timeout → silent.
+  - Malformed JSON → silent.
+  - Direction ≠ LONG/SHORT → silent.
+  - Confidence < 0.55 → silent (güvensiz sinyal yayma).
+- Emitted signal `source = TEMPLATE_STRATEGY_LLM` (audit traceable).
+- Stats endpoint artık `llmAugmented` sayımını da döner.
+
+### 💾 V2.3-B — Scheduler Tick Persistence
+- Yeni entity: `LearningTickHistory` (id uuid, at_utc, ran 0/1, reason, brains, avgHealth, created_at).
+- `@Index('idx_ltick_at', ['at_utc'])` query için.
+- `ClosedLoopSchedulerService.handleCron()` her tick'i `tickRepo.save()` ile kalıcılaştırır.
+- DB save hatası scheduler'ı **çökertmez** (best-effort + warn log).
+- Yeni API: `GET /api/moe/learning/scheduler/history?limit=100` (DESC by at_utc).
+- Auto-synchronize DB schema otomatik yaratır.
+
+### 📊 V2.3-C — A/B Weighting Harness
+- Yeni servis: `ABWeightingHarnessService` (`moe-brain/learning/`).
+- Orchestrator her `EnsembleDecision`'ı `harness.record(decision, healthWeighting)` ile kaydeder.
+- 500 slot ring buffer, iki mode ayrı: `HEALTH_WEIGHTED` vs `STATIC`.
+- Bucket aggregate: count, allow/skip/veto/manualReview, avgConfidence, avgWeights.
+- API:
+  - `GET /api/moe/ab/buckets` — iki mode için toplu karşılaştırma.
+  - `GET /api/moe/ab/recent?limit=50` — son N örnek.
+  - `POST /api/moe/ab/clear` — buffer sıfırla.
+- Ops flow: `MOE_HEALTH_WEIGHTING=false` ile bir süre çalıştır → `true` yap → bucket'ları karşılaştır.
+
+### 🧪 Testler
+- **+14 yeni Jest test** → toplam **296/296 PASS** (282 + 14).
+  - `closed-loop-scheduler.service.spec.ts` (+1 persist testi).
+  - `ab-weighting-harness.service.spec.ts` (6): empty, mode ayrımı, avg metrics, 500 cap, recent(), clear.
+  - `template-strategy-llm.spec.ts` (7): disabled, coach unavailable, augmented count, garbage JSON, throw, low-confidence, high-confidence emit.
+
+### ✅ Doğrulama
+- Backend `yarn build` → PASS
+- Renderer `tsc --noEmit` → 0 error
+- Auto-synchronize → `learning_tick_history` tablosu runtime'da yaratılır.
+
+### 🔗 Yeni env flag'ler
+- `MOE_TEMPLATE_LLM_ENABLED=true` — dormant şablonlar için Gemini kullan.
+- (mevcut) `MOE_HEALTH_WEIGHTING=true|false` — artık A/B harness'e record'la.
+
+### 🚀 Sıradaki (V2.4 candidate)
+- Quad-core broker adapter gerçek implementasyonları.
+- Learner prior'larının DB persistence'ı (server restart resilience).
+- Dormant şablonlar için **per-template persona** (şu an generic); 17 dormant için özel prompt paketleri.
+- A/B harness için Excel/CSV export + grafik.
+
+
+
 ## v2.2.0 — Scheduled Learning + Live Priors Publish + Health-Weighted Ensemble
 
 **Release Date:** 2026-04-23

@@ -23,6 +23,7 @@ import {
 } from './shared/moe.contracts';
 import { BrainType, ExpertVote, MoEDecision } from './shared/moe.enums';
 import { ClosedLoopLearnerService } from './learning/closed-loop-learner.service';
+import { ABWeightingHarnessService } from './learning/ab-weighting-harness.service';
 
 export interface EnsembleWeights {
   ceo: number;
@@ -72,6 +73,8 @@ export class GlobalMoEOrchestratorService {
     private readonly test: TESTBrainService,
     @Inject(forwardRef(() => ClosedLoopLearnerService))
     private readonly learner: ClosedLoopLearnerService,
+    @Inject(forwardRef(() => ABWeightingHarnessService))
+    private readonly harness?: ABWeightingHarnessService,
   ) {}
 
   getWeights(): EnsembleWeights {
@@ -189,7 +192,7 @@ export class GlobalMoEOrchestratorService {
       `MoE ensemble: score=${score.toFixed(3)} decision=${decision} t=${Date.now() - started}ms w(C/T/Te)=${effective.ceo.toFixed(2)}/${effective.trade.toFixed(2)}/${effective.test.toFixed(2)}`,
     );
 
-    return {
+    const result: EnsembleDecision = {
       decision,
       confidence: Number(confidence.toFixed(3)),
       reasonCodes,
@@ -197,5 +200,12 @@ export class GlobalMoEOrchestratorService {
       finalWeights: effective,
       timestampUtc: new Date().toISOString(),
     };
+    // V2.3-C: record sample into A/B harness if available.
+    try {
+      this.harness?.record(result, this.healthWeighting);
+    } catch {
+      /* harness is best-effort */
+    }
+    return result;
   }
 }

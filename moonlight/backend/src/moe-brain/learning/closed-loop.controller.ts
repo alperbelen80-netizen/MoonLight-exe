@@ -27,6 +27,11 @@ export class ClosedLoopController {
     };
   }
 
+  @Get('scheduler/history')
+  async schedulerHistory() {
+    return this.scheduler.getPersistedHistory(100);
+  }
+
   @Post('scheduler/tick')
   async manualTick() {
     return this.scheduler.tick();

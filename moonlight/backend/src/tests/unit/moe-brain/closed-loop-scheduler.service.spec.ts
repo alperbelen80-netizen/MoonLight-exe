@@ -41,6 +41,14 @@ function fakeLearner(stepResult: { ran: boolean; reason: string; snapshots?: unk
   return { step: jest.fn().mockReturnValue(stepResult) } as unknown as ClosedLoopLearnerService;
 }
 
+function fakeRepo(): any {
+  return {
+    create: jest.fn((x: any) => x),
+    save: jest.fn().mockResolvedValue({}),
+    find: jest.fn().mockResolvedValue([]),
+  };
+}
+
 describe('ClosedLoopSchedulerService', () => {
   const origEnv = process.env.CLOSED_LOOP_SCHEDULER_ENABLED;
 
@@ -55,6 +63,7 @@ describe('ClosedLoopSchedulerService', () => {
       fakeLearner({ ran: true, reason: 'APPLIED' }),
       fakeEye1(OversightVerdict.OK),
       fakeBroker(true),
+      fakeRepo(),
     );
     const t = await svc.tick();
     expect(t.ran).toBe(false);
@@ -68,6 +77,7 @@ describe('ClosedLoopSchedulerService', () => {
       fakeLearner({ ran: true, reason: 'APPLIED' }),
       fakeEye1(OversightVerdict.HALT),
       fakeBroker(true),
+      fakeRepo(),
     );
     const t = await svc.tick();
     expect(t.ran).toBe(false);
@@ -80,6 +90,7 @@ describe('ClosedLoopSchedulerService', () => {
       fakeLearner({ ran: true, reason: 'APPLIED' }),
       fakeEye1(OversightVerdict.OK),
       fakeBroker(false),
+      fakeRepo(),
     );
     const t = await svc.tick();
     expect(t.ran).toBe(false);
@@ -97,6 +108,7 @@ describe('ClosedLoopSchedulerService', () => {
       learner,
       fakeEye1(OversightVerdict.OK),
       fakeBroker(true),
+      fakeRepo(),
     );
     const t = await svc.tick();
     expect(t.ran).toBe(true);
@@ -111,6 +123,7 @@ describe('ClosedLoopSchedulerService', () => {
       fakeLearner({ ran: true, reason: 'APPLIED' }),
       fakeEye1(OversightVerdict.OK),
       fakeBroker(true),
+      fakeRepo(),
     );
     for (let i = 0; i < 150; i++) {
       await svc.handleCron();
@@ -129,9 +142,23 @@ describe('ClosedLoopSchedulerService', () => {
       learner,
       fakeEye1(OversightVerdict.OK),
       fakeBroker(true),
+      fakeRepo(),
     );
     const t = await svc.tick();
     expect(t.ran).toBe(false);
     expect(t.reason).toMatch(/^LEARNER_ERROR/);
+  });
+
+  it('persists tick via repo.save() on handleCron', async () => {
+    process.env.CLOSED_LOOP_SCHEDULER_ENABLED = 'true';
+    const repo = fakeRepo();
+    const svc = new ClosedLoopSchedulerService(
+      fakeLearner({ ran: true, reason: 'APPLIED' }),
+      fakeEye1(OversightVerdict.OK),
+      fakeBroker(true),
+      repo,
+    );
+    await svc.handleCron();
+    expect(repo.save).toHaveBeenCalledTimes(1);
   });
 });
