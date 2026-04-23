@@ -1,18 +1,18 @@
 [
   {
-    "content": "V2.3-A: 17 dormant template → Gemini persona expert ile LLM-augmented evaluator",
-    "status": "completed"
+    "content": "V2.4-A: ExpertPrior entity + Learner load/save (server restart resilience)",
+    "status": "in_progress"
   },
   {
-    "content": "V2.3-B: LearningTickHistory entity + DB persist + migrations",
-    "status": "completed"
+    "content": "V2.4-C: A/B harness CSV export endpoint",
+    "status": "pending"
   },
   {
-    "content": "V2.3-C: A/B weighting harness (health-weighted vs static, decision sampling)",
-    "status": "completed"
+    "content": "V2.4-D: Broker adapter state machine + BrokerHealth registry + router skeleton (4 brokers)",
+    "status": "pending"
   },
   {
-    "content": "V2.3: Jest testler + build + CHANGELOG v2.3.0 + rapor",
-    "status": "completed"
+    "content": "V2.4: Testler + build + CHANGELOG v2.4.0 + rapor",
+    "status": "pending"
   }
 ]

@@ -23,6 +23,7 @@ import { AlertsDispatcherModule } from './alerts/alerts-dispatcher.module';
 import { MoeBrainModule } from './moe-brain/moe-brain.module';
 import { TrinityOversightModule } from './trinity-oversight/trinity-oversight.module';
 import { IndicatorRegistryModule } from './indicators/indicator-registry.module';
+import { BrokerHealthModule } from './broker/health/broker-health.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { IndicatorRegistryModule } from './indicators/indicator-registry.module'
     TrinityOversightModule,
     MoeBrainModule,
     IndicatorRegistryModule,
+    BrokerHealthModule,
   ],
   controllers: [],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -16,12 +16,15 @@
 //   - Uses SynapticRulesService which hard-clamps to [minWeight, maxWeight].
 //   - Has its own kill switch env: CLOSED_LOOP_DISABLED=true.
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Eye2DecisionAuditorService } from '../../trinity-oversight/eye2-decision-auditor.service';
 import { Eye3TopologyGovernorService } from '../../trinity-oversight/eye3-topology-governor.service';
 import { SynapticRulesService } from '../synaptic/synaptic-rules.service';
 import { SynapticRule, BrainType, ExpertRole } from '../shared/moe.enums';
 import { TrainingMode } from '../../trinity-oversight/shared/trinity.enums';
+import { ExpertPrior } from '../../database/entities/expert-prior.entity';
 
 export interface PriorMap {
   [ExpertRole.TREND]?: number;
@@ -49,9 +52,10 @@ export interface ClosedLoopSnapshot {
 }
 
 @Injectable()
-export class ClosedLoopLearnerService {
+export class ClosedLoopLearnerService implements OnModuleInit {
   private readonly logger = new Logger(ClosedLoopLearnerService.name);
   private readonly disabled = process.env.CLOSED_LOOP_DISABLED === 'true';
+  private readonly persistEnabled: boolean;
 
   private priors: Record<BrainType, Partial<Record<ExpertRole, number>>> = {
     [BrainType.CEO]: {
@@ -81,7 +85,55 @@ export class ClosedLoopLearnerService {
     private readonly eye2: Eye2DecisionAuditorService,
     private readonly eye3: Eye3TopologyGovernorService,
     private readonly synaptic: SynapticRulesService,
-  ) {}
+    @Optional()
+    @InjectRepository(ExpertPrior)
+    private readonly priorRepo?: Repository<ExpertPrior>,
+  ) {
+    this.persistEnabled = !!priorRepo && process.env.CLOSED_LOOP_PERSIST !== 'false';
+  }
+
+  async onModuleInit(): Promise<void> {
+    if (!this.persistEnabled || !this.priorRepo) return;
+    try {
+      const rows = await this.priorRepo.find();
+      if (rows.length === 0) {
+        this.logger.log('ExpertPrior table empty; using defaults.');
+        return;
+      }
+      for (const r of rows) {
+        const brain = r.brain as BrainType;
+        const role = r.role as ExpertRole;
+        if (!this.priors[brain]) continue;
+        this.priors[brain][role] = r.weight;
+      }
+      this.logger.log(`Loaded ${rows.length} persisted expert priors from DB`);
+    } catch (err) {
+      this.logger.warn(`ExpertPrior load failed: ${(err as Error).message}`);
+    }
+  }
+
+  private async persistPriors(): Promise<void> {
+    if (!this.persistEnabled || !this.priorRepo) return;
+    try {
+      const rows: ExpertPrior[] = [];
+      const now = new Date().toISOString();
+      for (const brain of [BrainType.CEO, BrainType.TRADE, BrainType.TEST]) {
+        for (const [role, weight] of Object.entries(this.priors[brain])) {
+          if (typeof weight !== 'number') continue;
+          rows.push({
+            id: `${brain}__${role}`,
+            brain,
+            role,
+            weight,
+            updated_at_utc: now,
+          } as ExpertPrior);
+        }
+      }
+      await this.priorRepo.save(rows);
+    } catch (err) {
+      this.logger.warn(`ExpertPrior persist failed: ${(err as Error).message}`);
+    }
+  }
 
   getPriors(brain: BrainType): Partial<Record<ExpertRole, number>> {
     return { ...(this.priors[brain] || {}) };
@@ -147,6 +199,8 @@ export class ClosedLoopLearnerService {
     this.logger.log(
       `closed-loop step: codes=${codes.length} health=${avg.toFixed(3)}`,
     );
+    // V2.4-A: best-effort persist (fire-and-forget, but awaited inside try).
+    void this.persistPriors();
     return { ran: true, reason: 'APPLIED', snapshots: out };
   }
 

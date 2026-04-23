@@ -19,6 +19,7 @@ import { ClosedLoopSchedulerService } from './learning/closed-loop-scheduler.ser
 import { ABWeightingHarnessService } from './learning/ab-weighting-harness.service';
 import { ABWeightingController } from './learning/ab-weighting.controller';
 import { LearningTickHistory } from '../database/entities/learning-tick-history.entity';
+import { ExpertPrior } from '../database/entities/expert-prior.entity';
 
 /**
  * V2.0-γ: adds Global MoE Orchestrator + Ensemble controller.
@@ -32,7 +33,7 @@ import { LearningTickHistory } from '../database/entities/learning-tick-history.
   imports: [
     TrinityOversightModule,
     AICoachModule,
-    TypeOrmModule.forFeature([ProductExecutionConfig, LearningTickHistory]),
+    TypeOrmModule.forFeature([ProductExecutionConfig, LearningTickHistory, ExpertPrior]),
   ],
   providers: [
     V2SeedService,

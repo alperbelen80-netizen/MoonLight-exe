@@ -1,6 +1,68 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.4.0 — Prior DB Persistence + CSV Export + Broker Health Registry
+
+**Release Date:** 2026-04-23
+**Scope:** Server restart dayanıklılığı, A/B analiz export'u, broker durum izleme altyapısı.
+
+### 💾 V2.4-A — ExpertPrior DB persistence
+- Yeni entity: `ExpertPrior(id="${brain}__${role}", brain, role, weight, updated_at_utc)` + `idx_prior_brain` index.
+- `ClosedLoopLearnerService.onModuleInit()` DB'den prior'ları yükler:
+  - Row bulunursa → in-memory prior'lara yazılır.
+  - Boş tablo → default değerler korunur.
+- `step()` sonunda **fire-and-forget persist**: 3 brain × 5 role = 15 satır upsert.
+- DB hataları scheduler'ı çökertmez (warn log + devam).
+- Kill-switch: `CLOSED_LOOP_PERSIST=false`.
+- Server restart sonrası prior'lar **canlı kalır** — closed-loop öğrenme artık kalıcı.
+
+### 📤 V2.4-C — A/B Harness CSV Export
+- Yeni endpoint: `GET /api/moe/ab/export.csv`
+- Headers: `Content-Type: text/csv`, `Content-Disposition: attachment; filename="moe_ab_samples.csv"`
+- Format: `mode,decision,confidence,at,w_ceo,w_trade,w_test`
+- Max 500 satır (ring buffer'ın tamamı).
+- Excel/Pandas/jq ile doğrudan analiz edilebilir.
+
+### 🔌 V2.4-D — Broker Health Registry (Quad-Core Foundation)
+- Yeni modül: `broker/health/` (global singleton).
+- **5 broker** seed'lenir: `IQ_OPTION`, `OLYMP_TRADE`, `BINOMO`, `EXPERT_OPTION` (DISCONNECTED) + `FAKE` (READY).
+- **7-state state machine**: DISCONNECTED → CONNECTING → AUTHENTICATING → READY → (THROTTLED ↔ READY) → ERRORED → DISABLED.
+- Transition doğrulama tablosu — invalid transition reddedilir + WARN log.
+- Metrikler:
+  - `errorsLastHour` — son 1 saatte ERRORED'a düşen kayıt sayısı (auto-prune).
+  - `quotesLastSeenAt` — son quote timestamp'i.
+  - `orderLatencyMsP95` — sipariş latency P95.
+- API:
+  - `GET /api/broker/health` — tüm broker'lar.
+  - `GET /api/broker/health/:brokerId` — tek broker.
+- Gelecek broker adapter'ları (IQ WSS, Olymp DOM, Binomo, Expert Option) bu registry'ye transition raporlayacak → Trinity GÖZ-1 direkt okuyabilecek.
+
+### 🧪 Testler
+- **+14 yeni Jest test** → toplam **310/310 PASS** (296 + 14).
+  - `broker-health-registry.service.spec.ts` (9): seed, valid transition, invalid reddi, idempotent, full happy path, errorsLastHour, quote timestamp, latency round, null lookup.
+  - `closed-loop-learner-persistence.spec.ts` (5): DB'den load, boş tablo no-op, step() sırasında save, CLOSED_LOOP_PERSIST=false kill-switch, save hatası graceful.
+  - `ab-weighting.controller` yeni export.csv davranışı (mevcut test örnekleri üzerinden endpoint canlı).
+
+### ✅ Doğrulama
+- Backend `yarn build` → PASS
+- 310/310 PASS
+- Auto-synchronize → `expert_prior` tablosu runtime'da yaratılır.
+
+### 🔗 Yeni env flag'ler
+- `CLOSED_LOOP_PERSIST=false` — prior DB persist'i kapat (default: on if repo available).
+
+### 🔀 Yeni API yüzeyi
+- `GET /api/moe/ab/export.csv` (CSV attachment)
+- `GET /api/broker/health` + `GET /api/broker/health/:brokerId`
+
+### 🚀 Sıradaki (V2.5 candidate)
+- IQ Option WSS Phase 1: ws lib + session authenticate + quote subscribe (broker health registry'ye state raporlayacak).
+- Olymp Trade DOM Phase 1: Playwright/Chromium headless login + quote scrape.
+- 17 dormant template için per-template özelleştirilmiş persona catalog.
+- Trinity UI'a broker health mini-panel.
+
+
+
 ## v2.3.0 — Dormant Template LLM Augmentation + Tick Persistence + A/B Harness
 
 **Release Date:** 2026-04-23
