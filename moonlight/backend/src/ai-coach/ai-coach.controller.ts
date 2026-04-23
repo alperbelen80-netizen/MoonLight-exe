@@ -84,6 +84,15 @@ export class AICoachController {
   }
 
   // ---- Phase A: AI Reasoning endpoints ----
+  // Static route MUST be declared BEFORE parameterised route so that
+  // NestJS / Express underlying router matches '/reason-signal/batch'
+  // as a literal path instead of treating 'batch' as an :id.
+  @Post('reason-signal/batch')
+  async reasonBatch(@Body() body: { limit?: number } = {}) {
+    const limit = Math.max(1, Math.min(body?.limit ?? 10, 25));
+    const results = await this.reasoning.reasonBatch(limit);
+    return { processed: results.length, results };
+  }
 
   @Post('reason-signal/:id')
   async reasonSignal(@Param('id') id: string) {
@@ -106,13 +115,6 @@ export class AICoachController {
       expectedEV: (signal.expected_wr_band_min + signal.expected_wr_band_max) / 2,
     });
     return { signalId: id, ...result };
-  }
-
-  @Post('reason-signal/batch')
-  async reasonBatch(@Body() body: { limit?: number } = {}) {
-    const limit = Math.max(1, Math.min(body?.limit ?? 10, 25));
-    const results = await this.reasoning.reasonBatch(limit);
-    return { processed: results.length, results };
   }
 
   @Get('reasoning-history')

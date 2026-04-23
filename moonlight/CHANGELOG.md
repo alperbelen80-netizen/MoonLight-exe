@@ -1,6 +1,62 @@
 # MoonLight Trading OS - Change Log
 
 
+## v1.8.0 — AI-Native Trading OS (Reasoning + Intelligence + UX)
+
+**Release Date:** 2026-04-23
+
+### 🧠 Phase A — AI Reasoning Layer (CRITICAL)
+Every live signal now gets a Gemini 2.5 Flash second-opinion audit with verdict + Turkish reasoning + risk factors. Fail-closed by design.
+- **`AIReasoningService`** — token-bucket rate limiter (30/min), circuit breaker (5 consecutive failures → 60s cooldown), strict-guard mode optionally SKIP-s rejected signals.
+- **`LiveSignal` entity** extended with `ai_verdict / ai_confidence / ai_reasoning / ai_reasoned_at_utc` (TypeORM auto-migrated).
+- **Periodic auto-batch** (30s cadence, 5 signals/batch) — no human action required to keep reasoning fresh.
+- **Endpoints**:
+  - `POST /api/ai-coach/reason-signal/batch` — bulk reasoning (max 25)
+  - `POST /api/ai-coach/reason-signal/:id` — ad-hoc reasoning (static route declared BEFORE param to prevent NestJS route-shadowing)
+  - `GET  /api/ai-coach/reasoning-history?verdict=&symbol=&limit=`
+- **Frontend**: Live Signals table gets an **AI column** (APPROVED / REJECTED / UNKNOWN badges with confidence %) + 🧠 *Muhakeme* button → glass-morphism modal showing reasoning, risk factors and expected WR.
+
+### 📊 Phase B — Dashboard AI Insights Widget
+- **`AIInsightsService`** — 5-minute cached daily summary with top symbols, top strategies, regime distribution and AI-generated Turkish recommendations.
+- `GET /api/ai-coach/daily-insights?window=&force=`
+- **Frontend**: New violet-gradient card on the dashboard with stats pills, top-symbols list, regime distribution and 3 AI recommendations.
+
+### 🔭 Phase C — Market Intelligence Page
+- `GET /api/ai-coach/regime-heatmap` — last 2h latest regime per symbol × timeframe.
+- **Frontend** (`/intel`): color-coded heatmap (TREND/RANGE/SHOCK/BREAKOUT/REVERSAL) with ADX values.
+
+### 🏆 Phase D — Strategy Leaderboard + AI Tune
+- `GET /api/ai-coach/strategy-leaderboard` — per-strategy live signal count, AI approvals and approval rate (24h).
+- `POST /api/ai-coach/tune-strategy` — AI batch analysis with improvement advice.
+- **Frontend**: Sortable leaderboard table with per-row *AI Tune* button opening an advice modal.
+
+### ✨ Phase E — Polish & Hardening
+- **Dark mode** toggle in top-bar (localStorage-persisted, Tailwind `darkMode:'class'`).
+- **Status bar** (bottom): live provider name, AI model, reasoning badge, rate tokens remaining, circuit state.
+- **Toast notifications** (`sonner`) on new live signals and fresh AI approvals.
+- **Keyboard shortcuts** (Gmail-style `g d/l/i/a/s/b/h`).
+- **+18 new Jest tests**: AIReasoningService (9), AIInsightsService (9) → total **147/147 PASS**.
+- **Security/robustness**:
+  - Defensive numeric normalization across all AI/feed code paths.
+  - Confidence/expectedWR clamped to `[0,1]`.
+  - TypeORM `synchronize` is now opt-out via `DB_SYNCHRONIZE=false` (default ON) so new entities migrate automatically in dev.
+
+### ⚙️ Config additions
+```
+AI_REASONING_ENABLED=true
+AI_REASONING_AUTO_BATCH=true
+AI_REASONING_RATE_PER_MIN=30
+AI_REASONING_BATCH_INTERVAL_MS=30000
+AI_REASONING_BATCH_SIZE=5
+AI_GUARD_STRICT=false
+```
+
+### 🐛 Bug fixes in this release
+- **NestJS route shadowing** — `POST /ai-coach/reason-signal/batch` was being matched as `:id='batch'`; static path now registered first.
+- `live-signal-engine` NaN leaks when `signal.ev` or `confidence_score` is undefined.
+- `live-strategy-performance.service` UNIQUE-constraint race with retry loop.
+
+
 ## v1.7.0 — Multi-Source Feed Orchestration + AI Coach (Gemini 2.5 Flash)
 
 **Release Date:** 2026-04-23

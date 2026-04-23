@@ -32,11 +32,15 @@
     "status": "completed"
   },
   {
-    "content": "Final: testing_agent_v3 kapsamlı backend test",
-    "status": "in_progress"
+    "content": "Final: testing_agent_v3 kapsamlı backend test (94% / 16 of 17 endpoints)",
+    "status": "completed"
+  },
+  {
+    "content": "Final: Critical route-shadow bug fix + doğrula",
+    "status": "completed"
   },
   {
     "content": "Final: CHANGELOG v1.8.0 güncelle",
-    "status": "pending"
+    "status": "completed"
   }
 ]
