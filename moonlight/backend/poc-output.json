@@ -1,20 +1,20 @@
 {
-  "started_at_utc": "2026-04-23T08:56:59.216Z",
+  "started_at_utc": "2026-04-23T10:27:58.257Z",
   "mode": "SANDBOX",
   "steps": [
     {
       "step": "canonical_signal",
       "signal": {
-        "signal_id": "POC_1776934619217",
-        "idempotency_key": "POC_KEY_1776934619217",
+        "signal_id": "POC_1776940078258",
+        "idempotency_key": "POC_KEY_1776940078258",
         "source": "poc",
         "symbol": "XAUUSD",
         "tf": "1m",
-        "ts": "2026-04-23T08:56:59.217Z",
+        "ts": "2026-04-23T10:27:58.258Z",
         "direction": "CALL",
         "ev": 0.08,
         "confidence_score": 0.72,
-        "valid_until": "2026-04-23T08:57:59.217Z",
+        "valid_until": "2026-04-23T10:28:58.258Z",
         "latency_budget_ms": 200,
         "schema_version": 1,
         "environment": "BACKTEST"
@@ -99,25 +99,25 @@
     {
       "step": "order_first_call",
       "ack": {
-        "broker_request_id": "BRQ_1776934619220",
-        "broker_order_id": "FAKE_POS_4f8e1393-d5cd-4570-9d65-395f7c59ea8c",
+        "broker_request_id": "BRQ_1776940078261",
+        "broker_order_id": "FAKE_POS_e08bbac9-9695-45c2-8dc7-69fa4e35ab60",
         "status": "ACK",
-        "response_ts_utc": "2026-04-23T08:56:59.276Z",
-        "latency_ms": 56.58530570911115,
-        "open_price": 2035.980002287584,
-        "open_ts_utc": "2026-04-23T08:56:59.276Z"
+        "response_ts_utc": "2026-04-23T10:27:58.315Z",
+        "latency_ms": 53.34320238346193,
+        "open_price": 2036.434261764808,
+        "open_ts_utc": "2026-04-23T10:27:58.315Z"
       }
     },
     {
       "step": "order_second_call",
       "ack": {
-        "broker_request_id": "BRQ_1776934619220",
-        "broker_order_id": "FAKE_POS_4f8e1393-d5cd-4570-9d65-395f7c59ea8c",
+        "broker_request_id": "BRQ_1776940078261",
+        "broker_order_id": "FAKE_POS_e08bbac9-9695-45c2-8dc7-69fa4e35ab60",
         "status": "ACK",
-        "response_ts_utc": "2026-04-23T08:56:59.276Z",
-        "latency_ms": 56.58530570911115,
-        "open_price": 2035.980002287584,
-        "open_ts_utc": "2026-04-23T08:56:59.276Z"
+        "response_ts_utc": "2026-04-23T10:27:58.315Z",
+        "latency_ms": 53.34320238346193,
+        "open_price": 2036.434261764808,
+        "open_ts_utc": "2026-04-23T10:27:58.315Z"
       }
     },
     {
@@ -128,19 +128,19 @@
       "step": "open_positions",
       "positions": [
         {
-          "position_id": "FAKE_POS_4f8e1393-d5cd-4570-9d65-395f7c59ea8c",
+          "position_id": "FAKE_POS_e08bbac9-9695-45c2-8dc7-69fa4e35ab60",
           "symbol": "XAUUSD",
           "direction": "CALL",
           "stake_amount": 25,
-          "entry_price": 2035.980002287584,
-          "open_ts_utc": "2026-04-23T08:56:59.276Z",
-          "expiry_ts_utc": "2026-04-23T09:56:59.276Z",
+          "entry_price": 2036.434261764808,
+          "open_ts_utc": "2026-04-23T10:27:58.315Z",
+          "expiry_ts_utc": "2026-04-23T11:27:58.315Z",
           "status": "OPEN"
         }
       ]
     }
   ],
-  "finished_at_utc": "2026-04-23T08:56:59.277Z",
-  "total_duration_ms": 61,
+  "finished_at_utc": "2026-04-23T10:27:58.315Z",
+  "total_duration_ms": 58,
   "status": "OK"
 }

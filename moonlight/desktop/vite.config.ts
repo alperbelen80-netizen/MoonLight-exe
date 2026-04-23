@@ -6,6 +6,13 @@ export default defineConfig({
   plugins: [react()],
   root: path.join(__dirname, 'renderer'),
   base: './',
+  envDir: __dirname, // Load .env from the package root, not renderer/
+  define: {
+    // Hard default so the app works even if .env is missing.
+    'import.meta.env.VITE_API_BASE_URL': JSON.stringify(
+      process.env.VITE_API_BASE_URL || '/api',
+    ),
+  },
   build: {
     outDir: path.join(__dirname, 'dist-renderer'),
   },
@@ -22,7 +29,8 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8001',
         changeOrigin: true,
-        rewrite: (p: string) => p.replace(/^\/api/, ''),
+        // Do NOT rewrite: backend now has app.setGlobalPrefix('api') so it
+        // expects the /api prefix to be preserved end-to-end.
       },
     },
   },

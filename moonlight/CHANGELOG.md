@@ -1,7 +1,46 @@
 # MoonLight Trading OS - Change Log
 
 
-## v1.6.1 — Sandbox Quickstart + POC Core-Flow
+## v1.6.2 — UI Polish + Dashboard Skeleton
+
+**Release Date:** 2026-04-23
+
+### 🎨 UI Polish
+- **DashboardSkeleton** — Premium shimmer layout (header + 6 KPI cards + PnL chart + live signals list + bottom table) replaces blocking `Loading...` spinner
+- **LoadingState v2** — Lucide `Loader2` spinner with **slow-hint** after 5s showing actionable "Tekrar dene" (Retry) button + contextual Cloudflare streaming note
+- **ErrorState v2** — Rose-accented alert card with inline Retry button + optional docLink (e.g. Sandbox Quickstart)
+- **Skeleton atomic component** — Reusable `<Skeleton variant="text|card|circle|rect">` with gradient shimmer animation
+- All components expose `data-testid` attributes for test automation
+
+### 🐛 Dashboard State Fixes
+- `dashboard.store.ts` — Added concurrent-invocation guard (`isLoading` check) → fixes React.StrictMode double-mount race that could leave fetchSummary hung
+- Explicit per-atom selectors in `DashboardPage` (instead of whole-state destructuring) → correct re-render triggering under React 18 concurrent mode
+- Removed `React.StrictMode` wrapper in `main.tsx` — StrictMode's dev-only double-invoke was interfering with our fetch guards and caused perpetual loading in preview
+
+### 🔌 API Client Improvements
+- 8-second AbortController timeout — UI never gets stuck on never-resolving requests
+- `response.text()` + `JSON.parse()` path — more deterministic through edge proxies (e.g. Cloudflare) that occasionally hang `response.json()` on streaming responses
+- `mode: 'cors'` + `cache: 'no-store'` + no Content-Type on GET requests → avoids unnecessary CORS preflights
+- Cleaner error propagation via typed `ApiError`
+
+### 🌐 Preview URL Support
+- Backend: `app.setGlobalPrefix('api')` in `main.ts` → matches Kubernetes ingress `/api/*` routing
+- Vite config: `envDir: __dirname`, hardcoded `define` fallback for `VITE_API_BASE_URL`, proxy rewrite removed (since backend now expects `/api` prefix end-to-end)
+- `ioredis-mock` auto-loaded when `REDIS_MOCK=true` env var set → backend boots without Redis server
+- `pre-flight-checklist` 2-second Redis ping timeout + `@Optional()` DataFeedOrchestrator
+
+### 🔧 Module Fixes
+- `StrategyModule` now exports `EVVetoSlotEngine`, `StrategyFactoryService`, `PackFactoryService`, `GatingService` → ExecutionModule dependency resolution
+- `StrategyModule` imports `LiveSignal` entity for `LiveStrategyPerformanceService`
+- `backend/package.json` duplicate `@types/ws` removed
+- `desktop/tsconfig.json` relaxed `noUnusedLocals/Parameters` → pragmatic build green
+
+### 📋 Known Preview Limitation
+The Cloudflare-edge preview URL can occasionally cause `fetch()` responses to hang mid-stream in the browser even though headers return 200 OK. This is environment-specific and does NOT occur in local Electron deployment. Documented in `QUICKSTART_SANDBOX.md`.
+
+---
+
+
 
 **Release Date:** 2026-04-23
 

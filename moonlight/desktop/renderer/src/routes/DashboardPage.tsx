@@ -11,11 +11,20 @@ import { ApprovalQueuePanel } from '../components/owner/ApprovalQueuePanel';
 import { PnlHistoryChart } from '../components/dashboard/PnlHistoryChart';
 import { LastLiveSignalsWidget } from '../components/dashboard/LastLiveSignalsWidget';
 import { BrokerHealthPanel } from '../components/dashboard/BrokerHealthPanel';
+import { DashboardSkeleton } from '../components/common/Skeleton';
 
 export function DashboardPage() {
-  const { summary, isLoading, error, fetchSummary } = useDashboardStore();
-  const { pending, fetchPending } = useApprovalsStore();
-  const { loadHistory } = usePnlHistoryStore();
+  // Use explicit per-field selectors so zustand subscribes to the specific
+  // atoms we read. The destructured-whole-state pattern (`useDashboardStore()`)
+  // was not triggering re-renders after fetchSummary() completed because the
+  // returned object identity confused React 18's concurrent rendering.
+  const summary = useDashboardStore((s) => s.summary);
+  const isLoading = useDashboardStore((s) => s.isLoading);
+  const error = useDashboardStore((s) => s.error);
+  const fetchSummary = useDashboardStore((s) => s.fetchSummary);
+  const pending = useApprovalsStore((s) => s.pending);
+  const fetchPending = useApprovalsStore((s) => s.fetchPending);
+  const loadHistory = usePnlHistoryStore((s) => s.loadHistory);
 
   useEffect(() => {
     fetchSummary();
@@ -30,15 +39,30 @@ export function DashboardPage() {
   }, []);
 
   if (isLoading && !summary) {
-    return <LoadingState message="Dashboard yükleniyor..." />;
+    return <DashboardSkeleton />;
   }
 
   if (error && !summary) {
-    return <ErrorState message={error} onRetry={fetchSummary} />;
+    return (
+      <ErrorState
+        message={error}
+        onRetry={fetchSummary}
+        docLink={{
+          href: 'https://github.com/moonlight-os/docs/blob/main/QUICKSTART_SANDBOX.md',
+          label: 'Sandbox Kurulum',
+        }}
+      />
+    );
   }
 
   if (!summary) {
-    return <ErrorState message="Dashboard verisi alınamadı" onRetry={fetchSummary} />;
+    return (
+      <LoadingState
+        message="Dashboard verisi bekleniyor..."
+        slowHintAfterMs={4000}
+        onRetry={fetchSummary}
+      />
+    );
   }
 
   return (

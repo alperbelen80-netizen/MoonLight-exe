@@ -1,54 +1,46 @@
 [
   {
-    "content": "Senaryo A.1 — POC core-flow script (yarn poc:core-flow)",
+    "content": "Task 1 - Dashboard state bug fix (root cause analysis done)",
     "status": "completed"
   },
   {
-    "content": "Senaryo A.2 — Root yarn verify scripti (test + build + poc)",
+    "content": "Task 1 - Zustand idempotency guard + explicit selectors",
     "status": "completed"
   },
   {
-    "content": "Senaryo A.3 — Broker Health Panel UI (desktop dashboard)",
+    "content": "Task 1 - React.StrictMode removed to avoid double-mount race",
     "status": "completed"
   },
   {
-    "content": "Senaryo A.4 — /broker/adapters/health backend endpoint",
+    "content": "Task 1 - ApiClient 8s timeout + text/parse split for CF edge",
     "status": "completed"
   },
   {
-    "content": "Senaryo A.5 — QUICKSTART_SANDBOX.md dokümanı",
+    "content": "Task 1 - Backend /api globalPrefix + ioredis-mock + preflight timeout",
     "status": "completed"
   },
   {
-    "content": "Senaryo A SONUÇ — yarn verify geçiyor, POC çalışıyor",
+    "content": "Task 2 - LoadingState v2 (Loader2 + slow hint + retry)",
     "status": "completed"
   },
   {
-    "content": "Senaryo B.1 — Data feed: Binance CCXT wiring + .env docs",
-    "status": "pending"
+    "content": "Task 2 - ErrorState v2 (rose alert + retry + docLink)",
+    "status": "completed"
   },
   {
-    "content": "Senaryo B.2 — Live signals UI execute button → real broker",
-    "status": "pending"
+    "content": "Task 2 - Skeleton atomic + DashboardSkeleton component",
+    "status": "completed"
   },
   {
-    "content": "Senaryo B.3 — Session manager UI (connect/disconnect per broker)",
-    "status": "pending"
+    "content": "Task 2 - Dashboard integrate DashboardSkeleton",
+    "status": "completed"
   },
   {
-    "content": "Senaryo C.1 — Gemma E4B API client (Google GenAI SDK)",
-    "status": "pending"
+    "content": "Final verify: 114 tests + both builds + POC all PASS",
+    "status": "completed"
   },
   {
-    "content": "Senaryo C.2 — AI Execution Coach service + prompt templates",
-    "status": "pending"
-  },
-  {
-    "content": "Senaryo C.3 — LLM-powered regime detection",
-    "status": "pending"
-  },
-  {
-    "content": "Senaryo C.4 — Full-auto mode with AI veto layer",
-    "status": "pending"
+    "content": "CHANGELOG v1.6.2 + plan update",
+    "status": "completed"
   }
 ]
