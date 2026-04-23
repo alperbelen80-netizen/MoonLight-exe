@@ -10,6 +10,7 @@ import { KillSwitchButton } from '../components/owner/KillSwitchButton';
 import { ApprovalQueuePanel } from '../components/owner/ApprovalQueuePanel';
 import { PnlHistoryChart } from '../components/dashboard/PnlHistoryChart';
 import { LastLiveSignalsWidget } from '../components/dashboard/LastLiveSignalsWidget';
+import { BrokerHealthPanel } from '../components/dashboard/BrokerHealthPanel';
 
 export function DashboardPage() {
   const { summary, isLoading, error, fetchSummary } = useDashboardStore();
@@ -101,6 +102,8 @@ export function DashboardPage() {
         <PnlHistoryChart />
         <LastLiveSignalsWidget />
       </div>
+
+      <BrokerHealthPanel />
 
       {pending.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">

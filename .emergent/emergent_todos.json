@@ -1,62 +1,54 @@
 [
   {
-    "content": "Examine existing 4 broker adapters + interface (baseline)",
+    "content": "Senaryo A.1 — POC core-flow script (yarn poc:core-flow)",
     "status": "completed"
   },
   {
-    "content": "Design unified BrokerAdapterInterface v2 (session, auth, heartbeat, reconnect)",
+    "content": "Senaryo A.2 — Root yarn verify scripti (test + build + poc)",
     "status": "completed"
   },
   {
-    "content": "Create BaseWSAdapter abstract class (shared WSS logic for IQ/Binomo/ExpertOption)",
+    "content": "Senaryo A.3 — Broker Health Panel UI (desktop dashboard)",
     "status": "completed"
   },
   {
-    "content": "Create BaseCDPAdapter / lazy-load Playwright for Olymp Trade",
+    "content": "Senaryo A.4 — /broker/adapters/health backend endpoint",
     "status": "completed"
   },
   {
-    "content": "B.2 - Implement IQ Option Real Adapter (full WSS: auth, order, payout cache)",
+    "content": "Senaryo A.5 — QUICKSTART_SANDBOX.md dokümanı",
     "status": "completed"
   },
   {
-    "content": "B.3 - Implement Olymp Trade Adapter (CDP/DOM automation skeleton)",
+    "content": "Senaryo A SONUÇ — yarn verify geçiyor, POC çalışıyor",
     "status": "completed"
   },
   {
-    "content": "B.4 - Implement Binomo Protocol Adapter (WSS)",
-    "status": "completed"
+    "content": "Senaryo B.1 — Data feed: Binance CCXT wiring + .env docs",
+    "status": "pending"
   },
   {
-    "content": "B.5 - Implement Expert Option High-Freq Adapter (WSS)",
-    "status": "completed"
+    "content": "Senaryo B.2 — Live signals UI execute button → real broker",
+    "status": "pending"
   },
   {
-    "content": "B.6 - MockWSServer for local testing (no real broker needed)",
-    "status": "completed"
+    "content": "Senaryo B.3 — Session manager UI (connect/disconnect per broker)",
+    "status": "pending"
   },
   {
-    "content": "B.7 - Unit tests for each adapter against MockWSServer (18 new tests)",
-    "status": "completed"
+    "content": "Senaryo C.1 — Gemma E4B API client (Google GenAI SDK)",
+    "status": "pending"
   },
   {
-    "content": "B.8 - Multi-Broker Router v2 wired to BrokerAdapterRegistry",
-    "status": "completed"
+    "content": "Senaryo C.2 — AI Execution Coach service + prompt templates",
+    "status": "pending"
   },
   {
-    "content": "B.9 - Broker Credential Vault (.env docs + validation)",
-    "status": "completed"
+    "content": "Senaryo C.3 — LLM-powered regime detection",
+    "status": "pending"
   },
   {
-    "content": "B.10 - Run full test suite (114/114), backend+desktop builds PASS",
-    "status": "completed"
-  },
-  {
-    "content": "B.11 - Documentation (docs/BROKER_ADAPTERS.md + CHANGELOG v1.6)",
-    "status": "completed"
-  },
-  {
-    "content": "Report Plan B completion to user + ask direction for DevSecOps Atlas",
-    "status": "in_progress"
+    "content": "Senaryo C.4 — Full-auto mode with AI veto layer",
+    "status": "pending"
   }
 ]

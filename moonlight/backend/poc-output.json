@@ -1,0 +1,146 @@
+{
+  "started_at_utc": "2026-04-23T08:56:59.216Z",
+  "mode": "SANDBOX",
+  "steps": [
+    {
+      "step": "canonical_signal",
+      "signal": {
+        "signal_id": "POC_1776934619217",
+        "idempotency_key": "POC_KEY_1776934619217",
+        "source": "poc",
+        "symbol": "XAUUSD",
+        "tf": "1m",
+        "ts": "2026-04-23T08:56:59.217Z",
+        "direction": "CALL",
+        "ev": 0.08,
+        "confidence_score": 0.72,
+        "valid_until": "2026-04-23T08:57:59.217Z",
+        "latency_budget_ms": 200,
+        "schema_version": 1,
+        "environment": "BACKTEST"
+      }
+    },
+    {
+      "step": "evvetoslot",
+      "result": {
+        "decision": "ACCEPT",
+        "selected_expiry_minutes": 60,
+        "expected_ev": 0.06408,
+        "effective_payout_ratio": 0.89,
+        "reason_codes": []
+      }
+    },
+    {
+      "step": "broker_health_snapshot",
+      "snapshot": [
+        {
+          "brokerId": "FAKE",
+          "health": "DOWN",
+          "lastLatencyMs": null
+        },
+        {
+          "brokerId": "IQ_OPTION",
+          "health": "DOWN",
+          "lastLatencyMs": null
+        },
+        {
+          "brokerId": "OLYMP_TRADE",
+          "health": "DOWN",
+          "lastLatencyMs": null
+        },
+        {
+          "brokerId": "BINOMO",
+          "health": "DOWN",
+          "lastLatencyMs": null
+        },
+        {
+          "brokerId": "EXPERT_OPTION",
+          "health": "DOWN",
+          "lastLatencyMs": null
+        }
+      ]
+    },
+    {
+      "step": "credential_vault",
+      "summary": [
+        {
+          "brokerId": "IQ_OPTION",
+          "hasCredentials": false,
+          "fields": {
+            "IQ_OPTION_SSID": false,
+            "IQ_OPTION_BALANCE_ID": false
+          }
+        },
+        {
+          "brokerId": "OLYMP_TRADE",
+          "hasCredentials": false,
+          "fields": {
+            "OLYMP_TRADE_EMAIL": false,
+            "OLYMP_TRADE_PASSWORD": false
+          }
+        },
+        {
+          "brokerId": "BINOMO",
+          "hasCredentials": false,
+          "fields": {
+            "BINOMO_AUTH_TOKEN": false,
+            "BINOMO_DEVICE_ID": false
+          }
+        },
+        {
+          "brokerId": "EXPERT_OPTION",
+          "hasCredentials": false,
+          "fields": {
+            "EXPERT_OPTION_TOKEN": false
+          }
+        }
+      ]
+    },
+    {
+      "step": "order_first_call",
+      "ack": {
+        "broker_request_id": "BRQ_1776934619220",
+        "broker_order_id": "FAKE_POS_4f8e1393-d5cd-4570-9d65-395f7c59ea8c",
+        "status": "ACK",
+        "response_ts_utc": "2026-04-23T08:56:59.276Z",
+        "latency_ms": 56.58530570911115,
+        "open_price": 2035.980002287584,
+        "open_ts_utc": "2026-04-23T08:56:59.276Z"
+      }
+    },
+    {
+      "step": "order_second_call",
+      "ack": {
+        "broker_request_id": "BRQ_1776934619220",
+        "broker_order_id": "FAKE_POS_4f8e1393-d5cd-4570-9d65-395f7c59ea8c",
+        "status": "ACK",
+        "response_ts_utc": "2026-04-23T08:56:59.276Z",
+        "latency_ms": 56.58530570911115,
+        "open_price": 2035.980002287584,
+        "open_ts_utc": "2026-04-23T08:56:59.276Z"
+      }
+    },
+    {
+      "step": "idempotency_check",
+      "ok": true
+    },
+    {
+      "step": "open_positions",
+      "positions": [
+        {
+          "position_id": "FAKE_POS_4f8e1393-d5cd-4570-9d65-395f7c59ea8c",
+          "symbol": "XAUUSD",
+          "direction": "CALL",
+          "stake_amount": 25,
+          "entry_price": 2035.980002287584,
+          "open_ts_utc": "2026-04-23T08:56:59.276Z",
+          "expiry_ts_utc": "2026-04-23T09:56:59.276Z",
+          "status": "OPEN"
+        }
+      ]
+    }
+  ],
+  "finished_at_utc": "2026-04-23T08:56:59.277Z",
+  "total_duration_ms": 61,
+  "status": "OK"
+}

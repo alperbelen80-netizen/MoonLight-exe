@@ -15,7 +15,9 @@
     "build:desktop": "cd desktop && yarn build",
     "package:desktop": "cd desktop && yarn dist",
     "test": "cd backend && yarn test",
-    "smoke": "cd backend && ts-node scripts/smoke-test.ts"
+    "smoke": "cd backend && ts-node scripts/smoke-test.ts",
+    "poc": "cd backend && yarn poc:core-flow",
+    "verify": "yarn test && yarn build && yarn poc"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

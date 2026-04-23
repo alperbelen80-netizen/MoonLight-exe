@@ -1,7 +1,38 @@
 # MoonLight Trading OS - Change Log
 
 
-## v1.6.0 — Quad-Core Broker Adapters + Stabilization
+## v1.6.1 — Sandbox Quickstart + POC Core-Flow
+
+**Release Date:** 2026-04-23
+
+### 🎯 Senaryo A Tamamlandı — Credential'sız Kullanıma Hazır
+
+**🚀 POC Core-Flow Script (`yarn poc:core-flow`)**
+- `backend/scripts/poc-core-flow.ts` — tam zincir ispatı: Signal → EVVetoSlot → BrokerAdapter snapshot → IdempotentOrder (FakeBroker) → Open positions
+- Idempotency doğrulaması: aynı order_key iki kez çağrılırsa cache hit (aynı broker_order_id)
+- Çıktı: `poc-output.json` (adım adım audit trail)
+- Çalışma süresi: ~60ms (sandbox)
+
+**🔌 Broker Health API**
+- Yeni endpoint: `GET /broker/adapters/health` → 5 adaptörün live sağlık snapshot'u + credential vault özeti + mock_mode durumu
+
+**🖥️ Desktop Dashboard — BrokerHealthPanel**
+- 15 saniyede bir otomatik yenilenen canlı broker durum paneli
+- UP/DEGRADED/RECONNECTING/COOLDOWN/DOWN renk kodlu chip'ler
+- Animasyonlu dot göstergeleri, latency ms gösterimi
+- Backend erişilemediğinde mock fallback (UX kesilmesin diye)
+- Tüm DOM elementlerinde `data-testid` attributeları
+
+**📦 Root Yarn Scripts**
+- `yarn verify` → test + build + poc (tek komutla CI-benzeri doğrulama)
+- `yarn poc` → POC core-flow kısayolu
+
+**📝 Yeni Doküman**
+- `docs/QUICKSTART_SANDBOX.md` — Sandbox modunda credential'sız çalıştırma kılavuzu (setup, POC, dev mode, troubleshooting)
+
+---
+
+
 
 **Release Date:** 2026-04-22
 
