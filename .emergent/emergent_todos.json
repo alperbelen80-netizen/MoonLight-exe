@@ -8,7 +8,7 @@
     "status": "completed"
   },
   {
-    "content": "T1.3: BacktestAIAnalyzerService + endpoint (Çalışıyor!)",
+    "content": "T1.3: BacktestAIAnalyzerService + endpoint",
     "status": "completed"
   },
   {
@@ -16,7 +16,7 @@
     "status": "completed"
   },
   {
-    "content": "T1.5: Trade Journal backend + UI (100 entry görüntülendi)",
+    "content": "T1.5: Trade Journal backend + UI (100 entry)",
     "status": "completed"
   },
   {
@@ -40,7 +40,11 @@
     "status": "completed"
   },
   {
-    "content": "Final: testing_agent_v3 + CHANGELOG v1.9.0",
-    "status": "in_progress"
+    "content": "testing_agent_v3: 100% backend PASS (0 critical)",
+    "status": "completed"
+  },
+  {
+    "content": "CHANGELOG v1.9.0 güncellendi",
+    "status": "completed"
   }
 ]

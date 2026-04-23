@@ -1,6 +1,79 @@
 # MoonLight Trading OS - Change Log
 
 
+## v1.9.0 — Production-Ready Hardening + Advanced Features
+
+**Release Date:** 2026-04-23
+
+### 🛡️ T1 — Hardening
+- **DB indexes** on `live_signals`:
+  - `idx_live_signals_symbol_ts` (symbol, timestamp_utc)
+  - `idx_live_signals_verdict` (ai_verdict)
+  - `idx_live_signals_strategy_ts` (strategy_family, timestamp_utc)
+  - `idx_live_signals_status` (status)
+- **gzip compression** via `compression` middleware (threshold 1024B, level 6).
+- **Per-IP rate limiting** with `@nestjs/throttler` (default 100 req / 60s, configurable via `THROTTLE_LIMIT` / `THROTTLE_TTL_S`).
+- **`GET /api/healthz`** — structured health (database + ai_coach + ai_reasoning + active_feed, uptime, response_time_ms).
+- **Graceful shutdown** — SIGTERM/SIGINT → `app.close()` with timeout, `enableShutdownHooks()`.
+
+### 🧠 T1.3 — Backtest AI Analyzer
+- **`BacktestAIAnalyzerService`** — turns raw backtest stats into `{strengths, weaknesses, regimeFit, recommendations, riskLevel, suggestedParameterBands[]}` via Gemini with deterministic fallback (no-LLM path guaranteed).
+- `POST /api/ai-coach/analyze-backtest` — accepts `{runId, win_rate, max_drawdown, profit_factor, total_trades, symbols[], per_strategy[]}`.
+
+### 🔔 T1.4 — Alert System V2 (Outgoing Webhooks)
+- **`AlertDispatcherService`** — Discord / Slack / Telegram / Generic JSON channel formatters; timeout-safe (8s abort), partial-success reporting.
+- **`AlertThresholdMonitor`** — 1-minute tick watching AI approval rate floor + reasoning circuit breaker; edge-triggered (no repeat-spam).
+- Endpoints: `GET /api/alerts/webhooks`, `POST /api/alerts/test-webhook` (optional `url/channel` override for ad-hoc testing).
+- Config: `ALERT_WEBHOOKS=discord:<url>,slack:<url>,…`, `ALERT_APPROVAL_FLOOR=0.3`, `ALERT_MONITOR_INTERVAL_MS=60000`.
+
+### 📒 T1.5 — Trade Journal
+- `GET /api/journal?from=&to=&status=&symbol=&strategy=&verdict=&limit=` — last 24h filterable timeline of signals + AI verdicts + reasoning excerpts.
+- `GET /api/journal/stats?hours=24` — aggregate counts by status/verdict/direction.
+- **Frontend**: `/journal` page with 4 stat cards, filter bar (symbol/strategy/verdict/status) and 100-row timeline displaying inline AI reasoning.
+
+### ⌘ T1.6 — Command Palette
+- `Cmd+K` / `Ctrl+K` global palette built with `cmdk`:
+  - 10 navigation items with inline shortcut hints.
+  - 5 quick actions: Theme toggle, AI Auto-Select feed, AI reasoning batch (10), AI insights cache refresh, Health check.
+- Results surfaced via `sonner` toasts.
+
+### ⚡ T1.7 — React ErrorBoundary
+- Top-level boundary wrapping the whole app — friendly Turkish fallback, stack trace preview, "Yeniden yükle" + "Kapat" buttons. Prevents blank screen crashes.
+
+### 🎚️ T2.1 — Risk Profile Presets
+- 3 built-in presets + custom (clamped):
+  - **Conservative**: R 0.5%, 1 concurrent, AI onay zorunlu, daily loss 2%, floor 0.75
+  - **Moderate**: R 1%, 2 concurrent, AI onay opsiyonel, daily loss 3%, floor 0.65
+  - **Aggressive**: R 2%, 4 concurrent, AI onay opsiyonel, daily loss 5%, floor 0.55
+- Endpoints: `GET /risk/profile/presets`, `GET /risk/profile`, `POST /risk/profile {id, …}`.
+- **Frontend**: Settings page sortable card grid with live selection + toast feedback.
+
+### 🔌 T2.2 — Outgoing Webhooks UI
+- Settings page panel: list configured channels (url preview), ad-hoc test with URL + channel dropdown.
+
+### 🧪 Tests
+- **+16 new Jest tests** (alert-dispatcher:6, backtest-ai-analyzer:5, risk-profile:5) → total **163/163 PASS** (147 → 163).
+- **testing_agent_v3 v1.9 backend report: 100% PASS** (all 23 endpoint checks, 0 critical, 0 flaky).
+
+### ⚙️ Config additions
+```
+THROTTLE_LIMIT=100
+THROTTLE_TTL_S=60
+ALERT_WEBHOOKS=discord:...,slack:...
+ALERT_APPROVAL_FLOOR=0.3
+ALERT_MONITOR_INTERVAL_MS=60000
+RISK_PROFILE=moderate   # default at boot
+```
+
+### 🗺️ Sidebar additions
+- 📒 **Trade Journal** (`/journal`)
+- Sidebar version badge updated → **v1.9 Prod-Hardened**.
+
+### 🐛 Notes
+- TypeORM `synchronize` auto-migrates `@Index` annotations on first boot (dev mode).
+- `AlertThresholdMonitor` is idle until `ALERT_WEBHOOKS` is set → no noise on blank installs.
+
+
 ## v1.8.0 — AI-Native Trading OS (Reasoning + Intelligence + UX)
 
 **Release Date:** 2026-04-23
