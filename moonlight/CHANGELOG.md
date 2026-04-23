@@ -1,6 +1,146 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.6.2 — Credentials Vault (OS keychain + AES-256-GCM fallback)
+
+**Release Date:** 2026-04-23
+**Scope:** Windows `.exe` dağıtımlarında kullanıcının broker credential'larının
+**plaintext `.env`'de yaşamamasını** sağlayan tam vault stack'i. OS keychain /
+DPAPI önde, AES-256-GCM makine-bound dosya fallback arkada, localhost-only
+REST, Electron IPC bridge, Settings UI paneli.
+
+### 🔐 V2.6-2-A — SecretsStoreService (backend)
+- `src/security/secrets-store.service.ts`:
+  - **Dual backend**: `keytar` (lazy runtime require, optional dep) + AES-256-GCM
+    encrypted-file fallback (`<userData>/moonlight-vault.enc`)
+  - Dosya backend key'i: `scrypt(hostname|platform|arch|username|cpu_model, salt)`
+    → dosya başka makineye taşınırsa **fail-closed decrypt**
+  - Key validator: `/^[A-Z0-9_\-]{2,64}$/` (büyük harfli tanımlayıcılar)
+  - Preview: asla full value, sadece `****<son 4>` (veya çok kısaysa `****`)
+  - **Audit trail** (1000 giriş ring buffer): set/get/delete/list/has her biri
+    actor + timestamp + backend + ok/fail+reason ile kaydediliyor
+  - Atomic file write (`.tmp + rename`, mode 0o600)
+  - `MOONLIGHT_VAULT_FORCE_FILE=true` testlerde keytar bypass için
+
+### 🌐 V2.6-2-B — /api/secrets REST Surface
+- `src/security/secrets.controller.ts`:
+  - **Localhost-only guard**: her endpoint başında `assertLoopback()` —
+    `127.x.x.x`, `::1`, `::ffff:127.0.0.1` dışı → 403 Forbidden
+  - `GET  /api/secrets/health` → backend tipi + hardened flag
+  - `GET  /api/secrets` → maskeli liste (değer yok!)
+  - `GET  /api/secrets/:key/exists` → present bool
+  - `PUT  /api/secrets/:key { value }` → vault'a yazar, metadata döner
+  - `DELETE /api/secrets/:key` → siler
+  - `GET  /api/secrets/audit/trail` → son 100 audit event
+  - `X-Moonlight-Actor` header her çağrıda audit'te loglanır
+
+### 🛡️ V2.6-2-C — Packaged-Mode Policy (Fail-Closed)
+- `BrokerCredentialsService` tamamen yeniden yazıldı (vault-first):
+  - Priority: **vault cache → process.env** (strict off)
+  - **Strict mode**: env-only değerler **reddedilir**
+    - `MOONLIGHT_VAULT_STRICT=true` → explicit
+    - `MOONLIGHT_PACKAGED=true` → otomatik strict (packaged installer)
+  - `refresh()` ile runtime'da vault değişikliğini cache'e alıyor
+  - 12 credential key (IQ/Olymp/Binomo/Expert için ssid/email/pw/token/deviceId/wsUrl)
+  - `summary()` ve `getDiagnostics()` → hiçbir koşulda secret value exposuru yok
+
+### 🔌 V2.6-2-D — Electron IPC Bridge
+- `desktop/main/preload.ts` → `window.moonlight.vault.{health,list,has,set,delete,audit}`
+- `desktop/main/index.ts`:
+  - `electronNet.request` ile loopback'e proxy (Electron net client kullanıyor,
+    `http` yerine — CORS/timeout davranışı Electron'a uygun)
+  - Her çağrı `X-Moonlight-Actor: desktop-ui` header'ı ile audit'e giriyor
+  - `MOONLIGHT_PACKAGED=<app.isPackaged>` env backend'e propagate ediliyor
+    → paketli kurulumda strict mod otomatik
+  - 6 yeni `ipcMain.handle` → vault operasyonları
+
+### 🖥️ V2.6-2-E — Settings UI (React)
+- `desktop/renderer/src/components/settings/CredentialsVaultPanel.tsx`:
+  - 4 broker, 7 canonical key için form (IQ/Olymp/Binomo/Expert)
+  - Dual transport: Electron bridge (packaged) → fetch fallback (dev)
+  - Her key için: status badge + masked preview + password input + save/delete
+  - Backend badge: **keytar (hardened)** yeşil / **file (fallback)** sarı
+  - Güvenlik notları paneli (packaged mode, localhost-only, audit)
+  - Error handling + busy state + drafts state
+- `SettingsPage.tsx` → `CredentialsVaultPanel` ilk bölüm olarak eklendi
+
+### 🧪 Testler (21 yeni)
+- **`secrets-store.spec.ts`** (13 test):
+  - File backend round-trip (set→get→overwrite→delete)
+  - `has()` semantiği
+  - Key validator (lowercase/short/space/long → reject)
+  - Empty value reject
+  - GCM tamper detection (auth tag byte flip → decrypt fail)
+  - Audit trail happy path + failure path
+  - Preview masking (kısa/uzun değerler için)
+  - Keytar path (jest.isolateModulesAsync + doMock virtual module)
+  - `list()` masked, sadece key metadata dönüyor
+- **`broker-credentials.vault.spec.ts`** (8 test):
+  - No vault + no env → hepsi present=false
+  - Env-only non-strict mode'da çalışır
+  - Strict mode env'i reddeder (packaged policy)
+  - `MOONLIGHT_PACKAGED=true` otomatik strict
+  - Vault-first: vault değeri env'i override eder
+  - `refresh()` yeni vault entry'lerini cache'e alır
+  - `getDiagnostics()` secret value içermez
+  - `summary()` strict modda vault-only gösterir
+
+### 📊 Test Metrikleri
+- Backend Jest: **387/387 PASS** (önceki 366 + 21 V2.6-2)
+- Desktop Vitest: **9/9 PASS** (V2.6-1 backend-manager)
+- Sıfır regression
+
+### 🔍 Canlı Smoke Doğrulaması
+```
+PUT /api/secrets/OLYMP_TRADE_EMAIL {"value":"demo@olymp.local"}
+→ {"ok":true, "metadata":{"preview":"****ocal","length":16,"backend":"file"}}
+
+PUT /api/secrets/OLYMP_TRADE_PASSWORD {"value":"supersecret123"}
+→ {"ok":true, "metadata":{"preview":"****t123","length":14,"backend":"file"}}
+
+GET /api/secrets
+→ {"items":[{ key:"OLYMP_TRADE_EMAIL", preview:"****ocal", ... },
+            { key:"OLYMP_TRADE_PASSWORD", preview:"****t123", ... }]}
+
+GET /api/broker/dom/status  (strict mode, empty broker credentials expected)
+→ {"brokers":[{brokerId:"OLYMP_TRADE", sessionHealth:"DOWN", ...},...]}
+```
+
+### 🔐 Operator Migration Notları
+Dev flow değişmedi:
+```bash
+yarn dev   # env'den okur, strict default=false
+```
+
+Packaged flow (Windows installer):
+```bash
+# Kurulum sonrası first-run'da:
+# 1. Settings → Credentials Vault paneli açılır
+# 2. Operator her broker için SSID/email/password gir
+# 3. "Kaydet" → OS keychain (veya AES-256-GCM file) yazılır
+# 4. İlgili feature flag'i aç (BROKER_IQOPTION_REAL_ENABLED=true vb.)
+# 5. Live pump'ı POST /api/live/engine/start ile başlat
+```
+
+Vault dosyası lokasyonu (keytar yoksa):
+- Default: `$MOONLIGHT_HOME/moonlight-vault.enc` → `~/.moonlight/` (0o600)
+- Override: `MOONLIGHT_VAULT_PATH=/custom/path.enc`
+
+Keytar kurulumu Windows'ta:
+```bash
+yarn add -W keytar
+# Windows Credential Vault (DPAPI) otomatik devreye girer
+# backend SecretsStoreService.backendName() → "keytar"
+# UI'da yeşil "hardened" badge gözükür
+```
+
+### ⚠️ V2.6-3 / V2.6-4 sıradaki adımlar
+- V2.6-3: Windows build host'ta **gerçek NSIS `.exe` üretimi** + opsiyonel
+  code signing certificate ile imzalama
+- V2.6-4: `electron-updater` + crash reporter (Sentry/self-hosted)
+
+
+
 ## v2.6.1 — Electron ↔ Backend Bundling (Windows .exe readiness)
 
 **Release Date:** 2026-04-23

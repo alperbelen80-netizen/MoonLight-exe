@@ -6,16 +6,20 @@
 > Güncel gerçeklik:
 > - **V2.0 → V2.4 tamamlandı** (MoE beyinler, Global Orchestrator/Ensemble, Trinity Oversight, StrategyFactory, 100 indikatör registry, Closed‑Loop Scheduler, DB persist, CSV export, BrokerHealthRegistry).
 > - **V2.5 yol haritası TAMAMEN bitti** ✅: V2.5‑1/2/3/4/5/6 **COMPLETED**.
-> - Backend testleri: **Jest 366/366 PASS** ✅.
 > - Backend gerçek boot stabil + canlı smoke doğrulandı (`/api/healthz` 200, CPU stabil).
-> - Yeni doküman: `docs/v2.5/ARCHITECTURE.md` + `.env` referans güncellemeleri.
+> - Doküman: `docs/v2.5/ARCHITECTURE.md` + `.env` referans güncellemeleri.
 > - **V2.6‑1 tamamlandı** ✅: Electron ↔ Backend bundling, BackendManager spawn/health/shutdown, IPC bridge, electron-builder `extraResources`, bundle-safe config resolver, smoke PASS.
+> - **V2.6‑2 tamamlandı** ✅: Credentials Vault (keytar + AES-256-GCM fallback), localhost-only secrets API, vault‑first broker credentials + packaged strict policy, Electron IPC vault bridge, Settings UI vault panel.
+> - Test durumu:
+>   - Backend Jest: **387/387 PASS** ✅
+>   - Desktop main Vitest (BackendManager): **9/9 PASS** ✅
+>   - Bundled spawn smoke: **PASS** ✅
 >
 > Sıradaki ana hedef (kullanıcı ihtiyacı):
 > - **Windows .exe olarak “çift tıkla çalışsın”** (Desktop + Backend birlikte paketlenmiş) ✅ *temel bundling tamam*
-> - güvenli secrets vault 🔜 (**V2.6‑2**)
-> - installer + (opsiyonel) code signing 🔜 (**V2.6‑3**)
-> - crash reporter + auto‑update 🔜 (**V2.6‑4**)
+> - **güvenli secrets vault** ✅ *(V2.6‑2 bitti; packaged strict policy aktif)*
+> - **installer + (opsiyonel) code signing** 🔜 (**V2.6‑3 NEXT**)
+> - **crash reporter + auto‑update** 🔜 (**V2.6‑4**)
 > - (opsiyonel) IQ Option gerçek WSS hardening + DOM live click hardening + payout stream + router tuning 🔜 (**V2.6‑5/6**)
 
 ---
@@ -25,14 +29,15 @@
 ### A) Stabiliteyi kilitle (v1.9 baseline + v2.x çekirdeğini koru)
 - Backend + Desktop build **yeşil**.
 - Testler **tam yeşil**:
-  - Backend Jest: **366/366 PASS**
-  - Desktop main Vitest: **9/9 PASS** (BackendManager)
-  - Bundled spawn smoke: **PASS**
+  - Backend Jest: **387/387 PASS** ✅
+  - Desktop main Vitest: **9/9 PASS** ✅
+  - Bundled spawn smoke: **PASS** ✅
 - Runtime stabilitesi:
-  - Backend gerçek boot **başarılı**
-  - Startup sırasında **CPU lock/loop yok**
-  - LiveSignal pump **fail‑safe**: manuel start edilmeden başlamaz
-  - Broker live yolları **default-off**
+  - Backend gerçek boot **başarılı** ✅
+  - Startup sırasında **CPU lock/loop yok** ✅
+  - LiveSignal pump **fail‑safe**: manuel start edilmeden başlamaz ✅
+  - Broker live yolları **default‑off** ✅
+  - Packaged modda secrets **fail‑closed** (vault yoksa env kabul edilmez) ✅
 - Core invariants:
   - deterministik loglar + reason codes
   - idempotency
@@ -60,9 +65,9 @@
 - **Windows prod hedefinde**: broker erişimi ve secrets güvenliği “default‑off / opt‑in” kalacak.
 
 ### D) v2.6 ana hedef: Windows .exe “gerçek kullanıcı makinesinde” sorunsuz çalıştırma
-- Tek kurulum paketi: Desktop + Backend birlikte. ✅ *(V2.6‑1: bundling hazır)*
+- Tek kurulum paketi: Desktop + Backend birlikte. ✅ *(V2.6‑1 payload hazır)*
 - Backend process yönetimi: spawn/health check/restart/shutdown. ✅ *(V2.6‑1)*
-- Güvenli secrets storage (OS keychain). 🔜 *(V2.6‑2)*
+- Güvenli secrets storage (OS keychain) + fallback. ✅ *(V2.6‑2)*
 - Installer (NSIS) + opsiyonel code signing. 🔜 *(V2.6‑3)*
 - Crash reporting + auto update. 🔜 *(V2.6‑4)*
 
@@ -78,7 +83,7 @@
 
 ### Phase 3 — Testing & Hardening
 **Status:** COMPLETE ✅
-- Backend Jest: **366/366 PASS**
+- Backend Jest: **387/387 PASS**
 
 ### Phase 4 — Next Direction (post‑stable checkpoint)
 **Status:** COMPLETE ✅
@@ -165,44 +170,68 @@
 - Testler:
   - Desktop main Vitest: **9/9 PASS**
   - Bundled spawn smoke: **PASS**
-  - Backend Jest: **366/366 PASS**
+  - Backend Jest: **366/366 PASS** (V2.6‑1 snapshot)
 
 **Exit Criteria**
 - Backend bundle üretilebilir ve Electron tarafından spawn edilerek `/api/healthz` yeşile döner ✅
 
 ### Phase V2.6‑2 — Credentials Vault (P0/P1)
-**Status:** PLANNED (NEXT)
+**Status:** COMPLETE ✅
 
 **Problem**
-- Secrets şu an `.env` üzerinden plaintext; Windows `.exe` için prod-grade güvenlik şart.
+- Secrets `.env` üzerinden plaintext; Windows `.exe` için prod-grade güvenlik şart.
 
-**Deliverables**
-- `node-keytar` ile OS keychain/DPAPI entegrasyonu
-- UI’dan secrets set/get (minimum):
-  - IQ Option SSID + BalanceId
-  - DOM broker email/password (Olymp/Binomo/Expert)
-  - (opsiyonel) Exchange API keys
-- Policy:
-  - Packaged modda plaintext `.env` secrets okuması disable/uyarı (fail-closed)
-  - Secrets audit trail (GÖZ-2) reason codes
-- IPC bridge genişletme (`preload.ts`): vault get/set
+**Deliverables (Delivered)**
+- Backend vault:
+  - `SecretsStoreService` (dual backend)
+    - `keytar` primary (OS keychain/DPAPI) **lazy require**
+    - AES‑256‑GCM encrypted-file fallback (machine-bound scrypt key)
+  - Audit trail (set/get/delete/list/has) + actor + reason
+- REST API (localhost-only):
+  - `GET /api/secrets/health`
+  - `GET /api/secrets` (masked list)
+  - `GET /api/secrets/:key/exists`
+  - `PUT /api/secrets/:key {value}`
+  - `DELETE /api/secrets/:key`
+  - `GET /api/secrets/audit/trail`
+- Policy (fail‑closed):
+  - `BrokerCredentialsService` vault-first + cache + `refresh()`
+  - Packaged default strict: `MOONLIGHT_PACKAGED=true` → env-only secrets **refused**
+  - Override: `MOONLIGHT_VAULT_STRICT=true|false`
+- Electron:
+  - preload: `window.moonlight.vault.*`
+  - main: IPC handlers → backend `/api/secrets` proxy via Electron `net.request`
+- Desktop UI:
+  - Settings → `CredentialsVaultPanel` (masked previews + set/delete)
+
+**Tests (Delivered)**
+- Backend Jest: **387/387 PASS** ✅ (V2.6‑2 final)
+  - 21 yeni test (vault + broker-credentials strict/vault-first)
+- Runtime smoke: secrets set/list/exists/audit/delete doğrulandı ✅
 
 **Exit Criteria**
-- Secrets plaintext dosyada tutulmadan kullanılabilir.
+- Secrets plaintext dosyada tutulmadan kullanılabilir ✅
+- Packaged modda vault yoksa secrets fail‑closed ✅
 
 ### Phase V2.6‑3 — Windows Installer + Code Signing (P1)
-**Status:** PLANNED
+**Status:** PLANNED (NEXT)
 
 **Deliverables**
-- NSIS installer hardening:
+- Windows build pipeline (gerçek Windows host veya Wine CI):
+  - `yarn package:desktop:win` çalıştırılır
+  - çıktılar: NSIS installer + portable (opsiyonel)
+- NSIS hardening:
   - uninstall doğrulama
   - per-user install, shortcut’lar
   - logs/data dizinleri
+  - upgrade path (mevcut install üstüne kurulum)
 - Code signing pipeline (opsiyonel ama önerilir):
-  - sertifika, build step
+  - sertifika temini
+  - build step + imzalama
 
 **Exit Criteria**
-- Windows Defender/SmartScreen friction minimize.
+- Windows’ta installer ile kurulum + çift tıkla açılış sorunsuz
+- Defender/SmartScreen friction minimize
 
 ### Phase V2.6‑4 — Auto‑Update + Crash Reporter (P1)
 **Status:** PLANNED
@@ -211,16 +240,19 @@
 - `electron-updater` ile update kanalı
 - Crash reporting:
   - electron crash dumps
-  - backend crash logs
+  - backend crash logs + last error reason
 - Minimum telemetry: version, uptime, last crash reason
 
-### Phase V2.6‑5 — Real Payout Matrix Stream (P1/P2)
+### Phase V2.6‑5 — Real Payout Matrix Stream + Live Paths Observation (P1/P2)
 **Status:** PLANNED
 
 **Deliverables**
 - IQ Option (real) payout stream parsing + caching
-- DOM brokers için payout read (best-effort)
+- DOM brokers payout read (best-effort)
 - PayoutMatrixService canlı veri ile güncellenir
+- **Observation window**:
+  - IQ Option real WSS: `BROKER_IQOPTION_REAL_ENABLED=true` ile paper/low-stake
+  - DOM: `BROKER_DOM_AUTOMATION_ENABLED=true` ile 1 hafta dry-run; sonra (opsiyonel) `BROKER_DOM_LIVE_ORDERS=true`
 
 ### Phase V2.6‑6 — Multi‑Broker Intelligent Routing Tuning (P2)
 **Status:** PLANNED
@@ -238,24 +270,25 @@
 ## Next Actions (Immediate)
 
 1) ✅ **V2.6‑1:** Electron + Backend bundling (DONE)
-2) 🔜 **V2.6‑2:** Credentials Vault (keytar) (NEXT)
-3) 🔜 **V2.6‑3:** NSIS installer + (opsiyonel) code signing
+2) ✅ **V2.6‑2:** Credentials Vault (DONE)
+3) 🔜 **V2.6‑3:** Windows NSIS installer gerçek build + (opsiyonel) code signing (NEXT)
+4) 🔜 **V2.6‑4:** Auto-update + crash reporter
 
 ---
 
 ## Success Criteria
 
 ### Stability
-- `cd /app/moonlight/backend && yarn test` → PASS (≥ 366/366) ✅
+- `cd /app/moonlight/backend && yarn test` → PASS (≥ **387/387**) ✅
 - Backend boot: stable, `/api/healthz` 200 ✅
 - Bundled boot: BackendManager spawn + health check + shutdown ✅
 
 ### Windows .exe readiness
-- Single installer ships Desktop + Backend ✅ *(bundling/payload hazır; signing/update sonraki faz)*
+- Single installer ships Desktop + Backend ✅ *(payload hazır; V2.6‑3 gerçek Windows build pipeline gerekiyor)*
 - App double-click: Desktop launches, backend auto-starts, UI connects ✅ *(V2.6‑1 wiring hazır)*
-- Secrets stored in OS keychain 🔜 *(V2.6‑2)*
+- Secrets stored in OS keychain / encrypted vault ✅ *(V2.6‑2)*
 
 ### Production safety
 - Real broker connections remain opt‑in (feature flags default OFF) ✅
 - Dry‑run defaults preserved; live order flags require explicit operator opt‑in ✅
-- Packaged mode: secrets fail-closed without vault 🔜 *(V2.6‑2 policy)*
+- Packaged mode: secrets fail‑closed without vault ✅

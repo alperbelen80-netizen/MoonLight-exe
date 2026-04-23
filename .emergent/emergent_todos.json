@@ -17,11 +17,11 @@
   },
   {
     "content": "V2.6-2: Electron IPC bridge (window.moonlight.vault.*) + preload",
-    "status": "in_progress"
+    "status": "completed"
   },
   {
     "content": "V2.6-2: Settings UI (React route) for secret management",
-    "status": "pending"
+    "status": "completed"
   },
   {
     "content": "V2.6-2: Unit tests (SecretsStore fallback, audit, masked responses)",
@@ -29,6 +29,6 @@
   },
   {
     "content": "V2.6-2: Runtime smoke + CHANGELOG v2.6.2 + plan update",
-    "status": "pending"
+    "status": "completed"
   }
 ]
