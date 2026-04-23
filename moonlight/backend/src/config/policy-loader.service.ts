@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs';
-import * as path from 'path';
+import { resolveConfigPath } from '../shared/utils/resolve-config-path';
 
 export interface SystemPolicy {
   version: string;
@@ -20,7 +20,7 @@ export class PolicyLoaderService implements OnApplicationBootstrap {
   private policy?: SystemPolicy;
 
   async onApplicationBootstrap(): Promise<void> {
-    const policyPath = path.join(process.cwd(), 'src', 'config', 'policy.yaml');
+    const policyPath = resolveConfigPath('config', 'policy.yaml');
 
     try {
       const content = fs.readFileSync(policyPath, 'utf-8');

@@ -5,9 +5,12 @@
   "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && tsc main/index.ts --outDir dist-electron/main",
+    "dev:electron": "MOONLIGHT_SPAWN_BACKEND=true electron .",
+    "build": "tsc && vite build && tsc main/index.ts main/backend-manager.ts --outDir dist-electron/main && tsc main/preload.ts --outDir dist-electron",
+    "build:preload": "tsc main/preload.ts --outDir dist-electron",
     "preview": "vite preview",
     "dist": "yarn build && electron-builder",
+    "dist:win": "yarn build && electron-builder --win --x64",
     "test": "vitest run"
   },
   "dependencies": {
@@ -46,6 +49,33 @@
       "dist-renderer/**/*",
       "dist-electron/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist-bundle",
+        "to": "backend-bundle",
+        "filter": [
+          "**/*",
+          "!**/*.map"
+        ]
+      },
+      {
+        "from": "../backend/node_modules",
+        "to": "backend-bundle/node_modules",
+        "filter": [
+          "**/*",
+          "!**/*.md",
+          "!**/*.ts",
+          "!**/test/**",
+          "!**/tests/**",
+          "!**/*.d.ts.map",
+          "!**/docs/**"
+        ]
+      },
+      {
+        "from": "../backend/.env.example",
+        "to": "backend-bundle/.env.example"
+      }
     ],
     "win": {
       "target": [

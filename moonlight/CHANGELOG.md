@@ -1,6 +1,136 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.6.1 — Electron ↔ Backend Bundling (Windows .exe readiness)
+
+**Release Date:** 2026-04-23
+**Scope:** Kullanıcının bir Windows `.exe`'yi çift tıkladığında hem Electron
+Desktop UI'ın hem de bundled NestJS backend'in birlikte başlamasını sağlayan
+ilk üretim aşaması. **Paketleme pipeline hazır**, `yarn package:desktop:win`
+ile NSIS installer üretmek mümkün.
+
+### 🎯 V2.6-1-A — Backend Single-File Bundle (esbuild)
+- `scripts/bundle-backend.js`:
+  - NestJS backend'i **tek dosyada** (`dist-bundle/backend.js`) toplar
+  - Native / bundle-hostile bağımlılıklar `external` (better-sqlite3, ccxt,
+    protobufjs, bull, ioredis, parquetjs, playwright, ...) — runtime'da
+    `node_modules`'tan resolve olur
+  - `esbuild` + `node20` target + `keepNames: true` (NestJS DI için)
+  - `yarn bundle:backend` (source-map dahil, dev için)
+  - `yarn bundle:backend:prod` (minified, release için)
+- **Boyut**: 35 MB source-map'li → **5.2 MB minified** (6.7x kompres)
+
+### 🚀 V2.6-1-B — Electron BackendManager
+- `desktop/main/backend-manager.ts`:
+  - `start()` / `stop()` / `getStatus()` public contract
+  - **Port picker**: Tercih edilen port meşgulse yukarı yürüyerek boş port bulur
+  - **Electron Node runtime**: `process.execPath` + `ELECTRON_RUN_AS_NODE=1`
+    ile spawn — kullanıcı makinesinde ayrı Node kurulumuna gerek yok
+  - **Health check loop**: 60 × 1s retry = 60s boot bütçesi
+    (`/api/healthz` ≥ 200 olana kadar)
+  - **Graceful shutdown**: SIGTERM → 5s bekle → SIGKILL
+  - **Log forwarding**: `app.getPath('logs')/backend.log`'a stdout/stderr
+  - **Crash detection**: child boot sırasında exit ederse `start()` reject
+  - Idempotent start (aynı anda iki spawn olmaz)
+
+### 🔌 V2.6-1-C — Main Process + IPC Bridge
+- `desktop/main/index.ts`:
+  - `BackendManager` instance boot'ta spawn eder
+  - Fail-safe env defaults (LIVE_SIGNAL_ENABLED=false, REAL=false, DOM=false,
+    LIVE_ORDERS=false) packaged installs'a da taşınır
+  - `dialog.showErrorBox` ile fatal boot errors kullanıcıya gösterilir
+  - `app.on('before-quit')` graceful backend shutdown garantisi
+  - `SIGINT` / `SIGTERM` handler'ları
+- `desktop/main/preload.ts`:
+  - `window.moonlight.getBackendPort()` IPC bridge
+  - `window.moonlight.restartBackend()` bridge (settings UI'dan tetiklenebilir)
+- `api-client.ts`:
+  - Önce `VITE_API_BASE_URL` (dev)
+  - Sonra `window.moonlight.getBackendPort()` (packaged)
+  - Fallback `http://localhost:8001` (plain browser)
+
+### 📦 V2.6-1-D — electron-builder Config
+- `desktop/package.json` `build`:
+  - `extraResources`: `dist-bundle/` → `resources/backend-bundle/`
+  - `extraResources`: `backend/node_modules/` → `resources/backend-bundle/node_modules/`
+    (native modules `.md`/`.ts`/test dosyaları filter'lanıyor, boyut küçülüyor)
+  - `win` target: `nsis` x64
+  - NSIS: `oneClick: false`, user-choosable install dir, desktop + start menu
+    shortcuts, "MoonLight Owner Console" shortcut adı
+- Root `package.json` scripts:
+  - `yarn bundle:backend` / `yarn bundle:backend:prod`
+  - `yarn package:desktop:win` → backend build + bundle + desktop build + NSIS
+  - `yarn smoke:bundle` → end-to-end doğrulama scripti
+
+### 🔧 V2.6-1-E — Bundle-Safe Config Resolution
+Önceden 4 servis `path.join(process.cwd(), 'src', ...)` kullanıyordu; bu,
+backend farklı bir CWD'den (ör. Electron'un ana süreci) başlatıldığında
+`ENOENT` atıyordu. Merkezi bir resolver eklendi:
+- **Yeni util** `src/shared/utils/resolve-config-path.ts`:
+  - `resolveConfigPath(...segments)` ve `resolveConfigDir(...segments)`
+  - Aday kökler: `MOONLIGHT_CONFIG_DIR` env → cwd/src → `__dirname` relative
+    → packaged `resourcesPath/backend-bundle/src` → `backend/src` fallback
+- Güncellenen servisler:
+  - `shared/config/hardware-profile.service.ts`
+  - `config/policy-loader.service.ts`
+  - `indicators/indicator-registry.service.ts`
+  - `strategy/preset/preset-loader.service.ts`
+- Artık backend; yarn start, jest, bundle, packaged Electron — **4 farklı
+  çalıştırma biçiminin hepsinden** config'leri bulabiliyor.
+
+### 🧪 Yeni testler
+- **BackendManager** (Vitest, `desktop/main/__tests__/backend-manager.spec.ts`):
+  9 test PASS
+  - initial status invariants
+  - bundle entry override
+  - bundle-not-found net error
+  - child crash during boot → `start()` reject
+  - health timeout → reject + running=false
+  - `stop()` no-op when never started
+  - graceful stop tears down child + clears status
+  - idempotent start (aynı anda 2. spawn olmaz)
+  - pid + startedAtMs snapshot invariants
+- **End-to-end smoke** (`scripts/smoke-backend-manager.js`):
+  - Gerçek bundled backend'i BackendManager üzerinden spawn eder
+  - `/api/healthz`, `/api/broker/sim/state`, `/api/trinity/resources`
+    HTTP 200 kontrolü
+  - Graceful stop + clean exit
+  - Ölçülen: **3.0s cold boot** (NestJS + TypeORM + 66 strategy + 100 indicator)
+
+### 📊 Test Metrikleri
+- Backend Jest: **366/366 PASS** ✅
+- Desktop Vitest: **9/9 PASS** ✅
+- Smoke: **PASS** (3s boot, tüm V2.5 endpoints green)
+
+### 🔐 Migration / Operator Notları
+- **Dev flow** (değişmedi):
+  ```bash
+  yarn dev   # backend: nest start --watch  |  desktop: vite
+  ```
+- **Windows installer build**:
+  ```bash
+  # Bir Windows / Wine ortamı gerekir
+  yarn install
+  yarn build:backend
+  yarn bundle:backend:prod           # 5.2 MB bundle
+  yarn package:desktop:win           # NSIS .exe
+  # Çıktı: desktop/dist/MoonLight Owner Console-Setup-<ver>.exe
+  ```
+- **Runtime konfig**:
+  - `MOONLIGHT_CONFIG_DIR` env ile config klasörü override edilebilir
+  - `MOONLIGHT_BACKEND_ENTRY` env ile alternatif bundle path yollanabilir
+- **Güvenlik defaults** (packaged install'a aynen taşınır):
+  - `LIVE_SIGNAL_ENABLED=false`, `LIVE_SIGNAL_AUTO_START=false`
+  - `BROKER_IQOPTION_REAL_ENABLED=false`
+  - `BROKER_DOM_AUTOMATION_ENABLED=false`, `BROKER_DOM_LIVE_ORDERS=false`
+
+### ⚠️ V2.6-2 sıradaki adım
+Kullanıcı makinesinde secrets plaintext'te kalmamalı. `node-keytar` ile
+OS keychain/DPAPI entegrasyonu + Settings UI'dan vault yönetimi V2.6-2
+fazında gelecek.
+
+
+
 ## v2.5.4 — DOM Automation Skeleton (Olymp / Binomo / Expert Option)
 
 **Release Date:** 2026-04-23

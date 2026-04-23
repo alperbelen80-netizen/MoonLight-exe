@@ -64,11 +64,29 @@ export class IndicatorRegistryService {
   }
 
   private resolveBase(): string {
-    // Works both when running from src/ (ts-node/test) and from dist/.
+    // Works both when running from src/ (ts-node/test) and from dist/,
+    // and when bundled into the Electron app under resources/backend-bundle.
     const candidates = [
       path.join(__dirname, 'templates'),
       path.join(__dirname, '..', '..', 'src', 'indicators', 'templates'),
       path.join(process.cwd(), 'src', 'indicators', 'templates'),
+      path.join(__dirname, '..', '..', '..', 'src', 'indicators', 'templates'),
+      // Packaged Electron app
+      ...((process as unknown as { resourcesPath?: string }).resourcesPath
+        ? [
+            path.join(
+              (process as unknown as { resourcesPath: string }).resourcesPath,
+              'backend-bundle',
+              'src',
+              'indicators',
+              'templates',
+            ),
+          ]
+        : []),
+      // MOONLIGHT_CONFIG_DIR override
+      ...(process.env.MOONLIGHT_CONFIG_DIR
+        ? [path.join(process.env.MOONLIGHT_CONFIG_DIR, 'indicators', 'templates')]
+        : []),
     ];
     for (const p of candidates) {
       if (fs.existsSync(path.join(p, 'indicators.json'))) return p;

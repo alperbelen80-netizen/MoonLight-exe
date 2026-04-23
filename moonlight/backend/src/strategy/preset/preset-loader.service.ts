@@ -7,11 +7,12 @@ import { PresetStrategyDTO } from '../../shared/dto/preset-strategy.dto';
 import { StrategyFactoryService } from '../factory/strategy-factory.service';
 import { IndicatorService } from '../indicators/indicator.service';
 import { createStrategyInstanceFromDescriptor } from '../factory/strategy-loader';
+import { resolveConfigDir } from '../../shared/utils/resolve-config-path';
 
 @Injectable()
 export class PresetLoaderService {
   private readonly logger = new Logger(PresetLoaderService.name);
-  private readonly baseDir = path.join(process.cwd(), 'src', 'config', 'strategy-presets');
+  private readonly baseDir = resolveConfigDir('config', 'strategy-presets');
 
   async loadAllPresets(): Promise<PresetStrategyDTO[]> {
     const pattern = path.join(this.baseDir, '**', '*.yaml');

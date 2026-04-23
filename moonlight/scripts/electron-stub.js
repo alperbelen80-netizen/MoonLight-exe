@@ -1,0 +1,1 @@
+module.exports = { app: { getPath: (k) => k === 'logs' ? '/tmp/moonlight-logs' : '/tmp/moonlight-logs' } };

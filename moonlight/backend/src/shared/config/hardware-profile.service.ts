@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs';
-import * as path from 'path';
+import { resolveConfigPath } from '../utils/resolve-config-path';
 
 export type HardwareProfileName = 'SAFE' | 'BALANCED' | 'MAXPOWER';
 
@@ -22,12 +22,7 @@ export class HardwareProfileService {
   private defaultProfile: HardwareProfileName;
 
   constructor() {
-    const configPath = path.join(
-      process.cwd(),
-      'src',
-      'config',
-      'hardware-profiles.yaml',
-    );
+    const configPath = resolveConfigPath('config', 'hardware-profiles.yaml');
 
     const fileContent = fs.readFileSync(configPath, 'utf-8');
     const config = yaml.load(fileContent) as any;

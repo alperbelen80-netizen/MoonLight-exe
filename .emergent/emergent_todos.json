@@ -1,26 +1,26 @@
 [
   {
-    "content": "V2.5-4: DOM Automation base layer (Playwright/CDP) - browser session manager + selector registry",
+    "content": "V2.6-1: esbuild ile backend single-file bundle (Electron Node runtime uyumlu)",
     "status": "completed"
   },
   {
-    "content": "V2.5-4: Olymp/Binomo/Expert DOM adapters (login + quote + dry-run order skeleton)",
+    "content": "V2.6-1: Electron main process BackendManager (spawn + health-check + shutdown)",
     "status": "completed"
   },
   {
-    "content": "V2.5-4: BrokerHealthRegistry entegrasyonu + feature flag BROKER_DOM_AUTOMATION_ENABLED",
+    "content": "V2.6-1: electron-builder config extraResources + afterPack hooks",
     "status": "completed"
   },
   {
-    "content": "V2.5-4: DOM adapter unit tests (mock-mode, selector version, dry-run)",
+    "content": "V2.6-1: Build scripts (root yarn dist:win) + documentation",
     "status": "completed"
   },
   {
-    "content": "V2.5-6: docs/v2.5/ARCHITECTURE.md + .env reference",
+    "content": "V2.6-1: BackendManager unit tests (port check, spawn, shutdown, health retry)",
     "status": "completed"
   },
   {
-    "content": "V2.5-6: README + release checklist + tests yarn test full PASS",
+    "content": "V2.6-1: End-to-end smoke (local bundle run) + CHANGELOG v2.6.1",
     "status": "completed"
   }
 ]

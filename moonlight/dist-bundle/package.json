@@ -1,0 +1,6 @@
+{
+  "name": "moonlight-backend-bundle",
+  "version": "1.5.0",
+  "private": true,
+  "main": "backend.js"
+}
