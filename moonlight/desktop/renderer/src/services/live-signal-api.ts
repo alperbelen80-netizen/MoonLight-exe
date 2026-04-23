@@ -16,6 +16,10 @@ export interface LiveSignalDTO {
   notes?: string;
   entry_price?: number;
   current_price?: number;
+  ai_verdict?: 'APPROVED' | 'REJECTED' | 'UNKNOWN' | 'PENDING';
+  ai_confidence?: number;
+  ai_reasoning?: string;
+  ai_reasoned_at_utc?: string;
 }
 
 export interface LiveSignalsQuery {

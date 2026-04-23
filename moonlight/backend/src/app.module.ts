@@ -21,7 +21,7 @@ import { AICoachModule } from './ai-coach/ai-coach.module';
       type: 'sqlite',
       database: process.env.DB_PATH || './data/db/moonlight.sqlite',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: process.env.NODE_ENV === 'development',
+      synchronize: process.env.DB_SYNCHRONIZE === 'false' ? false : true,
       logging: false,
     }),
     BullModule.forRoot(

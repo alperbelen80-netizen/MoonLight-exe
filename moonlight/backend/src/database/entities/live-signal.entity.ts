@@ -46,4 +46,17 @@ export class LiveSignal {
 
   @Column('real', { nullable: true })
   current_price: number;
+
+  // ---- AI Reasoning Layer (v1.8) ----
+  @Column({ nullable: true, default: 'UNKNOWN' })
+  ai_verdict: string; // APPROVED | REJECTED | UNKNOWN | PENDING
+
+  @Column('real', { nullable: true })
+  ai_confidence: number;
+
+  @Column('text', { nullable: true })
+  ai_reasoning: string;
+
+  @Column({ nullable: true })
+  ai_reasoned_at_utc: Date;
 }

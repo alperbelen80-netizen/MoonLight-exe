@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { SidebarNav } from './SidebarNav';
 import { TopBar } from './TopBar';
+import { StatusBar } from './StatusBar';
 
 export function ShellLayout() {
   return (
@@ -12,6 +13,7 @@ export function ShellLayout() {
         <main className="flex-1 overflow-auto p-6">
           <Outlet />
         </main>
+        <StatusBar />
       </div>
     </div>
   );

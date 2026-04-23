@@ -1,186 +1,237 @@
-# MoonLight Trading OS — Stabilize → Scenario B Live Signals → Multi‑Source Feed Auto‑Select (AI‑verified) → Scenario C AI Coach
+# MoonLight Trading OS — Stabilize → Scenario B Live Signals → Multi‑Source Feed Auto‑Select (AI‑verified) → Scenario C AI Coach → **v1.8 AI‑Native Trading OS**
 
 ## Objectives
-- Keep **stability locked**: backend + desktop builds green; full unit test suite green (**114/114 PASS baseline**).
-- Deliver **Scenario B (Live Signals Demo)** end‑to‑end using **Mock Live Feed** (due to Binance geo‑block) with **FAST_DEMO** candle emission so the UI shows signals immediately.
-- Add a **Multi‑Source Data Feed layer** (Mock + Bybit CCXT + TradingView Webhook) with:
+- Keep **stability locked**: backend + desktop builds green; unit tests green (**129/129 PASS baseline**).
+- Deliver **Scenario B (Live Signals)** end‑to‑end using **Mock Live Feed** (K8s geo‑blocks Binance 451 + Bybit 403) with **FAST_DEMO** candle emission so UI shows signals immediately.
+- Provide **Multi‑Source Data Feed** layer (Mock + Binance CCXT + Bybit CCXT + TradingView Webhook + IQ Option skeleton) with:
   - parallel provider health checks
-  - latency + reliability scoring
-  - **automatic provider selection** with **Gemma E4B AI validation** (Emergent LLM Key approved).
-- Maintain **Core‑First / Fail‑Safe** properties: deterministic behavior, fail‑closed defaults, reason codes, circuit‑breaker compatibility.
-- Prepare **Scenario C (Gemma E4B AI Coach)** to provide strategy coaching + runtime validations (feed selection validation, signal sanity checks) without requiring real broker credentials.
+  - latency + deterministic scoring + tie-breakers
+  - **AI‑validated auto‑selection (fail‑closed)**
+- Provide **Scenario C (AI Coach)** as a first-class module:
+  - chat + strategy analysis
+  - feed selection validation
+- Upgrade to **v1.8 “AI‑Native Trading OS”**:
+  - **AI Reasoning Layer per live signal (AI Guard)**
+  - AI Insights on Dashboard
+  - Market Intelligence heatmap
+  - Strategy Leaderboard + AI tuning
+  - Polish & hardening (dark mode, status bar, toasts, shortcuts)
 
 ---
 
 ## Implementation Steps
 
 ### Phase 1 — Core Flow POC (Isolation)
-> Core POC is already established via `backend/scripts/poc-core-flow.ts` and Sandbox is validated. For this iteration, priority shifts to Scenario B (Live Signals) and Data Feed provider automation.
+> Core POC was established via `backend/scripts/poc-core-flow.ts`. Sandbox validated.
 
-**Status:** COMPLETE (Sandbox POC + core routing skeleton validated)
+**Status:** COMPLETE
 
 **Completed (evidence)**
 - `backend/scripts/poc-core-flow.ts` created and Sandbox flow validated.
-- Quad‑Core Broker Adapter **skeleton + harness** in place (BaseWSAdapter, BrokerCredentialsService, MockWSServer).
-- Desktop UI polish completed (Loading/Error states, Skeletons, StrictMode double-fetch fixes).
+- Quad‑Core Broker Adapter skeleton + harness (BaseWSAdapter, MockWSServer, BrokerCredentialsService) in place.
+- Desktop UI polish completed (Loading/Error states, Skeletons).
 - Vite proxy routing aligned (`/api` prefix), Nest global prefix enabled.
 
 **Carry‑over invariants to keep**
 - Deterministic logs + reason codes
+- Fail‑closed defaults (Core-First)
 - Idempotency semantics
-- Routing explanations available for UI
 
 ---
 
 ### Phase 2 — V1 App Development (Backend + Desktop around proven core)
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 
-**What is in progress now**
-- **Scenario B — Live Signals Mode** (Mock feed acceleration + UI visibility)
-- Session management UX and broker adapter health endpoints already exist
+**Completed (Scenario B evidence)**
+- `MockLiveDataFeedAdapter` FAST_DEMO: 100-bar seed + ~1500ms candles.
+- `LiveSignalEngine` produces and persists live signals to SQLite.
+- UI confirms signals flowing on `/live/signals` page.
 
-**Steps (updated)**
-- Backend
-  - Verify `MOCK_FEED_FAST_DEMO` behavior: ensure candles emit every ~1–2s and seed history so indicators produce signals immediately.
-  - Ensure LiveSignalEngine produces and persists signals; expose them via API for UI.
-  - Add/verify endpoints needed by LiveSignals UI (list stream/poll).
-- Desktop
-  - Validate LiveSignalsPage renders incoming signals cleanly with loading/empty/error states.
-  - Keep SessionManagerPage aligned with backend provider selection actions (later phases).
+**Fixes delivered**
+- `LiveSignalEngine`: defensive numeric normalization to prevent NaN → `SQLITE_ERROR: no such column: NaN`.
+- `LiveStrategyPerformanceService`: defaults + UNIQUE race retry to prevent constraint failures.
 
 ---
 
 ### Phase 3 — Testing & Hardening
 
-**Status:** PARTIALLY COMPLETE
+**Status:** COMPLETE (expanded)
 
-**Completed (confirmed earlier)**
-- Backend: **29/29 suites PASS, 114/114 tests PASS**
+**Completed**
+- Backend Jest: **129/129 tests PASS**.
 - Backend build: PASS
 - Desktop build: PASS
-- Broker adapter test harness exists (MockWSServer, adapter specs, registry tests)
+- Comprehensive backend endpoint testing: PASS (testing_agent_v3)
 
-**Now (expanded scope)**
-1. **Stability verification checkpoint**
-   - Run `yarn verify` and confirm it still passes after Scenario B changes.
-   - Start backend and validate `/api/health`.
-2. **Scenario B smoke tests (manual + repeatable)**
-   - Start backend with `MOCK_FEED_FAST_DEMO=true`.
-   - Confirm candle emission rate and LiveSignalEngine signal throughput.
-   - Confirm `/api/live/signals` returns fresh signals.
-3. **Introduce smoke test ergonomics (optional)**
-   - Add a simple curl-based script (or documented steps) for Scenario B verification.
+**Known expected constraints**
+- Binance CCXT → HTTP 451 geo-block in cluster
+- Bybit CCXT → HTTP 403 geo-block in cluster
+- TradingView webhook requires external alert configuration
 
 ---
 
 ### Phase 4 — Next Direction (post-stable checkpoint)
 
-**Status:** READY TO START (updated: multi-source feed + AI auto-select + AI coach)
+**Status:** IN PROGRESS (v1.8 planning)
 
 #### Track A — Scenario B: Live Signals Demo (finish)
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 
-**User stories**
-1. As an owner, I can run Live Signals mode and see new signals appear without waiting 60s per candle.
-2. As an owner, I can see signals flowing in the desktop UI reliably.
-
-**Steps**
-- Backend
-  - Ensure `MockLiveDataFeedAdapter` FAST_DEMO mode seeds history + emits candles at ~1500ms.
-  - Verify LiveSignalEngine consumes candles and persists to `live_signals`.
-  - Verify `GET /api/live/signals` shows recent records.
-- Desktop
-  - Confirm LiveSignalsPage renders signal list and updates.
-  - (Optional) add “connected feed + provider name” badge.
-
-**Deliverables**
-- Live Signals demo works in K8s/restricted environments with Mock feed.
+**Deliverables (done)**
+- Live Signals demo works in K8s/restricted environments using Mock feed.
 
 #### Track B — Multi‑Source Data Feed + AI Auto‑Selection
-**Status:** PENDING
+**Status:** COMPLETE
 
-**Motivation**
-- Binance CCXT is geo‑blocked (HTTP 451). We will keep Mock as fallback while adding Bybit + TradingView.
+**Deliverables (done)**
+- `GET /api/data/providers/health`
+- `POST /api/data/providers/auto-select` (AI dry-run + apply)
+- `POST /api/data/providers/switch`
+- Desktop: **Data Sources** page (`/data-sources`) showing provider health + AI buttons.
 
-**User stories**
-1. As ops, I can see all feed providers’ health + latency in one endpoint.
-2. As owner, I can click “Auto‑Select Best Feed” and the system chooses the best working provider.
-3. As risk, I can require **AI validation** before switching providers (fail‑closed on uncertainty).
+#### Track C — Scenario C: AI Coach MVP
+**Status:** COMPLETE
 
-**Steps**
-- Providers
-  - Add **Bybit CCXT adapter** (preferred non-geo‑blocked default).
-  - Improve **TradingView Webhook adapter** (reliability, symbol mapping, timestamps).
-  - Keep **Mock** as always-available fallback.
-- Orchestrator
-  - Add parallel health checks + latency measurement.
-  - Add scoring model: availability, latency, error rate, data freshness.
-  - Implement `selectBestProvider()` with deterministic scoring.
-  - Add **AI verification step** (Gemma E4B): validate the deterministic choice + sanity checks; if AI fails/returns low confidence → do not switch (fail‑closed) or switch only to Mock.
-- API
-  - `GET /api/data/providers/health`
-  - `POST /api/data/providers/auto-select`
-  - (Optional) `POST /api/data/providers/switch/:provider`
-- Desktop
-  - Add “Auto‑Select Best Feed” button to Session Manager.
-  - Display provider health table (name, connected, latency, last update).
+**Deliverables (done)**
+- `AICoachService` via Emergent LLM Gateway (model default: `gemini-2.5-flash`).
+- Endpoints: `status`, `chat`, `analyze-strategy`, `validate-feed`.
+- Desktop: **AI Coach** page (`/ai-coach`) with chat UX.
 
-**Deliverables**
-- Multi-provider feed system that chooses best available provider automatically, with AI-verified guardrails.
+---
 
-#### Track C — Scenario C: Gemma E4B AI Coach
-**Status:** PENDING (approved: Emergent LLM Key = YES)
+## v1.8.0 Roadmap — “AI‑Native Trading OS” (User granted full authority)
 
-**User stories**
-1. As an owner, I can ask AI for strategy feedback and market context.
-2. As ops, I can ask AI to validate current feed selection and identify anomalies.
+### Phase A — AI Reasoning Layer (KRİTİK)
+**Goal:** Every live signal gets an AI “muhakeme” verdict. **AI Guard mode**: if AI rejects → signal becomes `SKIPPED` (fail‑closed).
 
-**Steps**
-- Backend
-  - Add integration playbook using Emergent Universal LLM Key.
-  - Implement `AICoachService`:
-    - `analyzeStrategy()` (preset strategy + performance hints)
-    - `validateFeedSelection()` (input: providers health + selected provider)
-  - Endpoints:
-    - `POST /api/ai-coach/analyze`
-    - `POST /api/ai-coach/validate-feed`
-- Desktop
-  - Add AI Coach panel (chat + insights) with safe rate limits and clear disclaimers.
+**Backend**
+- Add `AIReasoningService`:
+  - Input: live signal + pack score + regime + key indicators + payout snapshot + risk layer summary
+  - Output JSON: `{ approved, confidence, reasoning, riskFactors[], expectedWR, expectedEV, notes }`
+  - Rate-limit: max **30 analyses/min** (token bucket) + circuit breaker on AI failures.
+- DB changes:
+  - `LiveSignal` entity add columns:
+    - `ai_verdict` (enum/string: APPROVED/REJECTED/UNKNOWN)
+    - `ai_confidence` (real)
+    - `ai_reasoning` (text/json)
+    - `ai_reasoned_at_utc` (datetime)
+- Endpoints:
+  - `POST /api/ai-coach/reason-signal/:id` (manual trigger)
+  - `POST /api/ai-coach/reason-signal/batch` (latest N NEW signals)
+  - `GET /api/ai-coach/reasoning-history` (filters: symbol/tf/verdict/date)
+- Integration points:
+  - In `LiveSignalEngine` after signal persisted → enqueue AI reasoning job (Bull) if enabled.
+  - Fail-safe: if AI down or rate limited → `ai_verdict=UNKNOWN`, do not auto-skip unless `AI_GUARD_STRICT=true`.
 
-**Deliverables**
-- AI Coach MVP available without real broker credentials.
+**Frontend**
+- Live Signals table:
+  - Add 🧠 “Reason” action per row → modal shows verdict, confidence, risk factors.
+  - Filter by `ai_verdict`.
+
+**Tests**
+- Unit tests for:
+  - JSON extraction strictness
+  - rate limiter
+  - fail‑closed behavior
+  - schema validation
+
+---
+
+### Phase B — Dashboard AI Insights Widget
+**Goal:** Daily “what happened today” summary with actionable suggestions.
+
+**Backend**
+- `GET /api/ai-coach/daily-insights`:
+  - top symbols/strategies
+  - regime distribution
+  - risk summary (Triple‑Check + M3)
+  - 3 actionable recommendations
+- Cache: 5 minutes (in-memory / Redis if available).
+
+**Frontend**
+- Dashboard: add **AI Insights** card (auto refresh 5 min) with expandable details.
+
+---
+
+### Phase C — Market Intelligence Page
+**Goal:** Provide a “data center” view: regime heatmap + signal distribution.
+
+**Backend**
+- `GET /api/market/regime-heatmap`:
+  - matrix: symbol × timeframe → `{ regime, adx, ts_utc }`
+- (Optional) `GET /api/market/signal-distribution`:
+  - per symbol/timeframe counts + verdict split.
+
+**Frontend**
+- New page `/market-intelligence`:
+  - heatmap grid
+  - distribution chart
+
+---
+
+### Phase D — Strategy Leaderboard + AI Tuning
+**Goal:** Make strategy performance transparent and AI-assisted.
+
+**Backend**
+- `GET /api/strategies/leaderboard`:
+  - live signals count, executed count, win rate, avg confidence, AI approval rate.
+- `POST /api/ai-coach/tune-strategy`:
+  - batch analysis of a strategy family + recommendations
+
+**Frontend**
+- Strategies page:
+  - sortable leaderboard
+  - “AI Tune” button per strategy
+
+---
+
+### Phase E — Polish & Hardening
+**Goal:** Premium-grade usability + operational safety.
+
+- Dark mode toggle (localStorage) + Tailwind theme tokens
+- Status bar: active provider + AI availability + rate limit meter
+- Toast notifications (sonner) for:
+  - new AI-approved signals
+  - feed switch events
+  - AI failures (circuit breaker)
+- Keyboard shortcuts:
+  - `g d` dashboard
+  - `g l` live signals
+  - `g a` AI coach
+  - `g m` market intelligence
+- Docs updates:
+  - `/docs/AI_COACH.md`
+  - `/docs/DATA_FEEDS.md`
+- Tests target: **150+** total, 0 regressions
 
 ---
 
 ## Next Actions (Immediate)
-1. **Run stability verification**
-   - `cd /app/moonlight && yarn verify`
-   - Start backend; verify `/api/health`.
-2. **Finish Scenario B demo**
-   - Run backend with `MOCK_FEED_FAST_DEMO=true`.
-   - Verify `/api/live/signals` is updating.
-   - Confirm LiveSignalsPage shows streaming/polling updates.
-3. **Start Multi‑Source Feed track**
-   - Add Bybit adapter + provider health endpoints.
-   - Implement deterministic `selectBestProvider()`.
-   - Add AI verification hook (Gemma E4B).
+1. **Implement Phase A (AI Reasoning Layer)**
+   - DB migration for LiveSignal AI columns
+   - `AIReasoningService` + endpoints
+   - LiveSignals UI 🧠 modal
+2. **Dashboard AI Insights (Phase B)**
+3. **Market Intelligence (Phase C)**
+4. **Strategy Leaderboard + AI Tune (Phase D)**
+5. **Polish & hardening (Phase E)**
 
 ---
 
 ## Success Criteria
 - Stability
   - `yarn verify` → PASS
-  - Backend `/api/health` → OK
-- Scenario B (Live Signals)
-  - Mock FAST_DEMO emits candles every ~1–2s and seeds history
-  - LiveSignalEngine produces signals and persists them
-  - `GET /api/live/signals` returns fresh signals
-  - Desktop Live Signals page shows new signals without long delays
-- Multi‑Source Feed Auto‑Select
-  - `GET /api/data/providers/health` shows provider status + latency
-  - `POST /api/data/providers/auto-select` chooses working provider deterministically
-  - AI verification gates provider switching (fail‑closed)
-- Scenario C (AI Coach)
-  - `POST /api/ai-coach/analyze` and `validate-feed` operational
-  - UI panel usable and stable without broker credentials
+  - Backend + Desktop build → PASS
+  - Tests ≥ 150 PASS
+- AI Reasoning Layer
+  - Per-signal AI verdict persisted + queryable
+  - AI Guard can SKIP signals deterministically
+  - Rate limiting + circuit breaker verified
+- Insights + Intelligence
+  - Daily insights endpoint cached and renders on Dashboard
+  - Regime heatmap page usable and performant
+- Strategy Leaderboard
+  - Leaderboard metrics correct, AI tuning produces consistent structured output
+- UX Quality
+  - Dark mode, status bar, toasts, shortcuts all functional

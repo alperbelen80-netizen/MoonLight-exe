@@ -11,6 +11,7 @@ import { ApprovalQueuePanel } from '../components/owner/ApprovalQueuePanel';
 import { PnlHistoryChart } from '../components/dashboard/PnlHistoryChart';
 import { LastLiveSignalsWidget } from '../components/dashboard/LastLiveSignalsWidget';
 import { BrokerHealthPanel } from '../components/dashboard/BrokerHealthPanel';
+import { AIInsightsCard } from '../components/dashboard/AIInsightsCard';
 import { DashboardSkeleton } from '../components/common/Skeleton';
 
 export function DashboardPage() {
@@ -124,6 +125,10 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-2 gap-6">
         <PnlHistoryChart />
+        <AIInsightsCard />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
         <LastLiveSignalsWidget />
       </div>
 

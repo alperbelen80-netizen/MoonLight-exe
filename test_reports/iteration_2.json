@@ -1,0 +1,61 @@
+{
+  "summary": "Completed comprehensive testing of MoonLight v1.8 AI-Native Trading OS AI Reasoning Layer. Tested 15+ endpoints with 147/147 Jest tests passing. Found 1 routing issue with batch endpoint and 1 performance issue with rate limiting test.",
+  "backend_issues": {
+    "critical_bugs": [
+      {
+        "endpoint": "POST /api/ai-coach/reason-signal/batch",
+        "issue": "Route conflict - batch endpoint being interpreted as single signal endpoint with id='batch'",
+        "impact": "Batch reasoning functionality not accessible via API",
+        "fix_priority": "HIGH",
+        "details": "Returns {error: 'signal_not_found', id: 'batch'} instead of processing batch request"
+      }
+    ],
+    "flaky_endpoints": [],
+    "performance_issues": [
+      {
+        "endpoint": "Rate limiting test",
+        "issue": "Rate limiting test takes too long (>120s timeout)",
+        "impact": "Cannot verify rate limiting functionality in reasonable time",
+        "fix_priority": "MEDIUM",
+        "details": "35 rapid requests to test rate limiting exceed test timeout"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "GET /api/ai-coach/status - Returns available:true, model:'gemini-2.5-flash', reasoning_enabled:true, strict_guard:false",
+    "POST /api/ai-coach/reason-signal/:id - Single signal reasoning working with valid verdict/confidence/reasoning",
+    "GET /api/ai-coach/reasoning-history - Returns items with AI fields populated",
+    "GET /api/ai-coach/reasoning-history?verdict=APPROVED - Filtering by verdict working",
+    "GET /api/ai-coach/daily-insights - Returns totals, top_symbols, top_strategies, regime_distribution, ai_summary",
+    "GET /api/ai-coach/daily-insights?window=1 - Window parameter respected",
+    "GET /api/ai-coach/daily-insights?force=1 - Cache bypass working",
+    "GET /api/ai-coach/regime-heatmap - Returns symbols x timeframes matrix with regime/ADX data",
+    "GET /api/ai-coach/strategy-leaderboard - Returns strategies sorted by live_signal_count desc",
+    "POST /api/ai-coach/tune-strategy (valid) - Returns strategy stats and AI advice",
+    "POST /api/ai-coach/tune-strategy (invalid) - Correctly returns strategy_not_found error",
+    "GET /api/live/signals - Returns 1000+ signals with proper pagination",
+    "POST /api/ai-coach/chat - Turkish chat working with proper reply/model response",
+    "GET /api/data/providers/health - Returns 5 providers with MOCK_LIVE connected",
+    "POST /api/data/providers/auto-select - AI validation working with confidence scores",
+    "GET /api/owner/dashboard/summary - Returns global_health_score and execution_mode",
+    "Jest Test Suite - All 147/147 tests passing with AI_REASONING_AUTO_BATCH=false"
+  ],
+  "test_report_links": [
+    "/app/moonlight/backend_test.py"
+  ],
+  "action_item_for_main_agent": "Fix route conflict for POST /api/ai-coach/reason-signal/batch endpoint - likely needs route ordering fix in NestJS controller to prioritize 'batch' route before ':id' route",
+  "updated_files": [
+    "/app/moonlight/backend_test.py"
+  ],
+  "success_percentage": {
+    "backend": "94% (16/17 endpoints working)",
+    "frontend": "N/A - backend only testing"
+  },
+  "should_call_test_agent_after_fix": "false",
+  "should_main_agent_test_itself": "true"
+}

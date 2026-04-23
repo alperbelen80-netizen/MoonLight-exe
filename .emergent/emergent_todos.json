@@ -1,54 +1,42 @@
 [
   {
-    "content": "Stabilite: yarn verify (build + 114 tests) koş ve PASS doğrula",
+    "content": "Phase A: AI Reasoning Layer (entity + service + endpoints + auto-batch)",
     "status": "completed"
   },
   {
-    "content": "Backend'i MOCK_FEED_FAST_DEMO=true ile başlat, /api/health doğrula",
+    "content": "Phase A5: LiveSignals UI 🧠 reasoning modal + verdict badges",
     "status": "completed"
   },
   {
-    "content": "Senaryo B: Live Signal akışını /api/live/signals ile doğrula (1647+ sinyal)",
+    "content": "Phase B: Dashboard AI Insights widget + /daily-insights endpoint + cache",
     "status": "completed"
   },
   {
-    "content": "Senaryo B: LiveSignalsPage UI'da sinyallerin aktığını screenshot ile göster",
+    "content": "Phase C: Market Intelligence sayfası + regime-heatmap endpoint",
     "status": "completed"
   },
   {
-    "content": "Bybit CCXT Adapter ekle (geo-block yemez fallback)",
+    "content": "Phase D: Strategy Leaderboard + AI Tune endpoint + UI",
     "status": "completed"
   },
   {
-    "content": "DataFeedOrchestrator: paralel health check + latency scoring",
+    "content": "Phase E1: Dark mode toggle + theme tokens + tailwind config",
     "status": "completed"
   },
   {
-    "content": "GET /api/data/providers/health + POST /api/data/providers/auto-select endpoint'leri",
+    "content": "Phase E2: Status bar + Toast notifications (sonner) + Keyboard shortcuts",
     "status": "completed"
   },
   {
-    "content": "Gemini 2.5 Flash entegrasyonu + AICoachService oluştur",
+    "content": "Phase E3: +18 Jest test (147/147 PASS)",
     "status": "completed"
   },
   {
-    "content": "AI-destekli provider auto-selection (fail-closed validation)",
-    "status": "completed"
+    "content": "Final: testing_agent_v3 kapsamlı backend test",
+    "status": "in_progress"
   },
   {
-    "content": "Frontend: Data Sources paneli + AI Coach sohbet sayfası",
-    "status": "completed"
-  },
-  {
-    "content": "Yeni testler: DataFeedOrchestrator + AICoachService (129/129 PASS)",
-    "status": "completed"
-  },
-  {
-    "content": "testing_agent_v3 ile backend kapsamlı test (100% PASS)",
-    "status": "completed"
-  },
-  {
-    "content": "CHANGELOG v1.7.0 güncelle",
-    "status": "completed"
+    "content": "Final: CHANGELOG v1.8.0 güncelle",
+    "status": "pending"
   }
 ]

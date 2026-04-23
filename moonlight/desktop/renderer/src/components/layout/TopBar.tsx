@@ -3,6 +3,7 @@ import { useDashboardStore } from '../../store/dashboard.store';
 import { ExecutionModeBadge } from '../owner/ExecutionModeBadge';
 import { KillSwitchIndicator } from '../owner/KillSwitchIndicator';
 import { HealthScoreBadge } from '../owner/HealthScoreBadge';
+import { ThemeToggle } from './ThemeToggle';
 
 export function TopBar() {
   const { summary, fetchSummary } = useDashboardStore();
@@ -12,11 +13,12 @@ export function TopBar() {
   }, []);
 
   return (
-    <header className="bg-white border-b px-6 py-3 flex items-center justify-between">
-      <div className="text-xl font-semibold text-gray-900">
+    <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-6 py-3 flex items-center justify-between">
+      <div className="text-xl font-semibold text-gray-900 dark:text-gray-100">
         MoonLight Owner Console
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        <ThemeToggle />
         {summary && (
           <>
             <HealthScoreBadge
