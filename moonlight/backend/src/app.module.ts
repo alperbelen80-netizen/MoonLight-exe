@@ -20,6 +20,8 @@ import { HealthModule } from './health/health.module';
 import { JournalModule } from './journal/journal.module';
 import { RiskProfileModule } from './risk/risk-profile.module';
 import { AlertsDispatcherModule } from './alerts/alerts-dispatcher.module';
+import { MoeBrainModule } from './moe-brain/moe-brain.module';
+import { TrinityOversightModule } from './trinity-oversight/trinity-oversight.module';
 
 @Module({
   imports: [
@@ -68,6 +70,8 @@ import { AlertsDispatcherModule } from './alerts/alerts-dispatcher.module';
     AICoachModule,
     HealthModule,
     JournalModule,
+    TrinityOversightModule,
+    MoeBrainModule,
   ],
   controllers: [],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

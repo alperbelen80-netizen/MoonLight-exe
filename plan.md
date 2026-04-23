@@ -1,28 +1,42 @@
-# MoonLight Trading OS — Stabilize → Scenario B Live Signals → Multi‑Source Feed Auto‑Select (AI‑verified) → Scenario C AI Coach → **v1.8 AI‑Native Trading OS** → **v1.9 Production‑Ready Hardening + Advanced Features**
+# MoonLight Trading OS — v1.9 (Stable) → **v2.0 Evrimsel Öğrenen AI Mimarisi (MoE + Trinity Oversight)**
+
+> Repo kökü: `/app/moonlight/` (NestJS + Electron + SQLite + Redis).  
+> Mimari prensip: **Core-First** + **Fail-Safe (Fail-Closed)** + deterministik FSM.  
+> V2.0 kararları (kullanıcı onayı): **Ray local-mode**, **Hibrit experts (CEO/TRADE = Gemini, TEST = deterministik)**, **38 parite seed (yaygın set)**, **100 indikatör tek seferde**, **Trinity UI ayrı `/trinity` route**.
+
+---
 
 ## Objectives
-- Keep **stability locked**: backend + desktop builds green; unit tests green (**147/147 PASS current baseline**).
-- Deliver **Scenario B (Live Signals)** end‑to‑end using **Mock Live Feed** (K8s geo‑blocks Binance 451 + Bybit 403) with **FAST_DEMO** candle emission so UI shows signals immediately.
-- Provide **Multi‑Source Data Feed** layer (Mock + Binance CCXT + Bybit CCXT + TradingView Webhook + IQ Option skeleton) with:
-  - parallel provider health checks
-  - latency + deterministic scoring + tie‑breakers
-  - **AI‑validated auto‑selection (fail‑closed)**
-- Provide **Scenario C (AI Coach)** as a first‑class module:
-  - chat + strategy analysis
-  - feed selection validation
-- Upgrade to **v1.8 “AI‑Native Trading OS”**:
-  - **AI Reasoning Layer per live signal (AI Guard)** + periodic auto‑batch
-  - AI Insights on Dashboard
-  - Market Intelligence heatmap + strategy leaderboard + AI Tune
-  - Polish & hardening (dark mode, status bar, toasts, shortcuts)
-- **NEW (v1.9)**: Production‑ready hardening + advanced features:
-  - DB indexes + query performance
-  - gzip + per‑IP throttling + healthz + structured errors + graceful shutdown
-  - Backtest AI Analyzer
-  - Alert System V2 (outgoing webhooks + thresholds)
-  - Trade Journal timeline
-  - Command Palette (Cmd+K)
-  - React ErrorBoundary
+
+### A) Stabiliteyi kilitle (v1.9 baseline)
+- Backend + Desktop build **yeşil**.
+- Jest testleri **tam yeşil** (mevcut rapor: **163/163 PASS**).
+- Core invariants:
+  - deterministik loglar + reason codes
+  - idempotency
+  - fail-closed defaultlar
+
+### B) V2.0: Hedge-fund grade “Evrimsel Öğrenen AI” çekirdeğini kur
+- 3 Local MoE beyin:
+  - **CEO-MoE (Strateji)**
+  - **TRADE-MoE (Uygulama/Timing)**
+  - **TEST-MoE (Denetim/Saldırı – deterministic red team)**
+- Üst orkestratör:
+  - **Global MoE + Ensemble** (3 beyin çıktısını tek nihai karara dönüştürür)
+- **Trinity Oversight**:
+  - **GÖZ-1 System Observer** (donanım/latency/%80 bütçe)
+  - **GÖZ-2 Decision Auditor** (trace + drift)
+  - **GÖZ-3 Topology & Learning Governor** (sinaptik kurallar + training toggle)
+- Sinaptik akış kuralları: **Residual, Hebbian, Anti-Hebbian, Homeostatic, Plastic, Spike**
+- Donanım/öğrenme:
+  - **Max %80 kaynak kullanımı**
+  - **Ray local-mode** (tek process, thread pool) + resource broker
+  - runtime **Training Mode toggle**
+
+### C) Piyasalar: kapsam genişletme
+- **38 işlem çifti** (Forex + Kripto + Emtia) + seed
+- **7 timeframe**: `5m, 15m, 30m, 1h, 2h, 4h, 8h`
+- **100 indikatör şablonu** (tek seferde) → StrategyFactory entegrasyonu
 
 ---
 
@@ -66,10 +80,9 @@
 **Status:** COMPLETE (expanded)
 
 **Completed**
-- Backend Jest: **147/147 tests PASS**.
+- Backend Jest: **163/163 tests PASS**.
 - Backend build: PASS
 - Desktop build: PASS
-- Comprehensive backend endpoint testing: PASS for v1.7; v1.8 testing agent reported 16/17 due to route shadowing → fixed.
 
 **Known expected constraints**
 - Binance CCXT → HTTP 451 geo‑block in cluster
@@ -80,7 +93,7 @@
 
 ### Phase 4 — Next Direction (post‑stable checkpoint)
 
-**Status:** COMPLETE for v1.7/v1.8, moving to v1.9
+**Status:** COMPLETE for v1.8/v1.9. Moving to v2.0
 
 #### Track A — Scenario B: Live Signals Demo
 **Status:** COMPLETE
@@ -89,13 +102,17 @@
 - Live Signals demo works in K8s/restricted environments using Mock feed.
 
 #### Track B — Multi‑Source Data Feed + AI Auto‑Selection
-**Status:** COMPLETE
+**Status:** COMPLETE (minor open discrepancy)
 
 **Deliverables (done)**
 - `GET /api/data/providers/health`
 - `POST /api/data/providers/auto-select` (AI dry‑run + apply)
 - `POST /api/data/providers/switch`
 - Desktop: **Data Sources** page (`/data-sources`) showing provider health + AI buttons.
+
+**Known minor issue (P2)**
+- `/api/data/providers/health` sometimes returns 4 vs 5 providers due to benign timing/cache miss.
+  - Next checklist: `backend/src/data/data-providers.controller.ts` and orchestrator cache.
 
 #### Track C — Scenario C: AI Coach MVP
 **Status:** COMPLETE
@@ -125,202 +142,184 @@
   - TypeORM `synchronize` now opt‑out via `DB_SYNCHRONIZE=false` (default ON)
 - Endpoints:
   - `POST /api/ai-coach/reason-signal/:id`
-  - `POST /api/ai-coach/reason-signal/batch` (**route shadowing fixed by ordering static route before `:id`**)
+  - `POST /api/ai-coach/reason-signal/batch` (route shadowing fixed)
   - `GET /api/ai-coach/reasoning-history`
 
 **Frontend delivered**
 - Live Signals table:
   - AI verdict column (APPROVED/REJECTED/UNKNOWN + confidence %)
-  - 🧠 “Muhakeme” button with modal (reasoning + risk factors + expected WR)
-
-**Tests delivered**
-- Unit coverage for JSON extraction, rate limiter, circuit breaker, clamp01, degraded mode
-
----
-
-### Phase B — Dashboard AI Insights Widget
-**Status:** COMPLETE ✅
-
-**Delivered**
-- Backend: `GET /api/ai-coach/daily-insights` with 5‑minute in‑memory cache
-- Frontend: AI Insights card on Dashboard (summary + totals + top symbols + regime distribution + 3 recommendations)
-
----
-
-### Phase C — Market Intelligence Page
-**Status:** COMPLETE ✅
-
-**Delivered**
-- Backend: `GET /api/ai-coach/regime-heatmap`
-- Frontend: `/intel` page with heatmap (symbol×tf) + ADX tooltip
-
----
-
-### Phase D — Strategy Leaderboard + AI Tuning
-**Status:** COMPLETE ✅
-
-**Delivered**
-- Backend: `GET /api/ai-coach/strategy-leaderboard`
-- Backend: `POST /api/ai-coach/tune-strategy`
-- Frontend: Leaderboard table + per‑row AI Tune modal
-
----
-
-### Phase E — Polish & Hardening
-**Status:** COMPLETE ✅
-
-**Delivered**
-- Dark mode toggle (Tailwind `darkMode: 'class'`)
-- Status bar (AI model + feed + provider UP count + rate tokens)
-- Toast notifications (sonner) for new signals + AI approvals
-- Keyboard shortcuts (`g d/l/i/a/s/b/h`)
+  - “Muhakeme” button with modal (reasoning + risk factors + expected WR)
 
 ---
 
 ## v1.9.0 Roadmap — Production‑Ready Hardening + Advanced Features
 
-### 🎯 Ana Hedefler
-- Mevcut **147 Jest** + regression endpointleri **tam yeşil**
-- Minimum **+15 yeni Jest test** (hedef: **167+**)
-- Performans iyileştirmeleri: DB index, caching, gzip
-- Kurumsal seviye: alerts, journal, backtest AI
+**Status:** COMPLETE ✅ (baseline hardened)
+
+**Delivered (high level)**
+- DB indexes + query improvements
+- gzip + throttler + `/healthz` + graceful shutdown + structured errors
+- Trade Journal + Alerts + Command Palette + Dark Mode + Toasts
 
 ---
 
-### Tier 1 — Critical (Bu sprint)
+## **v2.0 Roadmap — Evrimsel Öğrenen AI Architecture (MoE + Trinity Oversight)**
 
-#### T1.1 — DB Index + Query Hızlandırma
-**Goal:** LiveSignals/Insights/History sorgularını hızlandırmak.
-- Add TypeORM `@Index` decorators:
-  - `LiveSignal(symbol, timestamp_utc)`
-  - `LiveSignal(ai_verdict)`
-  - `LiveSignal(strategy_family, timestamp_utc)`
-  - `BacktestRun(environment, created_at_utc)` (entity adı repo’da hangi isimle ise)
-- Validate via: reasoning-history + daily-insights latency before/after
-- Tests:
-  - schema presence check (sqlite pragma index_list)
+> V2.0 hedefi: mevcut üretim çekirdeğini bozmadan, AI karar mekanizmasını **tekil reasoning → MoE (CEO/TRADE/TEST) + Trinity Oversight** yapısına refactor etmek.
 
-#### T1.2 — Backend Hardening
-**Goal:** Production safety.
-- gzip compression middleware (`compression`)
-- Per‑IP throttling (`@nestjs/throttler`): 100 req/min (owner UI endpoints), 30 req/min (AI endpoints)
-- `GET /api/healthz` structured:
-  - db ok, ai ok, feed provider ok, broker adapter health, queue health
-- Global exception filter (structured JSON: code, message, correlation_id)
-- Graceful shutdown (SIGTERM): close db, clear timers, disconnect feeds
-- Tests:
-  - healthz contract
-  - throttler behavior
-  - error filter format
+### Phase V2.0‑α — Foundation (IN PROGRESS)
+**Goal:** V2.0 iskeleti + veri kapsamı + kaynak yönetimi.
 
-#### T1.3 — Backtest AI Analyzer
-**Goal:** Backtest sonuçlarını AI ile yorumlama.
-- `BacktestAIAnalyzerService`:
-  - Input: backtest run stats + per‑strategy breakdown + drawdown metrics
-  - Output: weaknesses, regime fit, top improvements, recommended parameter bands
-- Endpoint: `POST /api/backtest/:id/ai-analyze`
-- Frontend: BacktestsPage “AI Analiz” button + modal
-- Tests:
-  - degraded mode (no key)
-  - JSON schema extraction
+**Deliverables**
+- **NestJS modülleri (iskelet):**
+  - `backend/src/moe-brain/` (Local brains + global orchestrator contracts)
+  - `backend/src/trinity-oversight/` (Eyes + consensus)
+  - (opsiyonel) `backend/src/training/` (toggle + job registry)
+- **Ray local-mode bootstrap:**
+  - tek process, thread pool benzeri actor modeli
+  - %80 donanım bütçe politikası (GÖZ‑1 ölçer, governor enforce eder)
+- **DB seed (idempotent):**
+  - `product_execution_config` → 38 parite + 7 TF (`5m,15m,30m,1h,2h,4h,8h`)
+- **Enum/contract tanımları:**
+  - `BrainType`, `ExpertRole`, `TrinityEye`, `SynapticRule`
+- **Docs:** `docs/v2/` altında mimari taslak
 
-#### T1.4 — Alert System V2
-**Goal:** Operasyonel alarm altyapısı.
-- `AlertDispatcherService`: outgoing webhooks (Discord/Telegram/Slack templates)
-- `POST /api/alerts/test-webhook`
-- Threshold monitoring (cron/interval):
-  - AI approval rate < 30% (last 60m) → alert
-  - circuit breaker OPEN → alert
-  - feed switched → info alert
-- Frontend: webhook config UI + test button
-- Tests:
-  - webhook payload contract
-  - threshold evaluator
-
-#### T1.5 — Trade Journal Sayfası
-**Goal:** Sinyal → AI verdict → (future) execution outcome timeline.
-- Backend:
-  - `GET /api/journal?from=&to=&status=&symbol=&strategy=`
-  - Response: grouped cards (signal + reasoning + status + timestamps)
-- Frontend:
-  - Timeline view (filterable)
-- Tests:
-  - filtering correctness
-
-#### T1.6 — Command Palette (Cmd+K)
-**Goal:** Power‑user hız.
-- Frontend: `cmdk` command palette
-  - Navigate actions
-  - Toggle theme
-  - Trigger AI dry-run auto-select
-  - Trigger reason-batch
-  - Kill switch quick action (future)
-- Tests:
-  - basic rendering + action dispatch
-
-#### T1.7 — Error Boundary
-**Goal:** UI crash‑proof.
-- React ErrorBoundary wrapper around routes
-- Friendly fallback + “Reload” button
-- Tests:
-  - renders fallback on error
+**Exit Criteria**
+- `yarn test` PASS
+- Seed script tekrar çalıştırılınca duplicate üretmemeli
+- `/api/trinity/status` stub endpoint ayakta (health + resource snapshot)
 
 ---
 
-### Tier 2 — Polish (Bu sprint sonunda)
+### Phase V2.0‑β — Local MoE Brains
+**Goal:** 3 beynin (CEO/TRADE/TEST) çalışır gating + expert çağrı zinciri.
 
-#### T2.1 — Risk Profile Presets
-- Conservative / Moderate / Aggressive / Custom
-- Extend `ExecutionConfig` to store profile + overrides
-- Apply profile defaults into risk layer
-- UI: Settings radio group
+**Deliverables**
+- **CEOBrainService (Gemini 2.5 Flash / persona experts):**
+  - TrendExpert, MeanReversionExpert, VolatilityExpert, NewsExpert, MacroExpert
+- **TRADEBrainService (Gemini 2.5 Flash / persona experts):**
+  - EntryExpert, ExitExpert, SlippageExpert, PayoutExpert, SessionExpert
+- **TESTBrainService (Deterministic / rule-based):**
+  - OverfitHunter, DataLeakDetector, BiasAuditor, AdversarialAttacker, RobustnessTester
+- **Per-brain gating network:**
+  - softmax weights (başlangıç heuristics + telemetry-driven adjust)
+- **Trace model:** her expert çıktısı + skor + reason codes persist edilir (GÖZ‑2 ile uyumlu)
 
-#### T2.2 — Notification History Drawer
-- Persist last 50 toasts in localStorage
-- Drawer UI (right slide‑in)
-
-#### T2.3 — AI Regime Forecast
-- Endpoint: `POST /api/ai-coach/forecast-regime {symbol, tf}`
-- Input: last 2h candles + ADX + volatility snapshot
-- Output: next 30m regime forecast + confidence + key risks
-- Frontend: Market Intel expandable detail
+**Exit Criteria**
+- `POST /api/moe/brain/:type/evaluate` çalışır (CEO/TRADE/TEST)
+- TEST-MoE veto/flag üretebilir
 
 ---
 
-### Tier 3 — Future
-- lightweight‑charts signal overlay
-- Virtualization (`react-window`) for long tables
-- Onboarding tour (react-joyride)
+### Phase V2.0‑γ — Global Orchestrator + Ensemble
+**Goal:** 3 beyin çıktısını tek karar haline getirip FSM’e bağlamak.
+
+**Deliverables**
+- `GlobalMoEOrchestrator`:
+  - CEO + TRADE + TEST outputs → weighted ensemble
+  - TEST veto/circuit semantics (fail-closed)
+- FSM entegrasyonu:
+  - `execution` katmanında MoE gate hook
+  - sinyal → karar → (ALLOW / SKIP / VETO / MANUAL_REVIEW)
+- Endpoint:
+  - `POST /api/moe/evaluate` (signal in → decision out)
+
+**Exit Criteria**
+- Live signal üretimi MoE değerlendirme ile “overlay” edilebilir (strict off by default)
+- MoE failure durumunda deterministik fallback: SAFE_SKIP
+
+---
+
+### Phase V2.0‑δ — Trinity Oversight (GÖZ‑1/2/3)
+**Goal:** İzleme, denetim, topology/learning governor katmanını işletmek.
+
+**Deliverables**
+- **GÖZ‑1 System Observer**
+  - CPU/RAM/event-loop lag/queue depth/latency sampling
+  - %80 budget threshold + throttling önerisi
+- **GÖZ‑2 Decision Auditor**
+  - per-signal decision trace (inputs, experts, weights, final)
+  - drift: KS-test/PSI stub (sonradan genişler)
+- **GÖZ‑3 Topology & Learning Governor**
+  - synaptic weight update hooks (V2.0‑ε’ye temel)
+  - training toggle state machine (on/off)
+- **Consensus service:** 2‑of‑3 majority, 3‑of‑3 critical veto
+- **Endpoints:**
+  - `GET /api/trinity/status`
+  - `GET /api/trinity/audit`
+  - `GET /api/trinity/topology`
+- **Frontend (Electron renderer):**
+  - yeni `/trinity` route
+  - paneller: System Health, Decision Audit Timeline, Topology Graph (v1)
+
+**Exit Criteria**
+- Trinity ekranı canlı veriyle doluyor (mock telemetry dahil)
+- MoE kararları için audit trace UI’da izlenebilir
+
+---
+
+### Phase V2.0‑ε — Indicators + Synaptic Rules
+**Goal:** 100 indikatörü StrategyFactory’ye sokmak + sinaptik kuralları kodlamak.
+
+**Deliverables**
+- **100 indikatör tek seferde entegrasyon:**
+  - `docs/v2/100-indicators.md` kaynak
+  - `backend/src/indicators/templates/` altında YAML + TS pair
+  - StrategyFactory injection + backtest/live compatibility
+- **Synaptic rules service:**
+  - Residual, Hebbian, Anti-Hebbian, Homeostatic, Plastic, Spike
+  - ağırlık güncelleme “guardrail” (clamp, decay, max step)
+- **Training toggle endpoint:**
+  - `POST /api/trinity/training {enabled: boolean}`
+
+**Exit Criteria**
+- Tüm indikatörler registry’den load edilebilir
+- En az 20 örnek strateji kombinasyonu “compile” edilebilir
+
+---
+
+### Phase V2.0‑RC — Tests + Docs + Release
+**Goal:** Kurumsal seviyede doğrulama, dokümantasyon ve sürümleme.
+
+**Deliverables**
+- **+80 Jest test**:
+  - brain gating, consensus, veto semantics
+  - seed idempotency
+  - synaptic rule clamps
+  - deterministic TEST-MoE audit
+- Backend testing agent full run
+- `CHANGELOG.md` → v2.0.0
+- `docs/v2/ARCHITECTURE.md` (MoE + Trinity + fail-safe + resource model)
+
+**Exit Criteria**
+- Testler tam yeşil, regressions yok
+- V2.0 feature flags ile güvenli rollout (default-off)
 
 ---
 
 ## Next Actions (Immediate)
-1. **T1.1 DB Indexes** (quick win) + verify latency improvements
-2. **T1.2 Backend hardening**: gzip + throttler + `/healthz` + error filter + graceful shutdown
-3. **T1.3 Backtest AI Analyzer** + Backtests UI modal
-4. **T1.4 Alerts V2** webhook dispatcher + threshold monitor + UI
-5. **T1.5 Trade Journal** backend endpoint + timeline page
-6. **T1.6 Command Palette** (Cmd+K)
-7. **T1.7 Error Boundary**
+1. **V2.0‑α:** `moe-brain` + `trinity-oversight` NestJS modül iskeletlerini oluştur
+2. **V2.0‑α:** 38 parite + 7 TF için idempotent seed script ekle (`product_execution_config`)
+3. **V2.0‑α:** Ray local-mode resource broker stub (max %80 budget) + GÖZ‑1 telemetry
+4. **V2.0‑α:** `/api/trinity/status` stub endpoint + minimal DTO’lar
+5. (P2) `/api/data/providers/health` discrepancy için cache/timing kontrolü
 
 ---
 
 ## Success Criteria
-- Stability
-  - `yarn verify` → PASS
-  - Backend + Desktop build → PASS
-  - Tests ≥ **167** PASS
-- Performance
-  - Live signals + history queries are indexed (measurable improvement)
-  - Daily insights cache hit ratio visible (optional metric)
-- Ops readiness
-  - `/api/healthz` returns structured status
-  - throttling prevents abuse
-  - graceful shutdown verified
-- AI features
-  - Reasoning pipeline continues to work; batch endpoints not shadowed
-  - Backtest AI analyzer produces consistent structured output
-- UX quality
-  - Command palette functional
-  - ErrorBoundary prevents blank screen
-  - Journal timeline usable and filterable
+
+### Stability
+- `yarn test` → PASS
+- Backend + Desktop build → PASS
+
+### V2.0 Architecture
+- 3 Local MoE beyin + Global Orchestrator contracts hazır
+- Trinity (GÖZ‑1/2/3) status/audit/topology endpointleri ayakta
+- Training toggle iskeleti + %80 resource policy çalışır
+
+### Market Coverage
+- 38 parite + 7 timeframe seed edilmiş ve UI/engine tarafından görülebilir
+
+### AI Quality & Safety
+- TEST-MoE deterministik veto hattı mevcut
+- Fail-closed: AI/Ray/LLM hata durumunda SAFE_SKIP / MANUAL_REVIEW

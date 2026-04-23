@@ -1,50 +1,26 @@
 [
   {
-    "content": "T1.1: DB index'ler (@Index LiveSignal + BacktestRun)",
+    "content": "V2.0-α: moe-brain ve trinity-oversight NestJS modül iskeletlerini oluştur (contracts, enums, DTOs)",
     "status": "completed"
   },
   {
-    "content": "T1.2: gzip + throttler + /healthz + global error filter + graceful shutdown",
+    "content": "V2.0-α: Ray local-mode resource broker stub (max %80 bütçe) + GÖZ-1 telemetry servisi",
     "status": "completed"
   },
   {
-    "content": "T1.3: BacktestAIAnalyzerService + endpoint",
+    "content": "V2.0-α: 38 parite + 7 TF seed script (product_execution_config idempotent)",
     "status": "completed"
   },
   {
-    "content": "T1.4: AlertDispatcherService + threshold monitor + outgoing webhooks",
+    "content": "V2.0-α: /api/trinity/status stub endpoint + minimal DTO'lar, app.module'a register",
     "status": "completed"
   },
   {
-    "content": "T1.5: Trade Journal backend + UI (100 entry)",
+    "content": "V2.0-α: Jest unit testler (seed idempotency, resource broker %80 clamp, trinity eyes stub)",
     "status": "completed"
   },
   {
-    "content": "T2.1: Risk Profile presets (backend + UI + toast)",
-    "status": "completed"
-  },
-  {
-    "content": "T1.6: Command Palette (cmdk) + 15 komut",
-    "status": "completed"
-  },
-  {
-    "content": "T1.7: React ErrorBoundary wrapper",
-    "status": "completed"
-  },
-  {
-    "content": "Webhook UI (Settings sayfasında)",
-    "status": "completed"
-  },
-  {
-    "content": "163/163 Jest test PASS",
-    "status": "completed"
-  },
-  {
-    "content": "testing_agent_v3: 100% backend PASS (0 critical)",
-    "status": "completed"
-  },
-  {
-    "content": "CHANGELOG v1.9.0 güncellendi",
+    "content": "V2.0-α: yarn test & yarn build, CHANGELOG notu, kullanıcıya α kapanış raporu",
     "status": "completed"
   }
 ]

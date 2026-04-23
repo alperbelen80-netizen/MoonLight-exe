@@ -1,6 +1,55 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.0.0-alpha — Evrimsel AI: Foundation (MoE + Trinity Oversight)
+
+**Release Date:** 2026-04-23
+**Scope:** V2.0-α foundation only. Brains, experts, global orchestrator, indicator templates land in β/γ/ε.
+
+### 🧬 Yeni modüller
+- **`trinity-oversight/`** — 3-eye supervisor iskeleti:
+  - `ResourceBrokerService` — Ray-local-mode contract. MAX_BUDGET_PCT (default 80, clamp 10–95). `requestBudget(weight)` + fail-closed sample hattı.
+  - `Eye1SystemObserverService` — CPU / mem / event-loop-lag / budget verdict (OK / WARN / HALT).
+  - `Eye2DecisionAuditorService` — in-memory 500-slot ring buffer, reason-code diversity → crude drift score.
+  - `Eye3TopologyGovernorService` — `TrainingMode` state machine (OFF / ON / PAUSED_BY_BUDGET) + synaptic health [0,1].
+  - `TrinityConsensusService` — 2-of-3 majority, any HALT fail-closed.
+  - `TrinityOversightService.getStatus()` — 3 eyes + consensus birleşik rapor.
+- **`moe-brain/`** — contracts + seed:
+  - Enums: `BrainType (CEO/TRADE/TEST)`, `ExpertRole` (15 rolü kapsar), `SynapticRule` (RESIDUAL / HEBBIAN / ANTI_HEBBIAN / HOMEOSTATIC / PLASTIC / SPIKE), `MoEDecision`, `ExpertVote`.
+  - Contracts: `SignalInput`, `ExpertOutput`, `BrainOutput` (softmax weights), `EnsembleDecision` (final weights).
+  - **V2 Seed**: 38 parite × 7 timeframe (5m / 15m / 30m / 1h / 2h / 4h / 8h) = **266 satır** idempotent `product_execution_config` seed’i.
+
+### 🌐 Yeni endpoint’ler
+- `GET /api/trinity/status` — 3 göz + consensus anlık raporu
+- `GET /api/trinity/audit` — GÖZ-2 denetim özeti
+- `GET /api/trinity/topology` — GÖZ-3 topoloji + training mode
+- `POST /api/trinity/training` `{enabled: boolean}` — training toggle (bütçe bazlı fail-closed)
+- `GET /api/moe/seed/preview` — 38×7 önizleme (henüz yazmaz)
+- `POST /api/moe/seed/apply` — idempotent DB seed
+
+### 🧪 Testler
+- **+26 yeni Jest unit test** → toplam **189/189 PASS** (baseline 163 + V2.0-α 26).
+  - `v2-seed.spec.ts` — 38 sembol × 7 TF, id uniqueness, asset class coverage.
+  - `resource-broker.service.spec.ts` — default budget, clamp [10,95], allow/deny, weight tightening, fail-closed on sample error.
+  - `trinity-consensus.service.spec.ts` — boş input, HALT fail-closed, WARN majority, tek WARN → OK.
+  - `trinity-eyes.spec.ts` — EYE-2 ring buffer cap + diversity, EYE-3 training state machine, synaptic health clamp.
+  - `trinity-oversight.service.spec.ts` — entegrasyon: 3 göz + consensus akışı + HALT zinciri.
+
+### 🛡️ Fail-safe prensipleri
+- Training default **OFF**; bütçe dışı ise **PAUSED_BY_BUDGET** (asla sessiz ON).
+- Resource broker sample hatası → **deny** (allowed=false).
+- Herhangi bir göz **HALT** → consensus **HALT** (sticky, fail-closed).
+- Seed varsayılanı: `auto_trade_enabled=false` (insan onayı olmadan canlı ticaret yok).
+
+### 🔀 Mimari notlar (V2.0-α kapsamı)
+- **Local-mode Ray**: harici process yok; contract-level resource broker + weight arg.
+- Concrete MoE brains (CEO-Gemini, TRADE-Gemini, TEST-deterministic) **V2.0-β**’da.
+- Global Ensemble + FSM gate hook **V2.0-γ**’da.
+- `/trinity` renderer route **V2.0-δ**’da.
+- 100 indikatör şablonu entegrasyonu + synaptic kurallar **V2.0-ε**’da.
+
+
+
 ## v1.9.0 — Production-Ready Hardening + Advanced Features
 
 **Release Date:** 2026-04-23
