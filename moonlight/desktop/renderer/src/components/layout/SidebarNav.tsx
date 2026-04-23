@@ -6,6 +6,7 @@ const navItems = [
   { path: '/live/signals', label: 'Live Signals', icon: '⚡' },
   { path: '/strategies', label: 'Strategies', icon: '🧠' },
   { path: '/accounts', label: 'Accounts', icon: '💼' },
+  { path: '/sessions', label: 'Sessions', icon: '🔌' },
   { path: '/matrix', label: 'Execution Matrix', icon: '⚙️' },
   { path: '/backtests', label: 'Backtests', icon: '📈' },
   { path: '/data-health', label: 'Data Health', icon: '💚' },

@@ -9,6 +9,7 @@ import { DataHealthPage } from './routes/DataHealthPage';
 import { BacktestsPage } from './routes/BacktestsPage';
 import { LiveSignalsPage } from './routes/LiveSignalsPage';
 import { StrategiesPage } from './routes/StrategiesPage';
+import { SessionManagerPage } from './routes/SessionManagerPage';
 import { SettingsPage } from './routes/SettingsPage';
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
           <Route path="live/signals" element={<LiveSignalsPage />} />
           <Route path="strategies" element={<StrategiesPage />} />
           <Route path="accounts" element={<AccountsPage />} />
+          <Route path="sessions" element={<SessionManagerPage />} />
           <Route path="matrix" element={<ExecutionMatrixPage />} />
           <Route path="backtests" element={<BacktestsPage />} />
           <Route path="data-health" element={<DataHealthPage />} />

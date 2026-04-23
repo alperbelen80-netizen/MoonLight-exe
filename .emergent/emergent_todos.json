@@ -1,46 +1,34 @@
 [
   {
-    "content": "Task 1 - Dashboard state bug fix (root cause analysis done)",
-    "status": "completed"
+    "content": "B.1 — Inspect LiveSignalEngine + current data feed wiring",
+    "status": "in_progress"
   },
   {
-    "content": "Task 1 - Zustand idempotency guard + explicit selectors",
-    "status": "completed"
+    "content": "B.2 — Wire BinanceCCXT as default data feed + auto-subscribe on startup",
+    "status": "pending"
   },
   {
-    "content": "Task 1 - React.StrictMode removed to avoid double-mount race",
-    "status": "completed"
+    "content": "B.3 — Live Signals UI: Execute button → MultiBrokerRouter → broker",
+    "status": "pending"
   },
   {
-    "content": "Task 1 - ApiClient 8s timeout + text/parse split for CF edge",
-    "status": "completed"
+    "content": "B.4 — Session Manager UI (connect/disconnect per broker + health)",
+    "status": "pending"
   },
   {
-    "content": "Task 1 - Backend /api globalPrefix + ioredis-mock + preflight timeout",
-    "status": "completed"
+    "content": "B.5 — Credentials UI (secure form for .env style keys, opsiyonel)",
+    "status": "pending"
   },
   {
-    "content": "Task 2 - LoadingState v2 (Loader2 + slow hint + retry)",
-    "status": "completed"
+    "content": "B.6 — E2E test: Binance live data → signal → execute → FakeBroker ACK",
+    "status": "pending"
   },
   {
-    "content": "Task 2 - ErrorState v2 (rose alert + retry + docLink)",
-    "status": "completed"
+    "content": "B.7 — CHANGELOG v1.7 + docs/LIVE_SIGNAL_SETUP.md",
+    "status": "pending"
   },
   {
-    "content": "Task 2 - Skeleton atomic + DashboardSkeleton component",
-    "status": "completed"
-  },
-  {
-    "content": "Task 2 - Dashboard integrate DashboardSkeleton",
-    "status": "completed"
-  },
-  {
-    "content": "Final verify: 114 tests + both builds + POC all PASS",
-    "status": "completed"
-  },
-  {
-    "content": "CHANGELOG v1.6.2 + plan update",
-    "status": "completed"
+    "content": "B.8 — yarn verify final pass",
+    "status": "pending"
   }
 ]

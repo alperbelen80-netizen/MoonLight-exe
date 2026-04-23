@@ -10,6 +10,7 @@ import { BrokerAdapterRegistry } from './adapters/broker-adapter.registry';
 import { BrokerCredentialsService } from './adapters/broker-credentials.service';
 import { BROKER_ADAPTER } from './adapters/broker-adapter.interface';
 import { BrokerController } from './broker.controller';
+import { SessionManagerController } from './adapters/session-manager.controller';
 import { BrokerService } from './broker.service';
 import { SessionManagerService } from './session/session-manager.service';
 import { SessionHealthService } from './session/session-health.service';
@@ -22,7 +23,7 @@ import { OwnerAccount } from '../database/entities/owner-account.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([OwnerAccount])],
-  controllers: [BrokerController],
+  controllers: [BrokerController, SessionManagerController],
   providers: [
     BrokerService,
     IdempotentOrderService,
