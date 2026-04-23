@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AICoachService } from './ai-coach.service';
 import { AIReasoningService } from './ai-reasoning.service';
@@ -12,7 +12,7 @@ import { LiveStrategyPerformance } from '../database/entities/live-strategy-perf
 
 @Module({
   imports: [
-    DataModule,
+    forwardRef(() => DataModule),
     TypeOrmModule.forFeature([LiveSignal, LiveStrategyPerformance]),
   ],
   controllers: [AICoachController, DataProvidersController],

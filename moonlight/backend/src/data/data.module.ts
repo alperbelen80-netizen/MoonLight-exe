@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { DataController } from './data.controller';
@@ -14,12 +14,16 @@ import { RegimeDetectorService } from './regime-detector.service';
 import { DataFeedOrchestrator } from './sources/data-feed-orchestrator.service';
 import { StrategyModule } from '../strategy/strategy.module';
 
+// V2.5-1: StrategyModule is needed because RegimeDetectorService depends on
+// IndicatorService. StrategyModule transitively imports AICoachModule which
+// imports DataModule — creating a cycle. We break it with `forwardRef`.
+
 @Module({
   imports: [
     BullModule.registerQueue({
       name: 'tf-resample',
     }),
-    StrategyModule,
+    forwardRef(() => StrategyModule),
   ],
   controllers: [DataController, ParquetImportController, WebhookController],
   providers: [

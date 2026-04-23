@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Param, Query, Body } from '@nestjs/common';
 import { LiveSignalService, LiveSignalFilters, LiveSignalListResponse } from './live-signal.service';
 import { SemiAutomaticExecutor, ApprovedSignalExecution } from './semi-automatic-executor.service';
+import { LiveSignalEngine, LiveSignalEngineStatus } from './live-signal-engine.service';
 import { LiveSignal } from '../database/entities/live-signal.entity';
 
 @Controller('live')
@@ -8,7 +9,27 @@ export class LiveSignalController {
   constructor(
     private readonly liveSignalService: LiveSignalService,
     private readonly semiAutoExecutor: SemiAutomaticExecutor,
+    private readonly liveSignalEngine: LiveSignalEngine,
   ) {}
+
+  // V2.5-1: lazy-start control surface for the Live Signal pump.
+  // Backend boots with the pump OFF by default (fail-safe) to prevent
+  // the startup CPU loop we observed when 12 subscriptions seeded +
+  // ticked at 1500ms during bootstrap. Operators start it explicitly.
+  @Post('engine/start')
+  async startEngine(): Promise<LiveSignalEngineStatus> {
+    return this.liveSignalEngine.start();
+  }
+
+  @Post('engine/stop')
+  async stopEngine(): Promise<LiveSignalEngineStatus> {
+    return this.liveSignalEngine.stop();
+  }
+
+  @Get('engine/status')
+  getEngineStatus(): LiveSignalEngineStatus {
+    return this.liveSignalEngine.getStatus();
+  }
 
   @Get('signals')
   async listSignals(

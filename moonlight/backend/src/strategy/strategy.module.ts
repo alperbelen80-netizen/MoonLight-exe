@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module, OnModuleInit, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { StrategyService } from './strategy.service';
 import { StrategyController } from './strategy.controller';
@@ -17,8 +17,16 @@ import { TemplateStrategyBuilderService } from './factory/template-strategy-buil
 import { TemplateStrategyController } from './factory/template-strategy.controller';
 import { AICoachModule } from '../ai-coach/ai-coach.module';
 
+// V2.5-1: StrategyModule ↔ AICoachModule ↔ DataModule ↔ StrategyModule forms
+// a dependency cycle. DataModule side already uses forwardRef(() => StrategyModule).
+// We also forwardRef AICoachModule here to finalise the break.
+
 @Module({
-  imports: [TypeOrmModule.forFeature([LiveStrategyPerformance, LiveSignal]), IndicatorRegistryModule, AICoachModule],
+  imports: [
+    TypeOrmModule.forFeature([LiveStrategyPerformance, LiveSignal]),
+    IndicatorRegistryModule,
+    forwardRef(() => AICoachModule),
+  ],
   controllers: [StrategyController, TemplateStrategyController],
   providers: [
     StrategyService,

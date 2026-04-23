@@ -1,18 +1,30 @@
 [
   {
-    "content": "V2.4-A: ExpertPrior entity + Learner load/save (server restart resilience)",
-    "status": "in_progress"
+    "content": "Startup Fix: .env güncelle (LIVE_SIGNAL_ENABLED default=false, MOCK_FEED_INTERVAL_MS=30000)",
+    "status": "completed"
   },
   {
-    "content": "V2.4-C: A/B harness CSV export endpoint",
-    "status": "pending"
+    "content": "Startup Fix: MockLiveDataFeedAdapter seed işlemini chunked/async yap + timer .unref()",
+    "status": "completed"
   },
   {
-    "content": "V2.4-D: Broker adapter state machine + BrokerHealth registry + router skeleton (4 brokers)",
-    "status": "pending"
+    "content": "Startup Fix: LiveSignalEngine'e lazy-start destegi + idempotent start/stop",
+    "status": "completed"
   },
   {
-    "content": "V2.4: Testler + build + CHANGELOG v2.4.0 + rapor",
-    "status": "pending"
+    "content": "Startup Fix: LiveSignalController ile /start, /stop, /status endpoint'leri",
+    "status": "completed"
+  },
+  {
+    "content": "Startup Fix: Jest unit testleri (lazy-start, seed chunking, timer cleanup)",
+    "status": "completed"
+  },
+  {
+    "content": "Startup Fix: Backend'i gerçek start ile doğrula (yarn start -> CPU normal)",
+    "status": "completed"
+  },
+  {
+    "content": "Phase V2.5-1 kapanış: 322/322 test PASS + startup stabil",
+    "status": "completed"
   }
 ]

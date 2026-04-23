@@ -17,15 +17,34 @@ import { Timeframe } from '../shared/enums/timeframe.enum';
 import { MarketRegime } from '../shared/enums/market-regime.enum';
 import { v4 as uuidv4 } from 'uuid';
 
+export interface LiveSignalEngineStatus {
+  enabled: boolean;
+  running: boolean;
+  autoStart: boolean;
+  subscriptions: string[];
+  symbols: string[];
+  timeframes: string[];
+  lastStartedAtUtc: string | null;
+  lastStoppedAtUtc: string | null;
+  signalsEmitted: number;
+}
+
 @Injectable()
 export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(LiveSignalEngine.name);
   private enabled: boolean;
+  private autoStart: boolean;
+  private running = false;
+  private starting = false;
   private candleBuffers: Map<string, OhlcvBarDTO[]> = new Map();
   private regimeCache: Map<string, { regime: MarketRegime; timestamp: Date }> = new Map();
   private signalCount = 0;
   private lastResetTime = Date.now();
   private maxSignalsPerMinute: number;
+  private activeSubscriptions: Array<{ symbol: string; timeframe: string }> = [];
+  private lastStartedAt: Date | null = null;
+  private lastStoppedAt: Date | null = null;
+  private signalsEmittedTotal = 0;
 
   constructor(
     @InjectRepository(LiveSignal)
@@ -38,7 +57,13 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
     private readonly strategyPerformance: LiveStrategyPerformanceService,
     private readonly moeGate: MoEGateService,
   ) {
+    // V2.5-1 fail-safe:
+    //  - LIVE_SIGNAL_ENABLED must be explicitly "true" to allow running at all.
+    //  - LIVE_SIGNAL_AUTO_START controls whether we pump on bootstrap.
+    //  - Previous default started a 4-symbol x 3-TF x 1500ms pump during
+    //    bootstrap which CPU-locked the process. Now: manual start via API.
     this.enabled = process.env.LIVE_SIGNAL_ENABLED === 'true';
+    this.autoStart = process.env.LIVE_SIGNAL_AUTO_START === 'true';
     this.maxSignalsPerMinute = parseInt(
       process.env.LIVE_SIGNAL_MAX_SIGNALS_PER_MINUTE || '10',
       10,
@@ -47,35 +72,145 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     if (!this.enabled) {
-      this.logger.log('Live Signal Engine DISABLED');
+      this.logger.log('Live Signal Engine DISABLED (LIVE_SIGNAL_ENABLED!=true)');
       return;
     }
-
-    this.logger.log('Live Signal Engine STARTING with REGIME DETECTION');
-
-    const symbols = (process.env.LIVE_SIGNAL_SYMBOLS || 'XAUUSD,EURUSD').split(',');
-    const timeframes = (process.env.LIVE_SIGNAL_TIMEFRAMES || '1m,5m').split(',');
-
-    const adapter = this.dataFeedOrchestrator.getActiveAdapter();
-
-    for (const symbol of symbols) {
-      for (const timeframe of timeframes) {
-        await adapter.subscribeToCandles(symbol.trim(), timeframe.trim(), (candle) => {
-          this.handleNewCandle(candle);
-        });
-      }
+    if (!this.autoStart) {
+      this.logger.log(
+        'Live Signal Engine READY but not auto-started ' +
+          '(LIVE_SIGNAL_AUTO_START!=true). Use POST /api/live/engine/start to begin.',
+      );
+      return;
     }
-
-    this.logger.log(
-      `Live Signal Engine ACTIVE: ${symbols.length} symbols x ${timeframes.length} TFs`,
+    // Fire-and-forget: never block Nest bootstrap. The pump is now chunked
+    // inside the mock adapter, but we also keep bootstrap non-blocking.
+    void this.start().catch((err) =>
+      this.logger.error(`auto-start failed: ${(err as Error).message}`),
     );
   }
 
   async onModuleDestroy(): Promise<void> {
-    const adapter = this.dataFeedOrchestrator.getActiveAdapter();
-    if (adapter.isConnected()) {
-      await adapter.disconnect();
+    await this.stop();
+  }
+
+  /**
+   * V2.5-1: idempotent public start. Safe to call multiple times.
+   * Returns the resulting status snapshot.
+   */
+  async start(): Promise<LiveSignalEngineStatus> {
+    if (!this.enabled) {
+      this.logger.warn('start() ignored — engine DISABLED by env');
+      return this.getStatus();
     }
+    if (this.running || this.starting) {
+      return this.getStatus();
+    }
+    this.starting = true;
+    try {
+      this.logger.log('Live Signal Engine STARTING with REGIME DETECTION');
+      const symbols = (process.env.LIVE_SIGNAL_SYMBOLS || 'XAUUSD,EURUSD')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const timeframes = (process.env.LIVE_SIGNAL_TIMEFRAMES || '1m,5m')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const adapter = this.dataFeedOrchestrator.getActiveAdapter();
+
+      for (const symbol of symbols) {
+        for (const timeframe of timeframes) {
+          await adapter.subscribeToCandles(symbol, timeframe, (candle) => {
+            // async but fire-and-forget: adapter handler contract is sync.
+            void this.handleNewCandle(candle);
+          });
+          this.activeSubscriptions.push({ symbol, timeframe });
+        }
+      }
+
+      this.running = true;
+      this.lastStartedAt = new Date();
+      this.logger.log(
+        `Live Signal Engine ACTIVE: ${symbols.length} symbols x ${timeframes.length} TFs`,
+      );
+      return this.getStatus();
+    } finally {
+      this.starting = false;
+    }
+  }
+
+  /**
+   * V2.5-1: idempotent public stop. Unsubscribes from all active candle
+   * streams and disconnects the active data-feed adapter.
+   */
+  async stop(): Promise<LiveSignalEngineStatus> {
+    if (!this.running) {
+      // Still try best-effort disconnect if a previous partial start left
+      // the adapter connected.
+      try {
+        const adapter = this.dataFeedOrchestrator.getActiveAdapter();
+        if (adapter.isConnected()) {
+          await adapter.disconnect();
+        }
+      } catch {
+        /* ignore */
+      }
+      return this.getStatus();
+    }
+    try {
+      const adapter = this.dataFeedOrchestrator.getActiveAdapter();
+      for (const sub of this.activeSubscriptions) {
+        try {
+          await adapter.unsubscribeFromCandles(sub.symbol, sub.timeframe);
+        } catch (err) {
+          this.logger.warn(
+            `unsubscribe failed ${sub.symbol}/${sub.timeframe}: ${(err as Error).message}`,
+          );
+        }
+      }
+      if (adapter.isConnected()) {
+        await adapter.disconnect();
+      }
+    } finally {
+      this.activeSubscriptions = [];
+      this.running = false;
+      this.lastStoppedAt = new Date();
+      this.logger.log('Live Signal Engine STOPPED');
+    }
+    return this.getStatus();
+  }
+
+  isRunning(): boolean {
+    return this.running;
+  }
+
+  getStatus(): LiveSignalEngineStatus {
+    const symbols = (process.env.LIVE_SIGNAL_SYMBOLS || 'XAUUSD,EURUSD')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const timeframes = (process.env.LIVE_SIGNAL_TIMEFRAMES || '1m,5m')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return {
+      enabled: this.enabled,
+      running: this.running,
+      autoStart: this.autoStart,
+      subscriptions: this.activeSubscriptions.map(
+        (s) => `${s.symbol}_${s.timeframe}`,
+      ),
+      symbols,
+      timeframes,
+      lastStartedAtUtc: this.lastStartedAt
+        ? this.lastStartedAt.toISOString()
+        : null,
+      lastStoppedAtUtc: this.lastStoppedAt
+        ? this.lastStoppedAt.toISOString()
+        : null,
+      signalsEmitted: this.signalsEmittedTotal,
+    };
   }
 
   private async handleNewCandle(candle: CandleData): Promise<void> {
@@ -239,6 +374,7 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
         await this.liveSignalRepo.save(liveSignal);
 
         this.signalCount++;
+        this.signalsEmittedTotal++;
 
         this.logger.log(
           `NEW SIGNAL: ${signal.symbol} ${signal.direction} | Regime: ${regimeResult.regime} | ADX: ${regimeResult.adx.toFixed(1)}`,

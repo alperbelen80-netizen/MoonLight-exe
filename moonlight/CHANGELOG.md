@@ -1,6 +1,88 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.5.1 — Startup CPU Loop Fix + Bootstrap Hardening
+
+**Release Date:** 2026-04-23
+**Scope:** Backend gerçek boot stabilitesi, lazy-start LiveSignal pump, modül bootstrap circular-dep kırma, regression test suite genişletme.
+
+### 🚨 Critical: Runtime Bootstrap Unblocked
+Önceki kod ile `yarn start`/`node dist/backend/src/main.js` çalıştırıldığında backend
+ayağa kalkamıyor ve/veya CPU'yu %100+ tüketiyordu. İki ayrı sebep vardı:
+
+1. **Bootstrap-time CPU lock**: `LiveSignalEngine.onModuleInit()` 4 sembol × 3 TF için
+   eager olarak `MockLiveDataFeedAdapter.subscribeToCandles()` çağırıyor; adapter ise
+   her subscription’da **senkron 100 bar** üretip üstüne **1500ms interval** açıyordu.
+   12 × 100 = 1200 senkron handler + 12 agresif tick → startup pump.
+2. **Module DI cycle**: `StrategyModule → AICoachModule → DataModule → StrategyModule`
+   döngüsü Nest tarafından `"module at index [1] is undefined"` hatasıyla hard fail
+   veriyordu. Testler (Jest) bu modülleri izole olarak doğru yüklediği için
+   gözden kaçıyordu.
+
+### 🛠️ V2.5-1-A — Lazy-start Live Signal Engine
+- `LiveSignalEngine` artık:
+  - `LIVE_SIGNAL_ENABLED=true` **ve** `LIVE_SIGNAL_AUTO_START=true` ise bootstrap’ta start eder.
+  - Aksi halde **hazırdır ama start etmez** (fail-safe default).
+  - `start()`, `stop()` idempotent public metodları + `getStatus()` snapshot'ı.
+  - `onModuleDestroy()` temiz stop sağlar.
+- Yeni REST yüzeyi:
+  - `POST /api/live/engine/start`
+  - `POST /api/live/engine/stop`
+  - `GET  /api/live/engine/status`
+- `.env` güncellemeleri (backend):
+  - `LIVE_SIGNAL_ENABLED=false` (default — güvenli)
+  - `LIVE_SIGNAL_AUTO_START=false`
+  - `MOCK_FEED_INTERVAL_MS=30000` (eski 1500ms → 30s)
+  - `MOCK_FEED_SEED_BARS`, `MOCK_FEED_SEED_CHUNK`
+
+### 🛠️ V2.5-1-B — MockLiveDataFeedAdapter chunked async seed
+- Seed artık **chunklu** üretiliyor, her chunk sonrası `setImmediate` ile event-loop’a
+  yield ediliyor → Nest lifecycle hook’ları ve HTTP server bootstrap sırasında
+  bloklanmıyor.
+- `setInterval(...).unref()` çağrılıyor → Jest worker'ında açık timer handle kalmaz.
+- `MOCK_FEED_INTERVAL_MS < 500ms` ise varsayılana clamp (30s) — alt sınır güvenliği.
+- Handler çağrıları try/catch ile sarmalandı (tek bir aboneliğin hatası feed’i durdurmasın).
+- `getSubscriptionCount()` test helper eklendi.
+
+### 🛠️ V2.5-1-C — Module DI cycle kırma (forwardRef)
+- `DataModule.imports`: `StrategyModule` → `forwardRef(() => StrategyModule)`
+- `StrategyModule.imports`: `AICoachModule` → `forwardRef(() => AICoachModule)`
+- `AICoachModule.imports`: `DataModule` → `forwardRef(() => DataModule)`
+- Artık üç modül de aynı cycle içinde güvenle resolve oluyor, `RegimeDetectorService`
+  gibi cross-module bağımlılıklar (IndicatorService) çalışıyor.
+
+### 🧪 Yeni Test Kapsamı
+- `src/tests/unit/data/mock-live-feed.adapter.spec.ts`
+  - chunk sayısı + sıralama
+  - event-loop yield (non-blocking)
+  - `MOCK_FEED_INTERVAL_MS` clamp
+  - timer `.unref()` varlığı
+  - idempotent subscribe / disconnect
+- `src/tests/unit/execution/live-signal-engine.lazy-start.spec.ts`
+  - `ENABLED!=true` → no-op
+  - `AUTO_START!=true` → hazır ama start etmez
+  - `start()` tüm grid’e subscribe (2×3 = 6) + idempotent
+  - `stop()` clean disconnect + status damgası
+  - DISABLED iken `start()` no-op
+  - `onModuleDestroy()` güvenli
+
+### 📈 Ölçülen sonuçlar
+- Tests: **322/322 PASS** (önceki 310 + 12 yeni V2.5-1 regression)
+- Runtime: backend gerçek boot + `GET /api/healthz` → HTTP 200
+- CPU (idle): önceki %101 → şimdi ~%4–12
+- Start/Stop flow canlıda doğrulandı: 4 abonelik açıldı/kapandı, CPU stabil kaldı.
+
+### 🔐 Migration notları (operator)
+- Canlı sinyal pump’ını bootstrap’ta başlatmak istiyorsanız:
+  - `LIVE_SIGNAL_ENABLED=true`
+  - `LIVE_SIGNAL_AUTO_START=true`
+- Aksi halde:
+  - `POST /api/live/engine/start` ile manuel başlatın.
+  - Durdurmak için `POST /api/live/engine/stop`.
+- Mock feed tick hızını değiştirmek için `MOCK_FEED_INTERVAL_MS` ayarını kullanın.
+
+
+
 ## v2.4.0 — Prior DB Persistence + CSV Export + Broker Health Registry
 
 **Release Date:** 2026-04-23
