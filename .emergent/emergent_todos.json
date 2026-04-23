@@ -8,7 +8,7 @@
     "status": "completed"
   },
   {
-    "content": "Senaryo B: Live Signal akışını /api/live/signals ile doğrula (295 sinyal)",
+    "content": "Senaryo B: Live Signal akışını /api/live/signals ile doğrula (1647+ sinyal)",
     "status": "completed"
   },
   {
@@ -28,7 +28,7 @@
     "status": "completed"
   },
   {
-    "content": "Gemma/Gemini integration playbook al + AICoachService oluştur",
+    "content": "Gemini 2.5 Flash entegrasyonu + AICoachService oluştur",
     "status": "completed"
   },
   {
@@ -44,7 +44,11 @@
     "status": "completed"
   },
   {
-    "content": "testing_agent_v3 ile backend + frontend kapsamlı test",
-    "status": "in_progress"
+    "content": "testing_agent_v3 ile backend kapsamlı test (100% PASS)",
+    "status": "completed"
+  },
+  {
+    "content": "CHANGELOG v1.7.0 güncelle",
+    "status": "completed"
   }
 ]

@@ -1,6 +1,43 @@
 # MoonLight Trading OS - Change Log
 
 
+## v1.7.0 — Multi-Source Feed Orchestration + AI Coach (Gemini 2.5 Flash)
+
+**Release Date:** 2026-04-23
+
+### 🧬 AI Coach (NEW)
+- **`AICoachService`** — Emergent LLM Gateway (OpenAI-compatible) client, model `gemini-2.5-flash` via `gemini/` prefix. Turkish-first coaching, 15s timeout, fail-closed on errors.
+- **Endpoints**:
+  - `GET /api/ai-coach/status` → `{available, model, provider}`
+  - `POST /api/ai-coach/chat` → free-form Turkish coaching (context-aware)
+  - `POST /api/ai-coach/analyze-strategy` → 3–5 bullet strategy feedback
+  - `POST /api/ai-coach/validate-feed` → AI audit of deterministic provider choice
+- **Frontend**: New **AI Coach** page (`/ai-coach`) with chat UX, 4 suggested prompts, status badge.
+
+### 📡 Multi-Source Data Feed Orchestration (NEW)
+- **`BybitCCXTAdapter`** — Added as geo-resilient alternative to Binance (falls back to MOCK_LIVE when both blocked).
+- **`DataFeedOrchestrator`** — Upgraded with:
+  - Parallel latency-probing health checks (`getProvidersHealth()`)
+  - Deterministic scoring (`selectBestProvider()`) — score = 100 − min(latency,5000)/50, MOCK baseline = 10
+  - Tie-breaker order: BYBIT > BINANCE > TRADINGVIEW > IQ_OPTION > MOCK_LIVE
+- **Endpoints**:
+  - `GET /api/data/providers/health`
+  - `POST /api/data/providers/auto-select` — `{requireAIValidation, apply}` (fail-closed: AI conf ≥ 0.60 required to switch)
+  - `POST /api/data/providers/switch` — manual override
+- **Frontend**: New **Data Sources** page with AI Dry-Run + AI Auto-Select buttons, live provider health table.
+
+### 🐛 Senaryo B Live Signal Fixes
+- **`live-signal-engine.service.ts`** — defensive numeric normalization (NaN → 0) for `signal.ev`, `signal.confidence_score`, `candle.close`, `slot.selected_expiry_minutes` → fixes `SQLITE_ERROR: no such column: NaN`.
+- **`live-strategy-performance.service.ts`** — complete default-field initialization for new `LiveStrategyPerformance` rows (avg_confidence, win_rate, etc.) + retry loop for `UNIQUE` constraint race when multiple concurrent candles hit the same strategy.
+
+### 🧪 Tests
+- **+15 new unit tests** (DataFeedOrchestrator: 8, AICoachService: 6, plus Bybit probe harness) → total **129/129 PASS** (up from 114).
+
+### 📦 Config
+- `.env` additions: `MOCK_FEED_FAST_DEMO=true`, `LIVE_SIGNAL_ENABLED=true`, `EMERGENT_LLM_KEY`, `AI_COACH_MODEL=gemini-2.5-flash`.
+- Sidebar: version badge updated to `v1.7 Multi-Provider + AI`.
+
+
 ## v1.6.2 — UI Polish + Dashboard Skeleton
 
 **Release Date:** 2026-04-23
