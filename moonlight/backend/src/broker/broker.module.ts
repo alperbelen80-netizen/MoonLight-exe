@@ -22,6 +22,7 @@ import { PayoutMatrixService } from './payout/payout-matrix.service';
 import { OwnerAccount } from '../database/entities/owner-account.entity';
 import { BrokerHealthModule } from './health/broker-health.module';
 import { BrokerHealthRegistryService } from './health/broker-health-registry.service';
+import { SecurityModule } from '../security/security.module';
 import {
   BrokerSimRegistry,
   SimulatedBrokerAdapter,
@@ -66,7 +67,7 @@ function makeSimFactory(
 }
 
 @Module({
-  imports: [TypeOrmModule.forFeature([OwnerAccount]), BrokerHealthModule],
+  imports: [TypeOrmModule.forFeature([OwnerAccount]), BrokerHealthModule, SecurityModule],
   controllers: [
     BrokerController,
     SessionManagerController,

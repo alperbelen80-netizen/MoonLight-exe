@@ -24,6 +24,7 @@ import { MoeBrainModule } from './moe-brain/moe-brain.module';
 import { TrinityOversightModule } from './trinity-oversight/trinity-oversight.module';
 import { IndicatorRegistryModule } from './indicators/indicator-registry.module';
 import { BrokerHealthModule } from './broker/health/broker-health.module';
+import { SecurityModule } from './security/security.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { BrokerHealthModule } from './broker/health/broker-health.module';
     MoeBrainModule,
     IndicatorRegistryModule,
     BrokerHealthModule,
+    SecurityModule,
   ],
   controllers: [],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

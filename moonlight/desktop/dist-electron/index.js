@@ -37,11 +37,13 @@ exports.mainWindow = exports.backend = void 0;
 const electron_1 = require("electron");
 const path = __importStar(require("path"));
 const backend_manager_1 = require("./backend-manager");
-// MoonLight v2.6-1 — Electron Main Process
+// MoonLight v2.6-2 — Electron Main Process
 //
 // Boots the Desktop shell AND the bundled NestJS backend together so a
-// double-clicked installer "just works" on Windows. See backend-manager.ts
-// for the lifecycle contract.
+// double-clicked installer "just works" on Windows. Also bridges the
+// localhost-only /api/secrets surface into the renderer via IPC so the
+// Settings UI can manage credentials without the renderer needing direct
+// HTTP access to the vault API.
 const isDev = process.env.NODE_ENV === 'development' || !electron_1.app.isPackaged;
 const backend = new backend_manager_1.BackendManager({
     preferredPort: 8001,
@@ -54,9 +56,40 @@ const backend = new backend_manager_1.BackendManager({
         BROKER_IQOPTION_REAL_ENABLED: 'false',
         BROKER_DOM_AUTOMATION_ENABLED: 'false',
         BROKER_DOM_LIVE_ORDERS: 'false',
+        // v2.6-2: in a packaged install, plaintext .env credentials are
+        // refused by BrokerCredentialsService. Operators MUST populate the
+        // vault from the Settings UI before live trading.
+        MOONLIGHT_PACKAGED: electron_1.app.isPackaged ? 'true' : 'false',
     },
 });
 exports.backend = backend;
+/**
+ * Tiny helper: fetch the backend over loopback using Electron's `net`
+ * client (faster than `fetch` in older Electrons + no CORS surprises).
+ */
+async function backendFetch(method, pathname, body) {
+    const port = backend.getStatus().port;
+    if (!port)
+        throw new Error('backend not running');
+    return new Promise((resolve, reject) => {
+        const req = electron_1.net.request({
+            method,
+            url: `http://127.0.0.1:${port}${pathname}`,
+        });
+        req.setHeader('Content-Type', 'application/json');
+        req.setHeader('X-Moonlight-Actor', 'desktop-ui');
+        let data = '';
+        req.on('response', (res) => {
+            res.on('data', (chunk) => (data += chunk.toString()));
+            res.on('end', () => resolve({ status: res.statusCode ?? 500, body: data }));
+            res.on('error', reject);
+        });
+        req.on('error', reject);
+        if (body !== undefined)
+            req.write(JSON.stringify(body));
+        req.end();
+    });
+}
 let mainWindow = null;
 exports.mainWindow = mainWindow;
 async function createWindow() {
@@ -97,6 +130,45 @@ function registerIpc() {
         mainWindow?.webContents.reload();
         return { port };
     });
+    // v2.6-2: Vault pass-through. Every call is proxied over loopback to
+    // /api/secrets which enforces the localhost-only guard + audits the
+    // actor = "desktop-ui".
+    electron_1.ipcMain.handle('moonlight:vault:health', async () => {
+        const r = await backendFetch('GET', '/api/secrets/health');
+        return safeJson(r);
+    });
+    electron_1.ipcMain.handle('moonlight:vault:list', async () => {
+        const r = await backendFetch('GET', '/api/secrets');
+        return safeJson(r);
+    });
+    electron_1.ipcMain.handle('moonlight:vault:has', async (_e, key) => {
+        const safe = encodeURIComponent(String(key || ''));
+        const r = await backendFetch('GET', `/api/secrets/${safe}/exists`);
+        return safeJson(r);
+    });
+    electron_1.ipcMain.handle('moonlight:vault:set', async (_e, key, value) => {
+        const safe = encodeURIComponent(String(key || ''));
+        const r = await backendFetch('PUT', `/api/secrets/${safe}`, { value });
+        return safeJson(r);
+    });
+    electron_1.ipcMain.handle('moonlight:vault:delete', async (_e, key) => {
+        const safe = encodeURIComponent(String(key || ''));
+        const r = await backendFetch('DELETE', `/api/secrets/${safe}`);
+        return safeJson(r);
+    });
+    electron_1.ipcMain.handle('moonlight:vault:audit', async () => {
+        const r = await backendFetch('GET', '/api/secrets/audit/trail');
+        return safeJson(r);
+    });
+}
+function safeJson(r) {
+    try {
+        const parsed = JSON.parse(r.body);
+        return { status: r.status, ...parsed };
+    }
+    catch {
+        return { status: r.status, raw: r.body };
+    }
 }
 electron_1.app.whenReady().then(async () => {
     registerIpc();

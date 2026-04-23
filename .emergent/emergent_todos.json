@@ -1,26 +1,34 @@
 [
   {
-    "content": "V2.6-1: esbuild ile backend single-file bundle (Electron Node runtime uyumlu)",
+    "content": "V2.6-2: Backend SecretsStoreService (keytar lazy + encrypted-file fallback + audit)",
     "status": "completed"
   },
   {
-    "content": "V2.6-1: Electron main process BackendManager (spawn + health-check + shutdown)",
+    "content": "V2.6-2: Secrets REST API (/api/secrets GET/PUT/DELETE/HEAD, localhost-only, masked)",
     "status": "completed"
   },
   {
-    "content": "V2.6-1: electron-builder config extraResources + afterPack hooks",
+    "content": "V2.6-2: Packaged-mode policy (.env plaintext secrets fail-closed)",
     "status": "completed"
   },
   {
-    "content": "V2.6-1: Build scripts (root yarn dist:win) + documentation",
+    "content": "V2.6-2: BrokerCredentialsService vault-first integration",
     "status": "completed"
   },
   {
-    "content": "V2.6-1: BackendManager unit tests (port check, spawn, shutdown, health retry)",
+    "content": "V2.6-2: Electron IPC bridge (window.moonlight.vault.*) + preload",
+    "status": "in_progress"
+  },
+  {
+    "content": "V2.6-2: Settings UI (React route) for secret management",
+    "status": "pending"
+  },
+  {
+    "content": "V2.6-2: Unit tests (SecretsStore fallback, audit, masked responses)",
     "status": "completed"
   },
   {
-    "content": "V2.6-1: End-to-end smoke (local bundle run) + CHANGELOG v2.6.1",
-    "status": "completed"
+    "content": "V2.6-2: Runtime smoke + CHANGELOG v2.6.2 + plan update",
+    "status": "pending"
   }
 ]

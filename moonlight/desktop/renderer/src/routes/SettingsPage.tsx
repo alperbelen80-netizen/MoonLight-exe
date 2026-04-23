@@ -1,5 +1,6 @@
 import { RiskProfilePanel } from '../components/settings/RiskProfilePanel';
 import { AlertsWebhookPanel } from '../components/settings/AlertsWebhookPanel';
+import { CredentialsVaultPanel } from '../components/settings/CredentialsVaultPanel';
 
 export function SettingsPage() {
   return (
@@ -7,10 +8,11 @@ export function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Risk profili, alert kanalları ve sistem ayarları.
+          Risk profili, alert kanalları, credentials vault ve sistem ayarları.
         </p>
       </div>
 
+      <CredentialsVaultPanel />
       <RiskProfilePanel />
       <AlertsWebhookPanel />
 
