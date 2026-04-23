@@ -16,6 +16,7 @@
     "bundle:backend": "node scripts/bundle-backend.js",
     "bundle:backend:prod": "node scripts/bundle-backend.js --minify",
     "smoke:bundle": "node scripts/smoke-backend-manager.js",
+    "smoke:packaged": "node scripts/smoke-packaged.js",
     "package:desktop": "cd desktop && yarn dist",
     "package:desktop:win": "yarn build && cd desktop && yarn dist:win",
     "test": "cd backend && yarn test",

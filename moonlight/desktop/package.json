@@ -9,9 +9,13 @@
     "build": "tsc && vite build && tsc main/index.ts main/backend-manager.ts --outDir dist-electron/main && tsc main/preload.ts --outDir dist-electron",
     "build:preload": "tsc main/preload.ts --outDir dist-electron",
     "preview": "vite preview",
-    "dist": "yarn build && electron-builder",
-    "dist:win": "yarn build && electron-builder --win --x64",
-    "test": "vitest run"
+    "prepackage": "node scripts/prepackage-check.js",
+    "dist": "yarn prepackage && yarn build && electron-builder",
+    "dist:win": "yarn prepackage && yarn build && electron-builder --win --x64",
+    "dist:linux": "yarn prepackage && yarn build && electron-builder --linux dir",
+    "dist:linux:appimage": "yarn prepackage && yarn build && electron-builder --linux AppImage",
+    "dist:dir": "yarn prepackage && yarn build && electron-builder --dir",
+    "test": "vitest run --config vitest.main.config.ts"
   },
   "dependencies": {
     "clsx": "^2.1.0",
@@ -41,14 +45,39 @@
   "build": {
     "productName": "MoonLight Owner Console",
     "appId": "com.moonlight.owner",
+    "copyright": "Copyright © 2025 MoonLight Trading OS",
+    "electronVersion": "28.3.3",
     "directories": {
       "output": "dist",
       "buildResources": "build"
     },
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node",
+      "**/node_modules/keytar/**",
+      "**/node_modules/sqlite3/**",
+      "**/node_modules/better-sqlite3/**",
+      "**/node_modules/bufferutil/**",
+      "**/node_modules/utf-8-validate/**"
+    ],
+    "compression": "normal",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "buildDependenciesFromSource": false,
+    "electronLanguages": [
+      "en-US",
+      "tr"
+    ],
     "files": [
       "dist-renderer/**/*",
       "dist-electron/**/*",
-      "package.json"
+      "package.json",
+      "!**/*.map",
+      "!**/*.ts",
+      "!**/*.tsbuildinfo",
+      "!**/__tests__/**",
+      "!**/*.spec.*",
+      "!**/*.test.*"
     ],
     "extraResources": [
       {
@@ -66,17 +95,40 @@
           "**/*",
           "!**/*.md",
           "!**/*.ts",
+          "!**/*.flow",
           "!**/test/**",
           "!**/tests/**",
           "!**/*.d.ts.map",
-          "!**/docs/**"
+          "!**/docs/**",
+          "!**/example/**",
+          "!**/examples/**",
+          "!**/.github/**",
+          "!**/.bin/**",
+          "!**/*.log"
         ]
       },
       {
         "from": "../backend/.env.example",
         "to": "backend-bundle/.env.example"
+      },
+      {
+        "from": "../backend/src/config",
+        "to": "backend-bundle/src/config",
+        "filter": [
+          "**/*.yaml",
+          "**/*.yml",
+          "**/*.json"
+        ]
+      },
+      {
+        "from": "../backend/src/indicators/templates",
+        "to": "backend-bundle/src/indicators/templates",
+        "filter": [
+          "**/*.json"
+        ]
       }
     ],
+    "afterPack": "./scripts/after-pack.js",
     "win": {
       "target": [
         {
@@ -86,15 +138,44 @@
           ]
         }
       ],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "artifactName": "MoonLight-Owner-${version}-win-${arch}.${ext}",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Finance",
+      "artifactName": "MoonLight-Owner-${version}-linux-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
+      "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "MoonLight Owner Console"
-    }
+      "shortcutName": "MoonLight Owner Console",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "menuCategory": "MoonLight"
+    },
+    "publish": null
   }
 }

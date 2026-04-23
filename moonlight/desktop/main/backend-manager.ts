@@ -176,6 +176,9 @@ export class BackendManager {
 
     // Spawn using Electron's bundled Node (ELECTRON_RUN_AS_NODE=1 tells
     // the Electron binary to behave like plain Node).
+    // CWD is set to the bundle directory so the backend's bundle-safe
+    // config resolver finds `src/config/*.yaml` relative to backend.js.
+    const bundleDir = path.dirname(this.backendEntry);
     const env = {
       ...process.env,
       ...this.extraEnv,
@@ -183,10 +186,13 @@ export class BackendManager {
       MOONLIGHT_PORT: String(this.port),
       NODE_ENV: process.env.NODE_ENV || 'production',
       ELECTRON_RUN_AS_NODE: '1',
+      // Explicit config dir override — wins over CWD-based heuristics.
+      MOONLIGHT_CONFIG_DIR: path.join(bundleDir, 'src'),
     };
 
     this.proc = spawn(process.execPath, [this.backendEntry], {
       env,
+      cwd: bundleDir,
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });

@@ -20,7 +20,7 @@ interface FakeProc extends EventEmitter {
   stdout: Readable;
   stderr: Readable;
   kill: (sig?: string) => boolean;
-  simulateExit: (code: number, signal?: string) => void;
+  simulateExit: (code: number, signal?: string | null) => void;
 }
 
 const spawnedProcs: FakeProc[] = [];
@@ -34,7 +34,7 @@ function makeFakeProc(): FakeProc {
     setImmediate(() => ee.simulateExit(sig === 'SIGKILL' ? 137 : 0, sig));
     return true;
   };
-  ee.simulateExit = (code: number, signal?: string) => {
+  ee.simulateExit = (code: number, signal?: string | null) => {
     if (ee.exitCode !== null) return;
     ee.exitCode = code;
     ee.stdout.push(null);

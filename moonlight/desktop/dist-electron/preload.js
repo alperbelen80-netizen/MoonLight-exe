@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const electron_1 = require("electron");
+var electron_1 = require("electron");
 /**
  * v2.6-2: preload bridge.
  *
@@ -18,19 +18,21 @@ const electron_1 = require("electron");
  * touching call sites.
  */
 electron_1.contextBridge.exposeInMainWorld('api', {
-    openExternal: (url) => electron_1.shell.openExternal(url),
-    getVersion: () => process.versions.electron,
+    openExternal: function (url) { return electron_1.shell.openExternal(url); },
+    getVersion: function () { return process.versions.electron; },
 });
 electron_1.contextBridge.exposeInMainWorld('moonlight', {
-    getBackendPort: () => electron_1.ipcRenderer.invoke('moonlight:get-backend-port'),
-    getBackendStatus: () => electron_1.ipcRenderer.invoke('moonlight:get-backend-status'),
-    restartBackend: () => electron_1.ipcRenderer.invoke('moonlight:restart-backend'),
+    getBackendPort: function () { return electron_1.ipcRenderer.invoke('moonlight:get-backend-port'); },
+    getBackendStatus: function () { return electron_1.ipcRenderer.invoke('moonlight:get-backend-status'); },
+    restartBackend: function () { return electron_1.ipcRenderer.invoke('moonlight:restart-backend'); },
     vault: {
-        health: () => electron_1.ipcRenderer.invoke('moonlight:vault:health'),
-        list: () => electron_1.ipcRenderer.invoke('moonlight:vault:list'),
-        has: (key) => electron_1.ipcRenderer.invoke('moonlight:vault:has', key),
-        set: (key, value) => electron_1.ipcRenderer.invoke('moonlight:vault:set', key, value),
-        delete: (key) => electron_1.ipcRenderer.invoke('moonlight:vault:delete', key),
-        audit: () => electron_1.ipcRenderer.invoke('moonlight:vault:audit'),
+        health: function () { return electron_1.ipcRenderer.invoke('moonlight:vault:health'); },
+        list: function () { return electron_1.ipcRenderer.invoke('moonlight:vault:list'); },
+        has: function (key) { return electron_1.ipcRenderer.invoke('moonlight:vault:has', key); },
+        set: function (key, value) {
+            return electron_1.ipcRenderer.invoke('moonlight:vault:set', key, value);
+        },
+        delete: function (key) { return electron_1.ipcRenderer.invoke('moonlight:vault:delete', key); },
+        audit: function () { return electron_1.ipcRenderer.invoke('moonlight:vault:audit'); },
     },
 });

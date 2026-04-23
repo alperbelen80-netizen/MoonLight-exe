@@ -38,6 +38,9 @@ function candidateRoots(): string[] {
   if (resourcesPath) {
     roots.push(path.join(resourcesPath, 'backend-bundle', 'src'));
   }
+  // Packaged Electron app: when backend is spawned with cwd = bundle dir,
+  // resources live one level up under backend-bundle/src (same layout as dev).
+  roots.push(path.join(process.cwd(), 'backend-bundle', 'src'));
   // Also accept the raw bundle dir (bundle copied as-is during packaging
   // without the `src` prefix).
   roots.push(path.join(process.cwd(), 'backend', 'src'));

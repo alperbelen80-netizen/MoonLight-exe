@@ -1,34 +1,30 @@
 [
   {
-    "content": "V2.6-2: Backend SecretsStoreService (keytar lazy + encrypted-file fallback + audit)",
+    "content": "Phase A: electron-builder config'i production-grade güncelle",
     "status": "completed"
   },
   {
-    "content": "V2.6-2: Secrets REST API (/api/secrets GET/PUT/DELETE/HEAD, localhost-only, masked)",
+    "content": "Phase B: GitHub Actions release.yml'i zenginleştir",
     "status": "completed"
   },
   {
-    "content": "V2.6-2: Packaged-mode policy (.env plaintext secrets fail-closed)",
+    "content": "Phase B-2: CI ci.yml'i zenginleştir",
     "status": "completed"
   },
   {
-    "content": "V2.6-2: BrokerCredentialsService vault-first integration",
+    "content": "Phase C: Linux üzerinde wine ile Windows build best-effort denemesi + scripts/wine-build-win.sh",
     "status": "completed"
   },
   {
-    "content": "V2.6-2: Electron IPC bridge (window.moonlight.vault.*) + preload",
+    "content": "Phase D: Linux'ta dist/linux-unpacked ile packaged smoke test (backend spawn + health + vault)",
     "status": "completed"
   },
   {
-    "content": "V2.6-2: Settings UI (React route) for secret management",
+    "content": "Phase E: docs/BUILD_WINDOWS.md dokümantasyonu",
     "status": "completed"
   },
   {
-    "content": "V2.6-2: Unit tests (SecretsStore fallback, audit, masked responses)",
-    "status": "completed"
-  },
-  {
-    "content": "V2.6-2: Runtime smoke + CHANGELOG v2.6.2 + plan update",
+    "content": "Regresyon: Backend Jest 387/387 PASS + Desktop Vitest 9/9 PASS + Smoke PASS korunmalı",
     "status": "completed"
   }
 ]

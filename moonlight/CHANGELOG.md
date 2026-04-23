@@ -1,6 +1,146 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.6.3 — Windows NSIS Installer + CI/CD Release Pipeline (Packaged Smoke ✅)
+
+**Release Date:** 2026-04-23
+**Scope:** Windows `.exe` installer'ı **üretim seviyesi** electron-builder
+konfigürasyonu, GitHub Actions release pipeline (windows-latest runner),
+native modül rebuild stratejisi, pre-package doğrulama, afterPack manifest,
+Linux best-effort Wine build script, ve **gerçek paketlenmiş smoke testi**
+(spawn + /api/healthz + vault + shutdown).
+
+### 🪟 V2.6-3-A — electron-builder Production Config
+- `desktop/package.json` `build` alanı tamamen yeniden yazıldı:
+  - `electronVersion: "28.3.3"` sabitlendi (workspace hoisting uyumsuzlukları için)
+  - `asar: true` + `asarUnpack` ile native `.node`, `keytar`, `sqlite3`,
+    `better-sqlite3`, `bufferutil`, `utf-8-validate` asar **dışına** çıkarıldı
+  - `npmRebuild: false` + `nodeGypRebuild: false` — rebuild CI'da
+    `@electron/rebuild` ile açıkça yönetiliyor
+  - `electronLanguages: [en-US, tr]` ile installer bloat azaltıldı
+  - `files` + `extraResources` filter'ları üretim için daraltıldı
+    (harita, test, dokümanlar dahil değil)
+  - Linux `AppImage` + `dir` target'ları eklendi (CI smoke için)
+- NSIS polish:
+  - `oneClick: false`, `perMachine: false` (admin istemez, AppData altına kurulur)
+  - `allowToChangeInstallationDirectory: true`
+  - `createDesktopShortcut: true`, `createStartMenuShortcut: true`
+  - `menuCategory: "MoonLight"`, `runAfterFinish: true`
+  - `installerIcon` + `uninstallerIcon` ayarlandı
+- `artifactName: MoonLight-Owner-${version}-win-${arch}.${ext}`
+
+### 🧩 V2.6-3-B — Pre-package ve AfterPack Hook'ları
+- `desktop/scripts/prepackage-check.js`:
+  - Bundle mevcut değilse otomatik `bundle-backend.js --minify` tetikler
+  - `backend/node_modules` varlığını probe eder (sqlite3, keytar, ws, ccxt)
+  - İkonları doğrular, eksikse uyarır (fatal değil)
+- `desktop/scripts/after-pack.js`:
+  - Paketteki zorunlu dosyaları doğrular (`backend-bundle/backend.js`, `package.json`)
+  - `backend-bundle/version.json` manifesti yazar (platform, arch, productName, buildedAt)
+  - Backend bundle + total resources boyutunu loglar (CI gözlemlenebilirlik)
+  - Native probes: `sqlite3`, `keytar` varlığı
+
+### 🏗️ V2.6-3-C — GitHub Actions Release Pipeline
+- `.github/workflows/release.yml` tamamen yenilendi:
+  - Trigger: `v*.*.*` tag push veya manuel `workflow_dispatch`
+  - Runner: **windows-latest** (Windows Server 2022, Node 20)
+  - Timeout: 45 dk
+  - Adımlar:
+    1. Checkout + Node 20 kurulumu
+    2. Electron binary cache
+    3. `yarn install --frozen-lockfile` (root)
+    4. `yarn build:backend` (NestJS compile)
+    5. `yarn bundle:backend:prod` (esbuild minify)
+    6. `cd backend && npm install --omit=dev --no-package-lock` (izole runtime)
+    7. `npx @electron/rebuild -m ../backend/node_modules -o sqlite3,keytar,...`
+    8. `yarn build:desktop` (renderer + main)
+    9. `cd desktop && yarn dist:win` (NSIS x64)
+  - SHA256 checksum `.exe.sha256` yanında üretilir
+  - Artifact upload (30 gün retention)
+  - Tag ile **GitHub Release** otomatik oluşur, `.exe` + checksum + `latest.yml`
+  - `CSC_IDENTITY_AUTO_DISCOVERY: false` (code-signing opt-in)
+
+### 🧪 V2.6-3-D — CI Workflow Zenginleştirildi
+- `.github/workflows/ci.yml`:
+  - Backend Jest suite (hedef: 387/387 PASS)
+  - Desktop Vitest suite (hedef: 9/9 PASS — BackendManager contract)
+  - Backend build + esbuild bundle
+  - Bundled-spawn smoke (`yarn smoke:bundle`)
+  - Desktop renderer + main build
+  - **Linux `--dir` packaging smoke** (regresyon için)
+  - Linux packaged artifact upload (7 gün retention)
+
+### 🍷 V2.6-3-E — Wine Build Script (Best-Effort)
+- `scripts/wine-build-win.sh`:
+  - Wine + NSIS + mono kurulumu (apt-get, sudo)
+  - Backend build + bundle → izole npm install → desktop build → `electron-builder --win`
+  - `SKIP_WINE_INSTALL=1` ile apt adımı atlanabilir
+  - **Not:** Ciddi release için GitHub Actions tercih edilmeli (uyarı dokümante edildi)
+
+### 🚀 V2.6-3-F — BackendManager Spawn Hardening
+- `desktop/main/backend-manager.ts`:
+  - Spawn `cwd` artık `bundleDir` (backend-bundle dizini) — bundle-safe
+    config resolver'ın doğal olarak `src/config/*.yaml`'a ulaşmasını sağlar
+  - `MOONLIGHT_CONFIG_DIR = bundleDir/src` env'i explicit set edildi
+    (belt-and-suspenders; CWD heuristics'e bağımlılık yok)
+- `backend/src/shared/utils/resolve-config-path.ts`:
+  - Yeni candidate: `<cwd>/backend-bundle/src/...` (ek packaging layout)
+
+### ✅ V2.6-3-G — Packaged Smoke Test
+- `scripts/smoke-packaged.js`:
+  - `desktop/dist/linux-*-unpacked/resources/backend-bundle/backend.js`'i
+    plain `node` ile spawn eder (Electron'a bağımlı değil — CI-friendly)
+  - `cwd` = bundle dizini (production BackendManager ile birebir aynı)
+  - 60 sn içinde `/api/healthz` → 200 OK bekler
+  - `/api/secrets/health` → 200 OK probe eder (vault initialized)
+  - SIGTERM → temiz shutdown
+- **Sonuç (Linux arm64 packaged build üzerinde doğrulandı):**
+  - ✅ Nest bootstrap 2 sn'de tamamlandı
+  - ✅ IndicatorRegistry: 100 indicator + 100 template yüklendi
+  - ✅ `/api/healthz` 200 (degraded — beklendiği gibi, Redis dev'de yok)
+  - ✅ `/api/secrets/health` 200 (AES-256-GCM fallback aktif)
+  - ✅ SIGTERM clean shutdown
+- Packaged layout gerçek kullanıcı makinesinde de aynı dosya yollarını
+  kullanacak → Windows installer'ının da aynı davranışı sergilemesi beklenir.
+
+### 📚 V2.6-3-H — Dokümantasyon
+- `docs/BUILD_WINDOWS.md`:
+  - Resmi yol: GitHub Actions Windows runner
+  - Geliştirici yolu: Wine best-effort
+  - Yerel paketlenmiş smoke (Linux)
+  - 6 yaygın hata + çözümleri (electronVersion, ENOENT config,
+    sqlite3 ABI, keytar fallback, SmartScreen, NSIS perms)
+  - Dosya/yol envanteri, son kullanıcı flow'u, sonraki adımlar
+
+### 🎨 V2.6-3-I — Branding Varlıkları
+- `desktop/build/icon.png` (256×256 placeholder — dark blue + cream moon)
+- `desktop/build/icon.ico` (aynı PNG'yi saran modern ICO, Windows için)
+- Gerçek brand ikonu geldiğinde bu dosyalar yerinde değiştirilir.
+
+### 📊 Test Durumu
+- Backend Jest: **387/387 PASS** ✅ (regresyonsuz)
+- Desktop Vitest: **9/9 PASS** ✅ (regresyonsuz)
+- Bundled spawn smoke: **PASS** ✅
+- Packaged Linux arm64 smoke: **PASS** ✅ (yeni)
+
+### 🔀 Değişen Dosyalar
+- `desktop/package.json` (build config tamamen yeniden)
+- `desktop/scripts/prepackage-check.js` (yeni)
+- `desktop/scripts/after-pack.js` (yeni)
+- `desktop/build/icon.ico` + `icon.png` (yeni)
+- `desktop/main/backend-manager.ts` (cwd + CONFIG_DIR env)
+- `desktop/main/__tests__/backend-manager.spec.ts` (minor TS fix)
+- `backend/src/shared/utils/resolve-config-path.ts` (yeni candidate)
+- `scripts/smoke-packaged.js` (yeni)
+- `scripts/wine-build-win.sh` (yeni)
+- `.github/workflows/release.yml` (tamamen yenilendi)
+- `.github/workflows/ci.yml` (zenginleştirildi)
+- `docs/BUILD_WINDOWS.md` (yeni)
+- `package.json` (`smoke:packaged` script'i eklendi)
+
+---
+
+
 ## v2.6.2 — Credentials Vault (OS keychain + AES-256-GCM fallback)
 
 **Release Date:** 2026-04-23

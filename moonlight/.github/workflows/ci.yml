@@ -1,5 +1,16 @@
 name: CI
 
+# MoonLight v2.6-3 — continuous integration pipeline.
+#
+# Runs on every push to main/develop and on every PR to main.
+# Covers:
+#   - Backend Jest suite (should stay at 387/387 PASS).
+#   - Desktop main Vitest suite (BackendManager etc.).
+#   - Backend build + single-file bundle.
+#   - Desktop renderer build.
+#   - Bundled-spawn smoke test (ensures the bundle starts and hits /api/healthz).
+#   - (Best-effort) Linux `--dir` packaging smoke via electron-builder.
+
 on:
   push:
     branches: [main, develop]
@@ -9,6 +20,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -16,17 +28,42 @@ jobs:
       - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
           cache: 'yarn'
 
-      - name: Install dependencies
+      - name: Install root (monorepo) dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Run backend tests
+      - name: Run backend Jest suite
         run: cd backend && yarn test
 
-      - name: Build backend
-        run: cd backend && yarn build
+      - name: Run desktop Vitest suite
+        run: cd desktop && yarn test
+        continue-on-error: false
 
-      - name: Build desktop renderer
-        run: cd desktop && yarn build
+      - name: Build backend (NestJS compile)
+        run: yarn build:backend
+
+      - name: Bundle backend (esbuild single-file)
+        run: yarn bundle:backend
+
+      - name: Run bundled-spawn smoke test
+        run: yarn smoke:bundle
+        timeout-minutes: 3
+
+      - name: Build desktop renderer + main
+        run: yarn build:desktop
+
+      - name: Package Linux (dir only — no installer)
+        run: |
+          cd desktop && yarn dist:dir
+        continue-on-error: true
+
+      - name: Upload Linux packaged dir (artifact)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: moonlight-linux-dir-${{ github.sha }}
+          path: desktop/dist/linux-unpacked
+          if-no-files-found: ignore
+          retention-days: 7
