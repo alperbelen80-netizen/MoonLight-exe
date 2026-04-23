@@ -28,6 +28,21 @@ import {
   SIMULATED_BROKER_TOKENS,
 } from './adapters/simulated/simulated-broker.adapter';
 import { BrokerSimController } from './adapters/simulated/broker-sim.controller';
+import {
+  DomBrowserSessionManager,
+  SelectorRegistry,
+} from './adapters/dom-automation/dom-base';
+import {
+  OlympTradeDomAdapter,
+  BinomoDomAdapter,
+  ExpertOptionDomAdapter,
+} from './adapters/dom-automation/dom-broker.adapters';
+import { BrokerDomController } from './adapters/dom-automation/broker-dom.controller';
+import {
+  DEFAULT_OLYMP_TRADE_SELECTORS,
+  DEFAULT_BINOMO_SELECTORS,
+  DEFAULT_EXPERT_OPTION_SELECTORS,
+} from './adapters/dom-automation/default-selectors';
 
 /**
  * V2.5-2 broker module wiring.
@@ -52,7 +67,12 @@ function makeSimFactory(
 
 @Module({
   imports: [TypeOrmModule.forFeature([OwnerAccount]), BrokerHealthModule],
-  controllers: [BrokerController, SessionManagerController, BrokerSimController],
+  controllers: [
+    BrokerController,
+    SessionManagerController,
+    BrokerSimController,
+    BrokerDomController,
+  ],
   providers: [
     BrokerService,
     IdempotentOrderService,
@@ -72,6 +92,24 @@ function makeSimFactory(
     PayoutMatrixService,
     // V2.5-2: simulator stack.
     BrokerSimRegistry,
+    // V2.5-4: DOM automation stack (lazy-load, feature-flagged).
+    {
+      provide: DomBrowserSessionManager,
+      useFactory: () => new DomBrowserSessionManager({ headless: true }),
+    },
+    {
+      provide: SelectorRegistry,
+      useFactory: () => {
+        const reg = new SelectorRegistry();
+        reg.register('OLYMP_TRADE', DEFAULT_OLYMP_TRADE_SELECTORS);
+        reg.register('BINOMO', DEFAULT_BINOMO_SELECTORS);
+        reg.register('EXPERT_OPTION', DEFAULT_EXPERT_OPTION_SELECTORS);
+        return reg;
+      },
+    },
+    OlympTradeDomAdapter,
+    BinomoDomAdapter,
+    ExpertOptionDomAdapter,
     {
       provide: SIMULATED_BROKER_TOKENS.IQ_OPTION,
       useFactory: makeSimFactory('IQ_OPTION'),
@@ -120,6 +158,11 @@ function makeSimFactory(
     MultiBrokerRouter,
     PayoutMatrixService,
     BrokerSimRegistry,
+    OlympTradeDomAdapter,
+    BinomoDomAdapter,
+    ExpertOptionDomAdapter,
+    DomBrowserSessionManager,
+    SelectorRegistry,
     BROKER_ADAPTER,
   ],
 })

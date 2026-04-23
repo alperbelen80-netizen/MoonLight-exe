@@ -1,6 +1,87 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.5.4 — DOM Automation Skeleton (Olymp / Binomo / Expert Option)
+
+**Release Date:** 2026-04-23
+**Scope:** 3 broker için Playwright/CDP tabanlı DOM-automation adapter iskeleti.
+Feature-flag kilidi, versioned selector registry, dry-run/live iki-aşamalı
+güvenlik, runtime lazy-load (test ortamı mock edilebilir).
+
+### 🌐 V2.5-4-A — DOM Base Katmanı
+- `src/broker/adapters/dom-automation/dom-base.ts`:
+  - `DomPageLike`, `DomBrowserContextLike`, `DomBrowserLike`, `DomPlaywrightImpl`
+    abstract contractları — Playwright'a doğrudan bağımlılık yok.
+  - `getPlaywrightImpl()` **runtime lazy-require** — `playwright` npm paketi
+    yalnızca DOM automation etkinleştirildiğinde yüklenir (~150MB Chromium).
+  - `setPlaywrightImpl(...)` test injection noktası.
+  - `SelectorRegistry` (versioned bundles, hot-patchable).
+  - `DomBrowserSessionManager` (headless toggle, session lifecycle, closeAll).
+
+### 🏗️ V2.5-4-B — DomBrokerAdapterBase (Ortak iskelet)
+- `connectSession()` → `DISCONNECTED → CONNECTING → AUTHENTICATING → READY`.
+- `performLogin()`, `readQuote()`, `stageOrder()` abstract — subclass'lar doldurur.
+- `sendOrder()` iki-aşamalı güvenlik:
+  - `BROKER_DOM_AUTOMATION_ENABLED=false` → REJECT `DOM_NOT_READY`.
+  - `BROKER_DOM_LIVE_ORDERS != 'true'` → **dry-run ACK** (prefix: `DOM_DRYRUN_*`).
+    Stage selectors, fill stake, wait direction button — **confirm click YOK**.
+  - Live click iste subclass explicit implement etmezse → REJECT `DOM_LIVE_UNSUPPORTED`.
+- Hata durumu → `BrokerHealthRegistryService` `ERRORED` state + audit.
+
+### 🎯 V2.5-4-C — 3 Broker Concrete Adapters
+- `OlympTradeDomAdapter`, `BinomoDomAdapter`, `ExpertOptionDomAdapter`
+- Default selector bundles (`default-selectors.ts`):
+  - Contract: emailInput, passwordInput, submitButton, dashboardReady,
+    lastPrice, stakeInput, callButton, putButton
+  - Version: `2026-04-v1` (operators override via registry.register())
+- Credentials her broker için ayrı env var ile beslenir:
+  - `OLYMP_TRADE_EMAIL / _PASSWORD`
+  - `BINOMO_EMAIL / _PASSWORD`
+  - `EXPERT_OPTION_EMAIL / _PASSWORD`
+
+### 🌐 V2.5-4-D — REST API
+- `GET  /api/broker/dom/status` → 3 broker health + automation flag +
+  liveOrdersEnabled + active sessions + selector versions.
+- `POST /api/broker/dom/connect {brokerId, accountId?}` → session aç (dry-run).
+- `POST /api/broker/dom/disconnect {brokerId, accountId?}` → session kapat.
+
+### 🧪 Yeni testler (11)
+- `src/tests/unit/broker/dom-automation.spec.ts`:
+  - automation flag off → throw `DOM_AUTOMATION_DISABLED` + `DISABLED` state
+  - missing selector bundle → `SELECTOR_BUNDLE_MISSING` + `DISABLED`
+  - missing credentials → `CREDENTIALS_MISSING` + `ERRORED`
+  - happy path: CONNECTING → AUTHENTICATING → READY (Playwright mock)
+  - dry-run sendOrder → ACK `DOM_DRYRUN_*` + quote read
+  - live flag on but no live impl → REJECT `DOM_LIVE_UNSUPPORTED`
+  - `SelectorRegistry.listVersions()` → 3 broker
+  - not connected sendOrder → REJECT `DOM_NOT_READY`
+  - stageOrder selector drift → REJECT `DOM_ERROR` + `ERRORED`
+  - Playwright loader throws clear message if npm paket yoksa
+  - Loader prefers injected impl over real require
+
+### 🧰 BrokerModule Entegrasyonu
+- `BrokerDomController` + 3 adapter + `DomBrowserSessionManager` + `SelectorRegistry`
+  module provider listesine eklendi.
+- `SelectorRegistry` factory provider — 3 default bundle otomatik register edilir.
+- `BrokerHealthModule` zaten import ediliyordu; DOM adapter'ları aynı registry'ye
+  state publish ediyor.
+
+### 🔐 Migration notları (operator)
+DOM automation'ı açmak için:
+```bash
+yarn add -W playwright                # ~150MB
+npx playwright install chromium
+
+export BROKER_DOM_AUTOMATION_ENABLED=true
+export OLYMP_TRADE_EMAIL='...'
+export OLYMP_TRADE_PASSWORD='...'
+# Backend restart. Dry-run tests stage selectors, never click confirm.
+```
+`BROKER_DOM_LIVE_ORDERS=true` sadece selector bundle'ınızı en az 1 hafta
+canlıda doğruladıktan sonra açılmalı (defansif default).
+
+
+
 ## v2.5.5 — Ray GPU Simulation + Resource Broker (token bucket)
 
 **Release Date:** 2026-04-23
