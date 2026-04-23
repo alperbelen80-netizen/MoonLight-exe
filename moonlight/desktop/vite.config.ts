@@ -16,5 +16,14 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: '0.0.0.0',
+    allowedHosts: ['.preview.emergentagent.com', '.preview.emergentcf.cloud', 'localhost'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+        rewrite: (p: string) => p.replace(/^\/api/, ''),
+      },
+    },
   },
 });

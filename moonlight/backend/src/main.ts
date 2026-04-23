@@ -26,6 +26,10 @@ async function bootstrap() {
 
   app.enableCors();
 
+  // Global /api prefix so backend routes line up with the standard
+  // Kubernetes ingress (which forwards /api/* to this service).
+  app.setGlobalPrefix('api');
+
   const port = process.env.PORT || 8001;
   await app.listen(port);
 

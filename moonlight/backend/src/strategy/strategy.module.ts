@@ -9,11 +9,12 @@ import { EVVetoSlotEngine } from './evvetoslot/evvetoslot-engine.service';
 import { PackFactoryService } from './pack-factory/pack-factory.service';
 import { GatingService } from './gating/gating.service';
 import { LiveStrategyPerformance } from '../database/entities/live-strategy-performance.entity';
+import { LiveSignal } from '../database/entities/live-signal.entity';
 import { LiveStrategyPerformanceService } from './live-strategy-performance.service';
 import { PayoutMatrixService } from '../broker/payout/payout-matrix.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([LiveStrategyPerformance])],
+  imports: [TypeOrmModule.forFeature([LiveStrategyPerformance, LiveSignal])],
   controllers: [StrategyController],
   providers: [
     StrategyService,
@@ -32,6 +33,10 @@ import { PayoutMatrixService } from '../broker/payout/payout-matrix.service';
     IndicatorService,
     LiveStrategyPerformanceService,
     PayoutMatrixService,
+    EVVetoSlotEngine,
+    StrategyFactoryService,
+    PackFactoryService,
+    GatingService,
   ],
 })
 export class StrategyModule implements OnModuleInit {

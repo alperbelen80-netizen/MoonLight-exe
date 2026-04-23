@@ -23,12 +23,21 @@ import { AlertsModule } from './alerts/alerts.module';
       synchronize: process.env.NODE_ENV === 'development',
       logging: false,
     }),
-    BullModule.forRoot({
-      redis: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379', 10),
-      },
-    }),
+    BullModule.forRoot(
+      process.env.REDIS_MOCK === 'true'
+        ? {
+            // Sandbox / dev mode: use in-memory ioredis-mock so we can run
+            // without a real Redis instance. Strictly for local development.
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            createClient: () => new (require('ioredis-mock'))(),
+          }
+        : {
+            redis: {
+              host: process.env.REDIS_HOST || 'localhost',
+              port: parseInt(process.env.REDIS_PORT || '6379', 10),
+            },
+          },
+    ),
     ScheduleModule.forRoot(),
     SharedModule,
     ExecutionModule,
