@@ -440,6 +440,10 @@ function LearningAndTemplatesSection() {
   const cfg = useAutoLoader<SynapticConfigDto>(() => SynapticApi.getConfig(), 30000);
   const tpl = useAutoLoader<TemplateStats>(() => StrategyTemplatesApi.stats(), 30000);
   const indStats = useAutoLoader<IndicatorStats>(() => IndicatorsApi.stats(), 60000);
+  const sched = useAutoLoader<{ enabled: boolean; history: { at: string; ran: boolean; reason: string; brains?: number }[] }>(
+    () => LearningApi.schedulerStatus(),
+    10000,
+  );
   const [runMsg, setRunMsg] = React.useState<string | null>(null);
   const [running, setRunning] = React.useState(false);
 
@@ -449,6 +453,19 @@ function LearningAndTemplatesSection() {
       const r = await LearningApi.step();
       setRunMsg(r.ran ? `OK: ${r.snapshots?.length ?? 0} beyin güncellendi` : `beklemede: ${r.reason}`);
       await snap.refresh();
+    } catch (err) {
+      setRunMsg(`HATA: ${(err as Error).message}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const runSchedulerTick = async () => {
+    try {
+      setRunning(true);
+      const r = await LearningApi.schedulerTick();
+      setRunMsg(`scheduler tick: ${r.ran ? 'RAN' : 'SKIP'} · ${r.reason}`);
+      await Promise.all([snap.refresh(), sched.refresh()]);
     } catch (err) {
       setRunMsg(`HATA: ${(err as Error).message}`);
     } finally {
@@ -469,15 +486,44 @@ function LearningAndTemplatesSection() {
             <p className="text-xs text-slate-400 mt-0.5">
               GÖZ-2 audit → Hebbian / Anti-Hebbian → beyin prior'ları
             </p>
+            {sched.data && (
+              <div className="mt-2 flex items-center gap-2 text-[10px]">
+                <span
+                  data-testid="scheduler-status-badge"
+                  className={`px-2 py-0.5 rounded border ${
+                    sched.data.enabled
+                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                      : 'bg-slate-500/15 text-slate-300 border-slate-500/30'
+                  }`}
+                >
+                  scheduler: {sched.data.enabled ? 'ACTIVE (cron 5m)' : 'DISABLED'}
+                </span>
+                {sched.data.history.length > 0 && (
+                  <span className="text-slate-500">
+                    son tick: {sched.data.history[sched.data.history.length - 1].reason}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
-          <button
-            data-testid="learning-step-btn"
-            onClick={runStep}
-            disabled={running}
-            className="text-xs px-3 py-1.5 rounded border border-indigo-500/40 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/20 disabled:opacity-50"
-          >
-            Öğrenme Adımı Çalıştır
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              data-testid="learning-step-btn"
+              onClick={runStep}
+              disabled={running}
+              className="text-xs px-3 py-1.5 rounded border border-indigo-500/40 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/20 disabled:opacity-50"
+            >
+              Öğrenme Adımı
+            </button>
+            <button
+              data-testid="scheduler-tick-btn"
+              onClick={runSchedulerTick}
+              disabled={running}
+              className="text-xs px-3 py-1.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 disabled:opacity-50"
+            >
+              Scheduler Tick
+            </button>
+          </div>
         </header>
         {runMsg && (
           <div

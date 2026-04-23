@@ -107,6 +107,14 @@ export interface LearningSnapshot {
 export const LearningApi = {
   snapshot: () => apiGet<LearningSnapshot[]>('/api/moe/learning/snapshot'),
   step: () => apiPost<{ ran: boolean; reason: string; snapshots?: LearningSnapshot[] }>('/api/moe/learning/step'),
+  schedulerStatus: () =>
+    apiGet<{ enabled: boolean; history: { at: string; ran: boolean; reason: string; brains?: number }[] }>(
+      '/api/moe/learning/scheduler',
+    ),
+  schedulerTick: () =>
+    apiPost<{ at: string; ran: boolean; reason: string; brains?: number }>(
+      '/api/moe/learning/scheduler/tick',
+    ),
 };
 
 export interface TemplateStats {

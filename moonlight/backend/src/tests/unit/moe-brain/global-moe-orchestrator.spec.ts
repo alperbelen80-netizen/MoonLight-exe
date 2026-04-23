@@ -9,6 +9,18 @@ import {
   MoEDecision,
 } from '../../../moe-brain/shared/moe.enums';
 import { BrainOutput } from '../../../moe-brain/shared/moe.contracts';
+import { ClosedLoopLearnerService } from '../../../moe-brain/learning/closed-loop-learner.service';
+
+function makeLearner(healths: Partial<Record<BrainType, number>> = {}): ClosedLoopLearnerService {
+  return {
+    getPriors: () => ({}),
+    snapshot: () => [
+      { brain: BrainType.CEO, updatedAt: '', priors: {}, health: healths[BrainType.CEO] ?? 1 },
+      { brain: BrainType.TRADE, updatedAt: '', priors: {}, health: healths[BrainType.TRADE] ?? 1 },
+      { brain: BrainType.TEST, updatedAt: '', priors: {}, health: healths[BrainType.TEST] ?? 1 },
+    ],
+  } as unknown as ClosedLoopLearnerService;
+}
 
 function makeBrainOutput(
   brain: BrainType,
@@ -36,7 +48,7 @@ function makeOrchestrator(
   const ceoSvc = { evaluate: jest.fn().mockResolvedValue({ ...makeBrainOutput(BrainType.CEO, ExpertVote.NEUTRAL, 0.5), ...ceo }) } as unknown as CEOBrainService;
   const tradeSvc = { evaluate: jest.fn().mockResolvedValue({ ...makeBrainOutput(BrainType.TRADE, ExpertVote.NEUTRAL, 0.5), ...trade }) } as unknown as TRADEBrainService;
   const testSvc = { evaluate: jest.fn().mockResolvedValue({ ...makeBrainOutput(BrainType.TEST, ExpertVote.NEUTRAL, 0.5), ...test }) } as unknown as TESTBrainService;
-  return new GlobalMoEOrchestratorService(ceoSvc, tradeSvc, testSvc);
+  return new GlobalMoEOrchestratorService(ceoSvc, tradeSvc, testSvc, makeLearner());
 }
 
 const ctx = {
@@ -94,7 +106,7 @@ describe('GlobalMoEOrchestratorService', () => {
     const ceoSvc = { evaluate: jest.fn().mockRejectedValue(new Error('boom')) } as unknown as CEOBrainService;
     const tradeSvc = { evaluate: jest.fn().mockResolvedValue(makeBrainOutput(BrainType.TRADE, ExpertVote.APPROVE, 0.9)) } as unknown as TRADEBrainService;
     const testSvc = { evaluate: jest.fn().mockResolvedValue(makeBrainOutput(BrainType.TEST, ExpertVote.NEUTRAL, 0.3)) } as unknown as TESTBrainService;
-    const orch = new GlobalMoEOrchestratorService(ceoSvc, tradeSvc, testSvc);
+    const orch = new GlobalMoEOrchestratorService(ceoSvc, tradeSvc, testSvc, makeLearner());
     const d = await orch.evaluate(ctx);
     expect(d.decision).toBe(MoEDecision.SKIP);
     expect(d.reasonCodes.some((c) => c.includes('BRAIN_FAILURE_SAFE_SKIP'))).toBe(true);
@@ -107,7 +119,7 @@ describe('GlobalMoEOrchestratorService', () => {
     const ceoSvc = { evaluate: jest.fn() } as unknown as CEOBrainService;
     const tradeSvc = { evaluate: jest.fn() } as unknown as TRADEBrainService;
     const testSvc = { evaluate: jest.fn() } as unknown as TESTBrainService;
-    const orch = new GlobalMoEOrchestratorService(ceoSvc, tradeSvc, testSvc);
+    const orch = new GlobalMoEOrchestratorService(ceoSvc, tradeSvc, testSvc, makeLearner());
     const w = orch.getWeights();
     expect(w.ceo).toBeCloseTo(0.6, 5);
     expect(w.trade).toBeCloseTo(0.2, 5);

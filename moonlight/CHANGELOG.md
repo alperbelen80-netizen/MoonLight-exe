@@ -1,6 +1,66 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.2.0 — Scheduled Learning + Live Priors Publish + Health-Weighted Ensemble
+
+**Release Date:** 2026-04-23
+**Scope:** V2.1'in açık bıraktığı kapalı döngüyü **tam kapattık**. Prior'lar artık brain'lere canlı akıyor, scheduler bütçe-duyarlı otomatik adım atıyor, ensemble brain sağlığına göre ağırlık dağıtıyor.
+
+### ⏱️ V2.2-A — ClosedLoopSchedulerService
+- `@nestjs/schedule` + `@Cron(EVERY_5_MINUTES)` ile otomatik adım.
+- **3 katmanlı safety gate**:
+  1. `CLOSED_LOOP_SCHEDULER_ENABLED=true` olmazsa hiç çalışmaz (default: disabled).
+  2. GÖZ-1 **HALT** ise defer (`reason=EYE1_HALT`).
+  3. ResourceBroker `requestBudget(1)` deny → defer (`reason=BUDGET_DENIED:<detay>`).
+  4. Ardından `learner.step()` (learner'ın kendi training-mode kontrolü de var).
+- 100 slot'luk tick history ring buffer'ı + manuel `tick()` override.
+- API: `GET /api/moe/learning/scheduler`, `POST /api/moe/learning/scheduler/tick`.
+
+### 🔀 V2.2-B — Brains now read priors from ClosedLoopLearner
+- **CEO / TRADE / TEST** brain servisleri statik `const *_PRIORS` yerine `learner.getPriors(BrainType.*)` okuyor.
+- `forwardRef()` kullanılarak circular uyumluluk sağlandı (learner henüz hiç step atmamışken de default prior'lar garanti).
+- Closed-loop bir adım attığında → bir sonraki brain.evaluate() otomatik güncel prior'la skor üretir.
+- Sonuç: **Audit feedback → Synaptic update → Brain decision** artık kapalı döngü.
+
+### ⚖️ V2.2-C — Health-Weighted Global Ensemble
+- `GlobalMoEOrchestratorService.getEffectiveWeights()`:
+  - Base weights `MOE_ENSEMBLE_WEIGHTS` env'den gelir.
+  - Her beyin için `ClosedLoopLearner.snapshot()` üzerinden **mevcut sinaptik sağlık** (0..1) çekilir.
+  - Weight × health → normalize edilir (sum=1).
+  - `MOE_HEALTH_FLOOR` (default 0.25) hiçbir beyni **sıfırlanmaya** bırakmaz (dead-brain engeli).
+  - Kill-switch: `MOE_HEALTH_WEIGHTING=false` → klasik statik weights.
+- `EnsembleDecision.finalWeights` artık **etkin** (health-adjusted) weights'leri taşır → UI doğrudan gösterebilir.
+- Log satırı: `score=0.456 decision=ALLOW t=3ms w(C/T/Te)=0.38/0.40/0.22`
+
+### 🎛️ V2.2-D — Trinity UI scheduler paneli
+- Closed-Loop Learning paneline **scheduler durum rozeti** eklendi (`ACTIVE (cron 5m)` / `DISABLED`) + son tick reason.
+- Yeni buton: **"Scheduler Tick"** (manuel bütçe-duyarlı tick; DISABLED iken de izleyebilirsiniz).
+- Yeni test-id'ler: `scheduler-status-badge`, `scheduler-tick-btn`.
+- 10s auto-poll scheduler durumu.
+
+### 🧪 Testler
+- **+10 yeni Jest test** → toplam **282/282 PASS** (272 + 10).
+  - `closed-loop-scheduler.service.spec.ts` (6): disabled flag, EYE1_HALT defer, budget denied, happy path, history cap, learner error capture.
+  - `orchestrator-health-weighting.spec.ts` (4): düşük sağlıklı brain ağırlığı azalır, kill-switch, finalWeights akışı, health floor lockout'u engelliyor.
+  - Mevcut brain/controller/orchestrator testleri learner injection ile güncellendi (0 regresyon).
+
+### ✅ Doğrulama
+- Backend `yarn build` → PASS
+- Renderer `tsc --noEmit` + `vite build` → PASS (417 KB / 117 KB gzip)
+
+### 🔗 Yeni env flag'ler
+- `CLOSED_LOOP_SCHEDULER_ENABLED=true` → cron aktif (default false, opt-in).
+- `MOE_HEALTH_WEIGHTING=false` → klasik statik ensemble weights (default: health-weighted).
+- `MOE_HEALTH_FLOOR=0.25` → brain lockout engeli.
+
+### 🚀 Sıradaki (V2.3 candidate)
+- 17 dormant şablon için Gemini persona expert ile **canlandırma**.
+- Quad-core broker adapter (IQ Option WSS + Olymp DOM + Binomo + Expert Option) gerçek implementasyonu.
+- Scheduler tick history persistence (şu an in-memory; DB kalıcı olsun).
+- A/B test harness: health-weighted vs static ensemble karşılaştırma.
+
+
+
 ## v2.1.0 — Strategy Factory Bridge + Closed-Loop Learning + Live Gate
 
 **Release Date:** 2026-04-23

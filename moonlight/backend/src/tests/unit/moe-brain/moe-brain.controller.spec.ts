@@ -5,6 +5,7 @@ import { TRADEBrainService } from '../../../moe-brain/brains/trade-brain.service
 import { TESTBrainService } from '../../../moe-brain/brains/test-brain.service';
 import { Eye2DecisionAuditorService } from '../../../trinity-oversight/eye2-decision-auditor.service';
 import { AICoachService } from '../../../ai-coach/ai-coach.service';
+import { ClosedLoopLearnerService } from '../../../moe-brain/learning/closed-loop-learner.service';
 import { HttpException } from '@nestjs/common';
 
 describe('MoeBrainController', () => {
@@ -22,6 +23,28 @@ describe('MoeBrainController', () => {
       controllers: [MoeBrainController],
       providers: [
         { provide: AICoachService, useValue: coachMock },
+        {
+          provide: ClosedLoopLearnerService,
+          useValue: {
+            getPriors: () => ({
+              TREND: 0.6,
+              MEAN_REVERSION: 0.2,
+              VOLATILITY: 0.5,
+              NEWS: 0.3,
+              MACRO: 0.3,
+              ENTRY: 0.5,
+              EXIT: 0.3,
+              SLIPPAGE: 0.4,
+              PAYOUT: 0.7,
+              SESSION: 0.3,
+              OVERFIT_HUNTER: 0.8,
+              DATA_LEAK_DETECTOR: 0.9,
+              BIAS_AUDITOR: 0.5,
+              ADVERSARIAL_ATTACKER: 0.6,
+              ROBUSTNESS_TESTER: 0.5,
+            }),
+          },
+        },
         CEOBrainService,
         TRADEBrainService,
         TESTBrainService,

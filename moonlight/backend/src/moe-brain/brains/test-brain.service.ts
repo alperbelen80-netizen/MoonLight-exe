@@ -1,32 +1,29 @@
 // TEST-MoE Brain — deterministic red team. Pure rules, no LLM.
-// Any REJECT with high confidence on OVERFIT_HUNTER or DATA_LEAK_DETECTOR
-// triggers brain-level vetoFlag. Used downstream as a hard circuit breaker.
+// V2.2: priors are read from ClosedLoopLearner.
 
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { BrainOutput, ExpertOutput } from '../shared/moe.contracts';
 import { BrainType, ExpertRole } from '../shared/moe.enums';
 import { MoEContext } from '../shared/moe-context';
 import { TEST_DETERMINISTIC_EXPERTS } from '../experts/test-experts';
 import { aggregate } from '../gating/softmax-gating';
-
-const TEST_PRIORS: Partial<Record<ExpertRole, number>> = {
-  [ExpertRole.OVERFIT_HUNTER]: 0.8,
-  [ExpertRole.DATA_LEAK_DETECTOR]: 0.9,
-  [ExpertRole.BIAS_AUDITOR]: 0.5,
-  [ExpertRole.ADVERSARIAL_ATTACKER]: 0.6,
-  [ExpertRole.ROBUSTNESS_TESTER]: 0.5,
-};
+import { ClosedLoopLearnerService } from '../learning/closed-loop-learner.service';
 
 @Injectable()
 export class TESTBrainService {
+  constructor(
+    @Inject(forwardRef(() => ClosedLoopLearnerService))
+    private readonly learner: ClosedLoopLearnerService,
+  ) {}
+
   async evaluate(ctx: MoEContext): Promise<BrainOutput> {
     const started = Date.now();
+    const priors = this.learner.getPriors(BrainType.TEST);
     const roles = Object.keys(TEST_DETERMINISTIC_EXPERTS) as ExpertRole[];
     const outputs: ExpertOutput[] = roles.map((role) =>
       TEST_DETERMINISTIC_EXPERTS[role as keyof typeof TEST_DETERMINISTIC_EXPERTS](ctx),
     );
-    return aggregate(BrainType.TEST, outputs, TEST_PRIORS, {
-      // TEST brain enforces strong veto via OVERFIT + DATA_LEAK + ADVERSARIAL.
+    return aggregate(BrainType.TEST, outputs, priors, {
       vetoTriggerRoles: [
         ExpertRole.OVERFIT_HUNTER,
         ExpertRole.DATA_LEAK_DETECTOR,

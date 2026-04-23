@@ -12,7 +12,7 @@
 //   - If BOTH CEO + TRADE approve (with confidence ≥ 0.5) and TEST ≠ VETO → ALLOW.
 //   - If scores conflict → MANUAL_REVIEW (never silent).
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { CEOBrainService } from './brains/ceo-brain.service';
 import { TRADEBrainService } from './brains/trade-brain.service';
 import { TESTBrainService } from './brains/test-brain.service';
@@ -22,6 +22,7 @@ import {
   EnsembleDecision,
 } from './shared/moe.contracts';
 import { BrainType, ExpertVote, MoEDecision } from './shared/moe.enums';
+import { ClosedLoopLearnerService } from './learning/closed-loop-learner.service';
 
 export interface EnsembleWeights {
   ceo: number;
@@ -59,23 +60,52 @@ function voteToScore(v: ExpertVote): number {
 @Injectable()
 export class GlobalMoEOrchestratorService {
   private readonly logger = new Logger(GlobalMoEOrchestratorService.name);
-  private readonly weights: EnsembleWeights = parseWeights();
+  private readonly baseWeights: EnsembleWeights = parseWeights();
   private readonly allowThreshold = parseFloat(process.env.MOE_ALLOW_THRESHOLD || '0.3');
   private readonly skipThreshold = parseFloat(process.env.MOE_SKIP_THRESHOLD || '-0.2');
+  private readonly healthWeighting = process.env.MOE_HEALTH_WEIGHTING !== 'false';
+  private readonly healthFloor = parseFloat(process.env.MOE_HEALTH_FLOOR || '0.25');
 
   constructor(
     private readonly ceo: CEOBrainService,
     private readonly trade: TRADEBrainService,
     private readonly test: TESTBrainService,
+    @Inject(forwardRef(() => ClosedLoopLearnerService))
+    private readonly learner: ClosedLoopLearnerService,
   ) {}
 
   getWeights(): EnsembleWeights {
-    return { ...this.weights };
+    // Returns base (static) weights; effective (health-adjusted) weights are
+    // exposed via getEffectiveWeights() and surfaced on every EnsembleDecision.
+    return { ...this.baseWeights };
+  }
+
+  /**
+   * Compute runtime-effective weights by scaling each brain's base weight
+   * with its current synaptic-health (from ClosedLoopLearner.snapshot()).
+   * A per-brain floor prevents a brain from being zeroed out entirely.
+   */
+  getEffectiveWeights(): EnsembleWeights {
+    if (!this.healthWeighting) return this.getWeights();
+    const snap = this.learner.snapshot();
+    const healthMap: Record<string, number> = {};
+    for (const s of snap) healthMap[s.brain] = s.health;
+    const scale = (brain: BrainType, w: number) => {
+      const h = healthMap[brain] ?? 1;
+      return Math.max(this.healthFloor, Math.min(1, h)) * w;
+    };
+    const w = this.baseWeights;
+    const ceoW = scale(BrainType.CEO, w.ceo);
+    const tradeW = scale(BrainType.TRADE, w.trade);
+    const testW = scale(BrainType.TEST, w.test);
+    const sum = ceoW + tradeW + testW || 1;
+    return { ceo: ceoW / sum, trade: tradeW / sum, test: testW / sum };
   }
 
   async evaluate(ctx: MoEContext): Promise<EnsembleDecision> {
     const started = Date.now();
     const reasonCodes: string[] = [];
+    const effective = this.getEffectiveWeights();
 
     // Run all three in parallel. If any throws, we go SAFE_SKIP.
     let ceoOut: BrainOutput | null = null;
@@ -97,7 +127,7 @@ export class GlobalMoEOrchestratorService {
         confidence: 0,
         reasonCodes: ['BRAIN_FAILURE_SAFE_SKIP', (err as Error).message.slice(0, 120)],
         brains: [],
-        finalWeights: this.weights,
+        finalWeights: effective,
         timestampUtc: new Date().toISOString(),
       };
     }
@@ -115,24 +145,24 @@ export class GlobalMoEOrchestratorService {
         confidence: testOut.aggregate.confidence,
         reasonCodes,
         brains: [ceoOut, tradeOut, testOut],
-        finalWeights: this.weights,
+        finalWeights: effective,
         timestampUtc: new Date().toISOString(),
       };
     }
 
-    // Weighted ensemble score.
+    // Weighted ensemble score (uses effective — health-adjusted — weights).
     const score =
-      this.weights.ceo * voteToScore(ceoOut.aggregate.vote) * ceoOut.aggregate.confidence +
-      this.weights.trade * voteToScore(tradeOut.aggregate.vote) * tradeOut.aggregate.confidence +
-      this.weights.test * voteToScore(testOut.aggregate.vote) * testOut.aggregate.confidence;
+      effective.ceo * voteToScore(ceoOut.aggregate.vote) * ceoOut.aggregate.confidence +
+      effective.trade * voteToScore(tradeOut.aggregate.vote) * tradeOut.aggregate.confidence +
+      effective.test * voteToScore(testOut.aggregate.vote) * testOut.aggregate.confidence;
 
     const confidence = Math.max(
       0,
       Math.min(
         1,
-        this.weights.ceo * ceoOut.aggregate.confidence +
-          this.weights.trade * tradeOut.aggregate.confidence +
-          this.weights.test * testOut.aggregate.confidence,
+        effective.ceo * ceoOut.aggregate.confidence +
+          effective.trade * tradeOut.aggregate.confidence +
+          effective.test * testOut.aggregate.confidence,
       ),
     );
 
@@ -156,7 +186,7 @@ export class GlobalMoEOrchestratorService {
     );
 
     this.logger.debug(
-      `MoE ensemble: score=${score.toFixed(3)} decision=${decision} t=${Date.now() - started}ms`,
+      `MoE ensemble: score=${score.toFixed(3)} decision=${decision} t=${Date.now() - started}ms w(C/T/Te)=${effective.ceo.toFixed(2)}/${effective.trade.toFixed(2)}/${effective.test.toFixed(2)}`,
     );
 
     return {
@@ -164,7 +194,7 @@ export class GlobalMoEOrchestratorService {
       confidence: Number(confidence.toFixed(3)),
       reasonCodes,
       brains: [ceoOut, tradeOut, testOut],
-      finalWeights: this.weights,
+      finalWeights: effective,
       timestampUtc: new Date().toISOString(),
     };
   }

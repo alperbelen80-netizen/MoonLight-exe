@@ -1,7 +1,9 @@
 // CEO-MoE Brain — strategic regime + direction confirmation.
 // Hybrid: single Gemini call covering all 5 personas; deterministic fallback.
+// V2.2: priors are read from ClosedLoopLearnerService at evaluate-time so
+// closed-loop learning can evolve them without touching brain code.
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { AICoachService } from '../../ai-coach/ai-coach.service';
 import { BrainOutput, ExpertOutput } from '../shared/moe.contracts';
 import { BrainType, ExpertRole } from '../shared/moe.enums';
@@ -14,6 +16,7 @@ import {
   PersonaBlock,
 } from '../experts/llm-persona';
 import { aggregate } from '../gating/softmax-gating';
+import { ClosedLoopLearnerService } from '../learning/closed-loop-learner.service';
 
 const CEO_PERSONAS: PersonaBlock[] = [
   { role: ExpertRole.TREND, persona: 'Trend-following quant', focus: 'ADX, EMA slope, direction alignment' },
@@ -23,23 +26,24 @@ const CEO_PERSONAS: PersonaBlock[] = [
   { role: ExpertRole.MACRO, persona: 'Session/liquidity strategist', focus: 'London/NY overlap, Asia thin' },
 ];
 
-const CEO_PRIORS: Partial<Record<ExpertRole, number>> = {
-  [ExpertRole.TREND]: 0.6,
-  [ExpertRole.MEAN_REVERSION]: 0.2,
-  [ExpertRole.VOLATILITY]: 0.5,
-  [ExpertRole.NEWS]: 0.3,
-  [ExpertRole.MACRO]: 0.3,
-};
-
 @Injectable()
 export class CEOBrainService {
   private readonly logger = new Logger(CEOBrainService.name);
   private readonly timeoutMs = parseInt(process.env.MOE_LLM_TIMEOUT_MS || '10000', 10);
 
-  constructor(private readonly coach: AICoachService) {}
+  constructor(
+    private readonly coach: AICoachService,
+    @Inject(forwardRef(() => ClosedLoopLearnerService))
+    private readonly learner: ClosedLoopLearnerService,
+  ) {}
+
+  private getPriors(): Partial<Record<ExpertRole, number>> {
+    return this.learner.getPriors(BrainType.CEO);
+  }
 
   async evaluate(ctx: MoEContext): Promise<BrainOutput> {
     const started = Date.now();
+    const priors = this.getPriors();
     const allowedRoles = Object.keys(CEO_DETERMINISTIC_EXPERTS) as ExpertRole[];
 
     // Always compute deterministic outputs first; they are our floor.
@@ -48,7 +52,7 @@ export class CEOBrainService {
     );
 
     if (!this.coach.isAvailable() || process.env.MOE_LLM_DISABLED === 'true') {
-      return aggregate(BrainType.CEO, fallbackOutputs, CEO_PRIORS, {
+      return aggregate(BrainType.CEO, fallbackOutputs, priors, {
         vetoTriggerRoles: [ExpertRole.VOLATILITY],
       }, Date.now() - started);
     }
@@ -76,12 +80,12 @@ export class CEOBrainService {
         if (fromLlm) return { ...fromLlm, latencyMs: Date.now() - started };
         return fromDet;
       });
-      return aggregate(BrainType.CEO, merged, CEO_PRIORS, {
+      return aggregate(BrainType.CEO, merged, priors, {
         vetoTriggerRoles: [ExpertRole.VOLATILITY],
       }, Date.now() - started);
     } catch (err) {
       this.logger.warn(`CEO brain fell back to deterministic: ${(err as Error).message}`);
-      return aggregate(BrainType.CEO, fallbackOutputs, CEO_PRIORS, {
+      return aggregate(BrainType.CEO, fallbackOutputs, priors, {
         vetoTriggerRoles: [ExpertRole.VOLATILITY],
       }, Date.now() - started);
     }

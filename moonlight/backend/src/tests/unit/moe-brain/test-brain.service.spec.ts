@@ -1,8 +1,21 @@
 import { TESTBrainService } from '../../../moe-brain/brains/test-brain.service';
-import { ExpertVote } from '../../../moe-brain/shared/moe.enums';
+import { BrainType, ExpertRole, ExpertVote } from '../../../moe-brain/shared/moe.enums';
+import { ClosedLoopLearnerService } from '../../../moe-brain/learning/closed-loop-learner.service';
+
+function makeLearner(): ClosedLoopLearnerService {
+  return {
+    getPriors: (_brain: BrainType) => ({
+      [ExpertRole.OVERFIT_HUNTER]: 0.8,
+      [ExpertRole.DATA_LEAK_DETECTOR]: 0.9,
+      [ExpertRole.BIAS_AUDITOR]: 0.5,
+      [ExpertRole.ADVERSARIAL_ATTACKER]: 0.6,
+      [ExpertRole.ROBUSTNESS_TESTER]: 0.5,
+    }),
+  } as unknown as ClosedLoopLearnerService;
+}
 
 describe('TESTBrainService (deterministic red team)', () => {
-  const svc = new TESTBrainService();
+  const svc = new TESTBrainService(makeLearner());
 
   function baseCtx(overrides: Record<string, unknown> = {}) {
     return {
