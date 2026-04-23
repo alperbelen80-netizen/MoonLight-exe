@@ -13,6 +13,8 @@ import { GlobalMoEOrchestratorService } from './global-moe-orchestrator.service'
 import { MoeEnsembleController } from './moe-ensemble.controller';
 import { SynapticRulesService } from './synaptic/synaptic-rules.service';
 import { SynapticController } from './synaptic/synaptic.controller';
+import { ClosedLoopLearnerService } from './learning/closed-loop-learner.service';
+import { ClosedLoopController } from './learning/closed-loop.controller';
 
 /**
  * V2.0-γ: adds Global MoE Orchestrator + Ensemble controller.
@@ -35,8 +37,9 @@ import { SynapticController } from './synaptic/synaptic.controller';
     TESTBrainService,
     GlobalMoEOrchestratorService,
     SynapticRulesService,
+    ClosedLoopLearnerService,
   ],
-  controllers: [V2SeedController, MoeBrainController, MoeEnsembleController, SynapticController],
+  controllers: [V2SeedController, MoeBrainController, MoeEnsembleController, SynapticController, ClosedLoopController],
   exports: [
     V2SeedService,
     CEOBrainService,
@@ -44,6 +47,7 @@ import { SynapticController } from './synaptic/synaptic.controller';
     TESTBrainService,
     GlobalMoEOrchestratorService,
     SynapticRulesService,
+    ClosedLoopLearnerService,
     TrinityOversightModule,
   ],
 })

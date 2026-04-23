@@ -1,6 +1,78 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.1.0 — Strategy Factory Bridge + Closed-Loop Learning + Live Gate
+
+**Release Date:** 2026-04-23
+**Scope:** V2.0 çekirdeği canlı sinyal akışına bağlandı. 100 şablon Strategy Factory'ye enjekte oldu, kapalı döngü öğrenme ayağa kaldırıldı, MoE Gate LiveSignalEngine'e bağlandı.
+
+### 🧩 V2.1-A — TemplateStrategyBuilder
+- `backend/src/strategy/factory/template-strategy-builder.service.ts`
+- IndicatorRegistry'den 100 şablonu okur, her birini StrategyFactory'ye **tek seferde** register eder.
+- Primitive detector: RSI / EMA / MACD / BB / ADX / SMA / VWAP / ATR / Supertrend keyword tabanlı eşleştirme.
+- Evaluator politikası:
+  - Tanınan primitive → mevcut `IndicatorService` ile gerçek hesaplama + majority-vote (LONG/SHORT/NEUTRAL, ≥60% eşik).
+  - Tanınmayan → **dormant** (asla sinyal yaymaz). Emniyetli geniş yüzey.
+- Sonuç: **100 kayıt → 83 implemented + 17 dormant** (real-world MD parsinginde bazı şablonlar yalnız price transform / template bileşimi olduğundan dormant kalır).
+- API:
+  - `GET /api/strategy/templates/stats` — implemented / dormant / registeredTotal
+  - `POST /api/strategy/templates/register-all` — idempotent re-register
+- Env: `V2_TEMPLATE_AUTOLOAD=false` ile devre dışı bırakılabilir.
+
+### 🔁 V2.1-B — ClosedLoopLearnerService
+- `backend/src/moe-brain/learning/closed-loop-learner.service.ts`
+- Triple-safeguard: `TrainingMode=ON`, audit non-empty, `CLOSED_LOOP_DISABLED` kill-switch.
+- Akış:
+  1. **GÖZ-2** audit ring buffer → reason codes toplanır.
+  2. Her expert role için `hits`, `approveHits`, `rejectHits` hesaplanır.
+  3. Hebbian (CEO/TRADE) veya Anti-Hebbian (TEST) kuralı uygulanır.
+  4. `SynapticRulesService` delta'yı clamp'ler (maxStep, decay, [minWeight, maxWeight]).
+  5. Güncellenen prior'lar bellekte tutulur + **ortalama sağlık → GÖZ-3 synapticHealth'e yazılır**.
+- API:
+  - `GET /api/moe/learning/snapshot` — 3 beyin için güncel prior'lar + health
+  - `POST /api/moe/learning/step` — tek seferlik öğrenme adımı (scheduler daha sonra ε+1 fazında)
+
+### 🚪 V2.1-C — LiveSignalEngine ↔ MoEGate hook
+- `execution/live-signal-engine.service.ts` → `MoEGateService` inject edildi.
+- Yeni sinyal DB'ye kaydedilmeden önce `moeGate.gate(ctx)` çağrılır.
+- Davranış:
+  - Gate kapalı (`MOE_GATE_ENABLED` unset) → baseline akış (fail-open, log yok).
+  - Gate açık + `ALLOW` → sinyal `NEW` olarak persist.
+  - Gate açık + block → sinyal `MOE_SKIPPED` statüsüyle persist (audit izi).
+  - Gate throw → log + allow (ExtraSafety), MoEGateService stricting kendi iç mantığına bırakıldı.
+- Her sinyalin `notes` alanına `| MoE:<decision> conf=<x.xx>` eklenir.
+
+### 🎛️ V2.1-D — Trinity UI drill-down
+- `TrinityPage` sayfasının altına **yeni satır** (3 panel):
+  - **Closed-Loop Learning** → 3 beynin prior'ları (chip + sağlık), manuel "Öğrenme Adımı Çalıştır" butonu.
+  - **Synaptic Kurallar** → `learningRate`, `decay`, `maxStep`, `targetRate`, `spikeThreshold`, `minWeight`, `maxWeight` canlı tablo.
+  - **Strategy Templates** → registeredTotal / implemented / dormant + progress bar + indikatör aile top-5 dağılımı.
+- Yeni test-id'ler: `learning-snapshot-panel`, `learning-step-btn`, `learning-step-message`, `learning-brain-CEO/TRADE/TEST`, `synaptic-config-panel`, `templates-stats-panel`, `indicator-family-counts`.
+- API client: `LearningApi`, `SynapticApi`, `StrategyTemplatesApi`, `IndicatorsApi` eklendi.
+
+### 🧪 Testler
+- **+11 yeni Jest test** → toplam **272/272 PASS** (261 + 11).
+  - `template-strategy-builder.service.spec.ts` (4): 100 registrasyon, id patterni, dormant null emit, stats.
+  - `closed-loop-learner.service.spec.ts` (7): training OFF reddi, audit boş reddi, adım uygulaması, GÖZ-3 health update, CLOSED_LOOP_DISABLED kill-switch, 3-beyin snapshot, setPriors patch.
+
+### ✅ Build doğrulama
+- Backend `yarn build` → PASS
+- Renderer `tsc --noEmit` → 0 error
+- Renderer `vite build` → PASS (415 KB / 117 KB gzip, +5 KB V2.1 UI)
+
+### 🔗 Yeni API yüzeyi (V2.1)
+- `/api/strategy/templates/{stats, register-all}`
+- `/api/moe/learning/{snapshot, step}`
+- LiveSignalEngine artık MoE gate ile yazışıyor (içsel, endpoint değişmedi).
+
+### 🚀 Sıradaki (V2.2 candidate)
+- Closed-loop scheduler (her N dakikada bir auto-step, GÖZ-3 + ResourceBroker budget kontrolü ile).
+- Dormant şablonlar için hybrid LLM implementation (Gemini persona expert per-template).
+- Orchestrator'ın priors'ı ClosedLoopLearner'dan canlı okuması (şu an orchestrator kendi statik prior'ları ile çalışıyor).
+- Quad-core broker adapter'ların gerçek implementasyonu.
+
+
+
 ## v2.0.0 — Evrimsel AI Architecture: RELEASE
 
 **Release Date:** 2026-04-23

@@ -1,6 +1,22 @@
 [
   {
-    "content": "V2.0-RC: backend testing agent tam koşu + v2.0.0 release notu",
+    "content": "V2.1-A: Strategy Factory ↔ Indicator Registry bridge (100 şablonu canlı motora bağla)",
+    "status": "completed"
+  },
+  {
+    "content": "V2.1-B: Closed-loop learning — GÖZ-3 + SynapticRules ile Eye2 audit'ten beyin prior'larını evrimleştir",
+    "status": "completed"
+  },
+  {
+    "content": "V2.1-C: LiveSignalEngine'e MoE Gate hook'u (artık sadece endpoint değil, gerçek akışta)",
+    "status": "completed"
+  },
+  {
+    "content": "V2.1-D: Trinity UI drill-down: Audit Timeline sayfası + Synaptic Config paneli",
+    "status": "completed"
+  },
+  {
+    "content": "V2.1: Jest testler + build + CHANGELOG v2.1.0 + kapanış raporu",
     "status": "completed"
   }
 ]

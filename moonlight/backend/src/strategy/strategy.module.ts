@@ -12,10 +12,13 @@ import { LiveStrategyPerformance } from '../database/entities/live-strategy-perf
 import { LiveSignal } from '../database/entities/live-signal.entity';
 import { LiveStrategyPerformanceService } from './live-strategy-performance.service';
 import { PayoutMatrixService } from '../broker/payout/payout-matrix.service';
+import { IndicatorRegistryModule } from '../indicators/indicator-registry.module';
+import { TemplateStrategyBuilderService } from './factory/template-strategy-builder.service';
+import { TemplateStrategyController } from './factory/template-strategy.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([LiveStrategyPerformance, LiveSignal])],
-  controllers: [StrategyController],
+  imports: [TypeOrmModule.forFeature([LiveStrategyPerformance, LiveSignal]), IndicatorRegistryModule],
+  controllers: [StrategyController, TemplateStrategyController],
   providers: [
     StrategyService,
     StrategyFactoryService,
@@ -26,6 +29,7 @@ import { PayoutMatrixService } from '../broker/payout/payout-matrix.service';
     GatingService,
     LiveStrategyPerformanceService,
     PayoutMatrixService,
+    TemplateStrategyBuilderService,
   ],
   exports: [
     StrategyService,
@@ -37,6 +41,7 @@ import { PayoutMatrixService } from '../broker/payout/payout-matrix.service';
     StrategyFactoryService,
     PackFactoryService,
     GatingService,
+    TemplateStrategyBuilderService,
   ],
 })
 export class StrategyModule implements OnModuleInit {

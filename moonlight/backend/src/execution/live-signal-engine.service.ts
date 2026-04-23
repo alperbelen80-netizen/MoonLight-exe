@@ -9,6 +9,7 @@ import { TripleCheckService } from '../risk/triple-check/triple-check.service';
 import { EVVetoSlotEngine } from '../strategy/evvetoslot/evvetoslot-engine.service';
 import { RegimeDetectorService } from '../data/regime-detector.service';
 import { LiveStrategyPerformanceService } from '../strategy/live-strategy-performance.service';
+import { MoEGateService } from './moe-gate.service';
 import { StrategyContext } from '../shared/dto/strategy-context.dto';
 import { OhlcvBarDTO } from '../shared/dto/ohlcv-bar.dto';
 import { Environment } from '../shared/dto/canonical-signal.dto';
@@ -35,6 +36,7 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
     private readonly evvetoSlotEngine: EVVetoSlotEngine,
     private readonly regimeDetector: RegimeDetectorService,
     private readonly strategyPerformance: LiveStrategyPerformanceService,
+    private readonly moeGate: MoEGateService,
   ) {
     this.enabled = process.env.LIVE_SIGNAL_ENABLED === 'true';
     this.maxSignalsPerMinute = parseInt(
@@ -203,6 +205,36 @@ export class LiveSignalEngine implements OnModuleInit, OnModuleDestroy {
           current_price: safeClose,
           notes: `Regime: ${regimeResult.regime} (ADX: ${regimeResult.adx.toFixed(1)})`,
         });
+
+        // V2.1-C: MoE gate hook — fail-open when disabled, fail-closed policy
+        // honored by MoEGateService. Never throws upstream; always yields a
+        // structured verdict we can persist for auditability.
+        if (this.moeGate.isEnabled()) {
+          try {
+            const verdict = await this.moeGate.gate({
+              signalId: liveSignal.id,
+              symbol: signal.symbol,
+              timeframe: signal.tf,
+              direction: String(signal.direction) as 'LONG' | 'SHORT' | 'NEUTRAL',
+              confidenceScore: safeConf,
+              timestampUtc: signalTs.toISOString(),
+              adx: regimeResult.adx,
+              regime: String(regimeResult.regime),
+              sessionUtcHour: signalTs.getUTCHours(),
+            });
+            (liveSignal as unknown as { notes: string }).notes =
+              `${liveSignal.notes} | MoE:${verdict.decision} conf=${verdict.confidence.toFixed(2)}`;
+            if (!verdict.allow) {
+              (liveSignal as unknown as { status: string }).status = 'MOE_SKIPPED';
+              this.logger.warn(
+                `MoE gate blocked signal ${liveSignal.id}: ${verdict.decision} | ${verdict.reasonCodes.slice(0, 3).join(',')}`,
+              );
+            }
+          } catch (err) {
+            // Extra safety: any unexpected error → allow but flag.
+            this.logger.warn(`MoE gate unexpected error: ${(err as Error).message}`);
+          }
+        }
 
         await this.liveSignalRepo.save(liveSignal);
 

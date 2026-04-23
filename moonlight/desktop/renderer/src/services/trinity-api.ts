@@ -79,3 +79,59 @@ export const MoEApi = {
       '/api/moe/seed/apply',
     ),
 };
+
+export interface SynapticConfigDto {
+  learningRate: number;
+  decay: number;
+  maxStep: number;
+  targetRate: number;
+  spikeThreshold: number;
+  minWeight: number;
+  maxWeight: number;
+}
+
+export const SynapticApi = {
+  getConfig: () => apiGet<SynapticConfigDto>('/api/moe/synaptic/config'),
+  setConfig: (patch: Partial<SynapticConfigDto>) =>
+    apiPost<SynapticConfigDto>('/api/moe/synaptic/config', patch),
+  rules: () => apiGet<string[]>('/api/moe/synaptic/rules'),
+};
+
+export interface LearningSnapshot {
+  brain: 'CEO' | 'TRADE' | 'TEST';
+  updatedAt: string;
+  priors: Record<string, number>;
+  health: number;
+}
+
+export const LearningApi = {
+  snapshot: () => apiGet<LearningSnapshot[]>('/api/moe/learning/snapshot'),
+  step: () => apiPost<{ ran: boolean; reason: string; snapshots?: LearningSnapshot[] }>('/api/moe/learning/step'),
+};
+
+export interface TemplateStats {
+  total: number;
+  implemented: number;
+  dormant: number;
+  registeredTotal: number;
+}
+
+export const StrategyTemplatesApi = {
+  stats: () => apiGet<TemplateStats>('/api/strategy/templates/stats'),
+  registerAll: () =>
+    apiPost<{ implemented: number; dormant: number; total: number }>(
+      '/api/strategy/templates/register-all',
+    ),
+};
+
+export interface IndicatorStats {
+  totalIndicators: number;
+  totalTemplates: number;
+  implementedIndicators: number;
+  implementedTemplates: number;
+  familyCounts: Record<string, number>;
+}
+
+export const IndicatorsApi = {
+  stats: () => apiGet<IndicatorStats>('/api/indicators/stats'),
+};

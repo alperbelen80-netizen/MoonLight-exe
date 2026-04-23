@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { TrinityApi, MoEApi, TrinityStatus, EnsembleWeights, BrainRoster } from '../services/trinity-api';
+import { TrinityApi, MoEApi, TrinityStatus, EnsembleWeights, BrainRoster, SynapticApi, SynapticConfigDto, LearningApi, LearningSnapshot, StrategyTemplatesApi, TemplateStats, IndicatorsApi, IndicatorStats } from '../services/trinity-api';
 
 type LoadState<T> = {
   data: T | null;
@@ -428,6 +428,180 @@ export function TrinityPage() {
           </div>
         </Panel>
       </div>
+
+      {/* V2.1 — Learning + Synaptic + Template Stats */}
+      <LearningAndTemplatesSection />
+    </div>
+  );
+}
+
+function LearningAndTemplatesSection() {
+  const snap = useAutoLoader<LearningSnapshot[]>(() => LearningApi.snapshot(), 15000);
+  const cfg = useAutoLoader<SynapticConfigDto>(() => SynapticApi.getConfig(), 30000);
+  const tpl = useAutoLoader<TemplateStats>(() => StrategyTemplatesApi.stats(), 30000);
+  const indStats = useAutoLoader<IndicatorStats>(() => IndicatorsApi.stats(), 60000);
+  const [runMsg, setRunMsg] = React.useState<string | null>(null);
+  const [running, setRunning] = React.useState(false);
+
+  const runStep = async () => {
+    try {
+      setRunning(true);
+      const r = await LearningApi.step();
+      setRunMsg(r.ran ? `OK: ${r.snapshots?.length ?? 0} beyin güncellendi` : `beklemede: ${r.reason}`);
+      await snap.refresh();
+    } catch (err) {
+      setRunMsg(`HATA: ${(err as Error).message}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Closed-loop learning */}
+      <section
+        data-testid="learning-snapshot-panel"
+        className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-5"
+      >
+        <header className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-100">Closed-Loop Learning</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              GÖZ-2 audit → Hebbian / Anti-Hebbian → beyin prior'ları
+            </p>
+          </div>
+          <button
+            data-testid="learning-step-btn"
+            onClick={runStep}
+            disabled={running}
+            className="text-xs px-3 py-1.5 rounded border border-indigo-500/40 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/20 disabled:opacity-50"
+          >
+            Öğrenme Adımı Çalıştır
+          </button>
+        </header>
+        {runMsg && (
+          <div
+            data-testid="learning-step-message"
+            className="text-xs text-slate-300 mb-3 font-mono"
+          >
+            {runMsg}
+          </div>
+        )}
+        {snap.data ? (
+          <div className="space-y-3">
+            {snap.data.map((s) => (
+              <div
+                key={s.brain}
+                data-testid={`learning-brain-${s.brain}`}
+                className="rounded border border-slate-700/60 p-3 bg-slate-800/30"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-slate-100">{s.brain}-MoE</span>
+                  <span className="text-xs text-slate-400 font-mono">
+                    sağlık: {s.health.toFixed(3)}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(s.priors).map(([role, w]) => (
+                    <span
+                      key={role}
+                      className="text-[10px] px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-700 font-mono"
+                    >
+                      {role}: {Number(w).toFixed(2)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">Yükleniyor…</p>
+        )}
+      </section>
+
+      {/* Synaptic config */}
+      <section
+        data-testid="synaptic-config-panel"
+        className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-5"
+      >
+        <header className="mb-3">
+          <h2 className="text-lg font-semibold text-slate-100">Synaptic Kurallar</h2>
+          <p className="text-xs text-slate-400 mt-0.5">6 kural · guardrail'li öğrenme parametreleri</p>
+        </header>
+        {cfg.data ? (
+          <dl className="grid grid-cols-2 gap-2 text-xs">
+            {Object.entries(cfg.data).map(([k, v]) => (
+              <div
+                key={k}
+                className="flex justify-between rounded px-2 py-1 bg-slate-800/40 border border-slate-700/50"
+              >
+                <dt className="text-slate-400">{k}</dt>
+                <dd className="font-mono text-slate-100">
+                  {typeof v === 'number' ? v.toFixed(3) : String(v)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="text-sm text-slate-400">Yükleniyor…</p>
+        )}
+      </section>
+
+      {/* Template + indicator stats */}
+      <section
+        data-testid="templates-stats-panel"
+        className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-5"
+      >
+        <header className="mb-3">
+          <h2 className="text-lg font-semibold text-slate-100">Strategy Templates</h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            100 indikatör + 100 şablon · Strategy Factory'ye enjekte
+          </p>
+        </header>
+        {tpl.data ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs text-slate-300">
+              <span>Toplam kayıtlı strateji:</span>
+              <span className="font-mono text-slate-100">{tpl.data.registeredTotal}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-300">
+              <span>Implemented şablon:</span>
+              <span className="font-mono text-emerald-300">{tpl.data.implemented}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-300">
+              <span>Dormant şablon:</span>
+              <span className="font-mono text-slate-400">{tpl.data.dormant}</span>
+            </div>
+            <div className="h-2 w-full rounded bg-slate-800 overflow-hidden">
+              <div
+                className="h-full bg-emerald-500"
+                style={{ width: `${(tpl.data.implemented / Math.max(1, tpl.data.total)) * 100}%` }}
+              />
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">Yükleniyor…</p>
+        )}
+
+        {indStats.data && (
+          <div className="mt-4 pt-3 border-t border-slate-700/50">
+            <div className="text-xs text-slate-400 mb-2">İndikatör aile dağılımı (top 5):</div>
+            <div className="flex flex-wrap gap-1" data-testid="indicator-family-counts">
+              {Object.entries(indStats.data.familyCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([f, c]) => (
+                  <span
+                    key={f}
+                    className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700"
+                  >
+                    {f}: {c}
+                  </span>
+                ))}
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
