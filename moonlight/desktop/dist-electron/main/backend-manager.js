@@ -76,9 +76,17 @@ var BackendManager = /** @class */ (function () {
         this.logStream = null;
         this.backendEntry = null;
         this.shuttingDown = false;
+        // v2.6-4: optional crash hook. Electron main wires this up to the
+        // CrashReporterService so unexpected exits land in crash-history.jsonl
+        // and optionally forward to backend /api/crash/report.
+        this.onUnexpectedExit = null;
         this.opts = __assign(__assign({}, DEFAULT_OPTIONS), options);
         this.extraEnv = (_a = options.extraEnv) !== null && _a !== void 0 ? _a : {};
     }
+    /** v2.6-4: register a crash hook. Called only for non-graceful exits. */
+    BackendManager.prototype.setCrashHook = function (hook) {
+        this.onUnexpectedExit = hook;
+    };
     BackendManager.prototype.getStatus = function () {
         var _a, _b;
         return {
@@ -222,7 +230,8 @@ var BackendManager = /** @class */ (function () {
                         this.proc.on('exit', function (code, signal) {
                             var _a, _b;
                             var msg = "backend exited (code=".concat(code, " signal=").concat(signal, ")");
-                            if (!_this.shuttingDown)
+                            var wasShutdown = _this.shuttingDown;
+                            if (!wasShutdown)
                                 _this.lastError = msg;
                             try {
                                 (_a = _this.logStream) === null || _a === void 0 ? void 0 : _a.write("\n[BackendManager] ".concat(msg, "\n"));
@@ -232,7 +241,26 @@ var BackendManager = /** @class */ (function () {
                             }
                             (_b = _this.logStream) === null || _b === void 0 ? void 0 : _b.end();
                             _this.logStream = null;
+                            var uptime = _this.startedAtMs ? Date.now() - _this.startedAtMs : null;
+                            var entry = _this.backendEntry;
+                            var logFile = _this.logFile;
                             _this.proc = null;
+                            // v2.6-4: surface crash to registered hook (CrashReporterService).
+                            if (!wasShutdown && _this.onUnexpectedExit) {
+                                try {
+                                    _this.onUnexpectedExit({
+                                        code: code,
+                                        signal: signal !== null && signal !== void 0 ? signal : null,
+                                        lastError: msg,
+                                        entry: entry,
+                                        logFile: logFile,
+                                        uptimeMs: uptime,
+                                    });
+                                }
+                                catch (_d) {
+                                    /* ignore — crash hooks must never cascade */
+                                }
+                            }
                         });
                         _b.label = 2;
                     case 2:

@@ -1,6 +1,204 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.6.4/5/6 — Auto-Update + Crash Telemetry + Real Broker Hardening + Routing Tuning
+
+**Release Date:** 2026-04-23
+**Scope:** Three consolidated feature phases that take MoonLight from
+"packaging-ready" to "live-trading-ready" — once the operator supplies
+real SSID/credentials on their Windows machine. **Everything on the
+app-code side is complete.**
+
+### 🆙 V2.6-4 — Auto-Update + Crash Telemetry
+
+**V2.6-4-A — electron-updater integration**
+- New `desktop/main/auto-updater.ts`: `AutoUpdaterService` with lazy-load
+  of `electron-updater`, feature-flagged via
+  `MOONLIGHT_AUTO_UPDATE_ENABLED` (default: off in dev, on in packaged).
+- GitHub Releases feed (owner/repo overridable via
+  `MOONLIGHT_UPDATE_OWNER` / `MOONLIGHT_UPDATE_REPO`).
+- Channels: `latest` (default) + `beta`.
+- Never silent-installs: download + install require explicit UI click.
+- IPC surface exposed via `window.moonlight.updater.{status,check,download,install,onStatus}`.
+- Full state machine: `idle → checking → available → downloading →
+  downloaded → install` with per-state UI controls.
+
+**V2.6-4-B — Crash telemetry (desktop + backend)**
+- New `desktop/main/crash-reporter.ts`: `CrashReporterService` boots
+  Electron's native `crashReporter` (crashes → `<userData>/Crashpad/`).
+- Local `crash-history.jsonl` ring buffer (200 events) under
+  `<userData>/logs/` — fully audit-local, no remote telemetry unless
+  `MOONLIGHT_CRASH_UPLOAD_URL` is explicitly set.
+- `BackendManager` now accepts `setCrashHook()`; unexpected backend
+  exits are captured into history **and** forwarded to backend via
+  `POST /api/crash/report` for correlation.
+- `main/index.ts` wires `uncaughtException`, `render-process-gone` and
+  `unresponsive` events into the reporter.
+- New backend module `backend/src/health/crash-reporter.module.ts`:
+  - `CrashReporterService` (ring buffer 1k, persists to
+    `<DATA_DIR>/crash-reports.jsonl`).
+  - `POST /api/crash/report`, `GET /api/crash/reports?limit=&source=`,
+    `GET /api/crash/stats` — all localhost-only (loopback guard).
+
+**V2.6-4-C — Settings → About panel**
+- New `renderer/src/components/settings/AboutPanel.tsx`:
+  - App version, update channel, current state + last-check time.
+  - Check / Download / Install buttons (state-gated).
+  - Progress bar during download.
+  - Error surface.
+  - Crash history list (desktop + backend, last 30 events, newest first).
+- Wired into `SettingsPage`.
+
+### 🔌 V2.6-5 — Real Broker Hardening
+
+**V2.6-5-A — IQ Option WSS hardening**
+- `IQOptionRealAdapter`:
+  - **Subscription restore on reconnect** (`portfolio.position-changed`,
+    `profile.balance`, `instruments.binary.payout`) — self-healing session.
+  - **Position tracking** from `position-changed` events: open/closed
+    map updated in real-time, feeds `getOpenPositions`.
+  - **Expanded symbols map** — from 8 to 36+ active IDs covering FX
+    majors/crosses, commodities, indices, crypto.
+  - **Runtime diagnostics** (`getRuntimeDiagnostics`, `snapshotPayouts`)
+    — no SSID exposure, safe for Owner Console.
+  - `lastAuthVerifiedAt` timestamp based on first `profile.balance` event.
+
+**V2.6-5-B — DOM broker live-click + pre-flight + drift guard**
+- `DomBrokerAdapterBase` now implements the **live click path**:
+  - `BROKER_DOM_LIVE_ORDERS=true` triggers the flow (second opt-in).
+  - Pre-flight safety gates (ALL must pass OR reject):
+    1. `request.stake_amount ≤ BROKER_DOM_MAX_STAKE` (default 25).
+    2. **Demo-account verification** — `demoBadge` selector must match;
+       override via `BROKER_DOM_ALLOW_LIVE_REAL=true` with loud logging.
+    3. Balance parse from `balanceDisplay` — reject if `< stake`.
+  - Real `confirmButton` click after pre-flight.
+  - Emit `DOM_LIVE_<broker>_<uuid>` position ids (distinct from dry-run).
+  - Rejection codes: `DOM_MAX_STAKE_EXCEEDED`, `DOM_DEMO_UNVERIFIED`,
+    `DOM_INSUFFICIENT_BALANCE`, `DOM_CONFIRM_FAILED`, `DOM_SOFT_DISABLED`,
+    `DOM_NOT_READY`, `DOM_ERROR`, `SELECTOR_BUNDLE_MISSING`.
+- New `SelectorDriftGuard` (in `dom-base.ts`):
+  - Per-broker/per-selector miss counters.
+  - **Soft-disable** broker after N consecutive misses (default 5).
+  - `recordHit` halves the counter (self-healing).
+  - `snapshot()` for Owner Console — counts + last 50 misses + soft-disabled set.
+  - `reset(brokerId)` after a selector bundle upgrade.
+  - Wired into all 3 DOM adapters via constructor injection.
+- `default-selectors.ts` extended (backward-compatible):
+  - `confirmButton`, `balanceDisplay`, `demoBadge`, `payoutDisplay`,
+    `expiryInput` optional fields on every bundle.
+- `getBalance()` on DOM adapters actually reads from DOM now.
+- `getRuntimeDiagnostics()` for Owner Console (health, soft-disabled,
+  last balance, last demo verification, positions, latency).
+
+**V2.6-5-C — Dynamic Payout Matrix Provider**
+- New `backend/src/broker/payout/dynamic-payout-provider.service.ts`:
+  - `DynamicPayoutProvider` reads from `IQOptionRealAdapter.snapshotPayouts()`.
+  - Returns `source: 'BROKER_API'` when a cached payout exists for the
+    requested `(symbol, expiry_minutes)` slot.
+  - `null` when no cache — caller falls back.
+- `PayoutMatrixService` updated:
+  - New `DYNAMIC` provider type registered when `DynamicPayoutProvider`
+    is DI-wired (optional; graceful degrade to STATIC when absent).
+  - Layered fallback chain: **DYNAMIC → STATIC → default constant**.
+  - `setActiveProvider()` — runtime switch from Owner Console (no restart).
+  - `listProviders()` — introspection.
+- Wired via `BrokerModule` (new provider + export).
+
+### 🧠 V2.6-6 — Multi-Broker Intelligent Routing Tuning
+
+- `BrokerScoringService`:
+  - `routing_score` is now derived from priority ordering (was: flat 100).
+  - Default priority: **IQ_OPTION(100) → OLYMP_TRADE(85) → BINOMO(70)
+    → EXPERT_OPTION(55) → FAKE(40)**.
+  - Operator override via `BROKER_ROUTING_PRIORITY=CSV`.
+  - Unknown broker → neutral 50. Floor at 25.
+  - Weight blend (unchanged): latency 35% + reliability 25% + payout 30%
+    + routing 10%.
+- `MultiBrokerRouter.selectBrokerForSignal()`:
+  - **Detailed audit reason codes** — every selection now logs the full
+    breakdown: `"IQ_OPTION chosen (health=89 latency=85 reliability=95
+    payout=86 priority=1) over [OLYMP_TRADE:72, BINOMO:65]"`.
+  - Trinity GÖZ-2 ingests this verbatim for retrospective analysis.
+
+### 🧪 Test Coverage
+
+- **Backend Jest: 404/404 PASS** (up from 387):
+  - `selector-drift-guard.spec.ts` — 5 tests.
+  - `dynamic-payout-provider.spec.ts` — 5 tests.
+  - `routing-priority.spec.ts` — 5 tests.
+  - `dom-automation.spec.ts` — 3 new v2.6-5-B tests (live ACK, max-stake
+    reject, demo-unverified reject).
+- **Desktop Vitest: 17/17 PASS** (up from 9):
+  - `v264-updater-crash.spec.ts` — 8 new tests covering
+    AutoUpdaterService (dev-disabled, env flag, no-op on disabled,
+    channel shape) and CrashReporterService (backend exit vs.
+    spawn-failure, uncaught main, status shape).
+- **Bundle spawn smoke:** PASS.
+- **Packaged Linux smoke:** PASS (backend still spawns + healthz + vault
+  green on arm64 unpacked build).
+
+### 🔀 Değişen Dosyalar
+
+- `desktop/main/auto-updater.ts` (YENİ)
+- `desktop/main/crash-reporter.ts` (YENİ)
+- `desktop/main/backend-manager.ts` (crash hook)
+- `desktop/main/index.ts` (AutoUpdater + CrashReporter orchestration)
+- `desktop/main/preload.ts` (updater + crash IPC surface)
+- `desktop/main/__tests__/v264-updater-crash.spec.ts` (YENİ)
+- `desktop/renderer/src/components/settings/AboutPanel.tsx` (YENİ)
+- `desktop/renderer/src/routes/SettingsPage.tsx` (AboutPanel mount)
+- `desktop/package.json` (electron-updater dep + build scripts)
+- `backend/src/health/crash-reporter.module.ts` (YENİ — module + service + controller)
+- `backend/src/app.module.ts` (CrashReporterModule register)
+- `backend/src/broker/adapters/iq-option-real.adapter.ts` (subscription restore + position tracking + symbols)
+- `backend/src/broker/adapters/dom-automation/dom-base.ts` (SelectorDriftGuard)
+- `backend/src/broker/adapters/dom-automation/dom-broker-base.adapter.ts` (live click + pre-flight)
+- `backend/src/broker/adapters/dom-automation/dom-broker.adapters.ts` (drift guard injection)
+- `backend/src/broker/adapters/dom-automation/default-selectors.ts` (confirmButton/demoBadge/balanceDisplay)
+- `backend/src/broker/payout/dynamic-payout-provider.service.ts` (YENİ)
+- `backend/src/broker/payout/payout-matrix.service.ts` (DYNAMIC provider + fallback chain)
+- `backend/src/broker/broker.module.ts` (DynamicPayoutProvider + SelectorDriftGuard)
+- `backend/src/broker/metrics/broker-scoring.service.ts` (priority routing score)
+- `backend/src/broker/multi-broker-router.service.ts` (detailed audit reason codes)
+- `backend/src/tests/unit/broker/selector-drift-guard.spec.ts` (YENİ)
+- `backend/src/tests/unit/broker/dynamic-payout-provider.spec.ts` (YENİ)
+- `backend/src/tests/unit/broker/routing-priority.spec.ts` (YENİ)
+- `backend/src/tests/unit/broker/dom-automation.spec.ts` (v2.6-5-B semantics)
+
+### 🎯 Ne Zaman Kullanıcı Windows'ta Canlı İşlem Yapabilir?
+
+**Kod tarafı bitti.** Geriye kullanıcının yapması gerekenler:
+
+1. `git tag v2.6.6 && git push --tags` → GitHub Actions **windows-latest**
+   runner otomatik NSIS installer üretir (~10 dk).
+2. `.exe`'yi Windows'ta çift tıklayıp kurar, başlatır.
+3. **Settings → Credentials Vault** → kendi IQ Option SSID'sini girer
+   (keytar OS keychain'e şifreler).
+4. **Settings → About** → auto-update devrede olduğunu onaylar.
+5. **`.env` flag'leri** (veya UI üzerinden — gelecek sürüm):
+   - `BROKER_IQOPTION_REAL_ENABLED=true` (IQ Option gerçek WSS)
+   - `BROKER_DOM_AUTOMATION_ENABLED=true` (Playwright başlatır)
+   - `BROKER_DOM_LIVE_ORDERS=true` (DOM broker'larda gerçek tıklama)
+   - (Demo hesap için) `BROKER_DOM_MAX_STAKE=5` gibi güvenlik üstünlüğü
+6. İlk canlı işlemi düşük stake ile yapar (pre-flight 25$ cap zaten var).
+
+### 🔒 Fail-Safe Defaults
+
+- `BROKER_IQOPTION_REAL_ENABLED=false` → simülasyon.
+- `BROKER_DOM_AUTOMATION_ENABLED=false` → simülasyon.
+- `BROKER_DOM_LIVE_ORDERS=false` → dry-run.
+- `BROKER_DOM_ALLOW_LIVE_REAL=false` → demo-badge zorunlu.
+- `BROKER_DOM_MAX_STAKE=25` → yanlışlıkla büyük trade engeli.
+- `PAYOUT_PROVIDER=STATIC` → gerçek payout bekleme riski yok.
+- `MOONLIGHT_AUTO_UPDATE_ENABLED` → packaged modda açık, dev'de kapalı.
+- `MOONLIGHT_CRASH_REPORTER_DISABLED=false` → local crash logs aktif,
+  remote upload default OFF.
+
+Her flag `opt-in`, her fail durumu `fail-closed` (reject + audit).
+
+---
+
+
 ## v2.6.3 — Windows NSIS Installer + CI/CD Release Pipeline (Packaged Smoke ✅)
 
 **Release Date:** 2026-04-23

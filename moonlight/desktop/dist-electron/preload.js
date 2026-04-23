@@ -35,4 +35,32 @@ electron_1.contextBridge.exposeInMainWorld('moonlight', {
         delete: function (key) { return electron_1.ipcRenderer.invoke('moonlight:vault:delete', key); },
         audit: function () { return electron_1.ipcRenderer.invoke('moonlight:vault:audit'); },
     },
+    // v2.6-4: Auto-updater surface. All methods return a UpdateStatus snapshot.
+    updater: {
+        status: function () { return electron_1.ipcRenderer.invoke('moonlight:update:status'); },
+        check: function () { return electron_1.ipcRenderer.invoke('moonlight:update:check'); },
+        download: function () { return electron_1.ipcRenderer.invoke('moonlight:update:download'); },
+        install: function () { return electron_1.ipcRenderer.invoke('moonlight:update:install'); },
+        onStatus: function (cb) {
+            var listener = function (_e, payload) { return cb(payload); };
+            electron_1.ipcRenderer.on('moonlight:update:status', listener);
+            return function () { return electron_1.ipcRenderer.removeListener('moonlight:update:status', listener); };
+        },
+    },
+    // v2.6-4: Crash reporter surface.
+    crash: {
+        status: function () { return electron_1.ipcRenderer.invoke('moonlight:crash:status'); },
+        history: function (limit) {
+            return electron_1.ipcRenderer.invoke('moonlight:crash:history', limit);
+        },
+        backendReports: function (limit) {
+            return electron_1.ipcRenderer.invoke('moonlight:crash:backend-reports', limit);
+        },
+        backendStats: function () { return electron_1.ipcRenderer.invoke('moonlight:crash:backend-stats'); },
+        onEvent: function (cb) {
+            var listener = function (_e, payload) { return cb(payload); };
+            electron_1.ipcRenderer.on('moonlight:crash:event', listener);
+            return function () { return electron_1.ipcRenderer.removeListener('moonlight:crash:event', listener); };
+        },
+    },
 });

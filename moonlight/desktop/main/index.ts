@@ -1,16 +1,27 @@
 import { app, BrowserWindow, ipcMain, dialog, net as electronNet } from 'electron';
 import * as path from 'path';
 import { BackendManager, BackendStatus } from './backend-manager';
+import { AutoUpdaterService } from './auto-updater';
+import { CrashReporterService } from './crash-reporter';
 
-// MoonLight v2.6-2 — Electron Main Process
+// MoonLight v2.6-4 — Electron Main Process
 //
 // Boots the Desktop shell AND the bundled NestJS backend together so a
 // double-clicked installer "just works" on Windows. Also bridges the
 // localhost-only /api/secrets surface into the renderer via IPC so the
 // Settings UI can manage credentials without the renderer needing direct
 // HTTP access to the vault API.
+//
+// v2.6-4 additions:
+//   - `AutoUpdaterService` (electron-updater wrapper) for GitHub
+//     Releases feed; feature-flagged and fail-safe.
+//   - `CrashReporterService` writes crashes to <userData>/logs and
+//     forwards to backend /api/crash/report for correlation.
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+const crashReporter = new CrashReporterService();
+const autoUpdater = new AutoUpdaterService();
 
 const backend = new BackendManager({
   preferredPort: 8001,
@@ -28,6 +39,21 @@ const backend = new BackendManager({
     // vault from the Settings UI before live trading.
     MOONLIGHT_PACKAGED: app.isPackaged ? 'true' : 'false',
   },
+});
+
+// v2.6-4: when the backend dies unexpectedly, log it and try to forward
+// to its own /api/crash/report on whichever port it was bound to (or, if
+// it's already dead, we just keep the local history file).
+backend.setCrashHook((info) => {
+  const event = crashReporter.recordBackendCrash(info);
+  const port = backend.getStatus().port;
+  // Fire-and-forget; never throws.
+  void crashReporter.forwardToBackend(event, port);
+  try {
+    mainWindow?.webContents.send('moonlight:crash:event', event);
+  } catch {
+    /* ignore */
+  }
 });
 
 /**
@@ -140,6 +166,28 @@ function registerIpc(): void {
     const r = await backendFetch('GET', '/api/secrets/audit/trail');
     return safeJson(r);
   });
+
+  // v2.6-4: Auto-update IPC surface.
+  ipcMain.handle('moonlight:update:status', () => autoUpdater.getStatus());
+  ipcMain.handle('moonlight:update:check', () => autoUpdater.checkForUpdates());
+  ipcMain.handle('moonlight:update:download', () => autoUpdater.downloadUpdate());
+  ipcMain.handle('moonlight:update:install', () => autoUpdater.quitAndInstall());
+
+  // v2.6-4: Crash reporter IPC surface (reads local desktop history and
+  // proxies to backend for the correlated view).
+  ipcMain.handle('moonlight:crash:status', () => crashReporter.getStatus());
+  ipcMain.handle('moonlight:crash:history', (_e, limit?: number) =>
+    crashReporter.getHistory(typeof limit === 'number' ? limit : 50),
+  );
+  ipcMain.handle('moonlight:crash:backend-reports', async (_e, limit?: number) => {
+    const n = typeof limit === 'number' ? limit : 50;
+    const r = await backendFetch('GET', `/api/crash/reports?limit=${n}`);
+    return safeJson(r);
+  });
+  ipcMain.handle('moonlight:crash:backend-stats', async () => {
+    const r = await backendFetch('GET', '/api/crash/stats');
+    return safeJson(r);
+  });
 }
 
 function safeJson(r: { status: number; body: string }): unknown {
@@ -152,6 +200,15 @@ function safeJson(r: { status: number; body: string }): unknown {
 }
 
 app.whenReady().then(async () => {
+  // v2.6-4: start the native crash reporter before anything else so any
+  // subsequent crash in this session gets captured.
+  crashReporter.start();
+
+  process.on('uncaughtException', (err) => {
+    const event = crashReporter.recordMainUncaught(err);
+    void crashReporter.forwardToBackend(event, backend.getStatus().port);
+  });
+
   registerIpc();
 
   // In dev mode the operator typically runs `yarn backend:dev` in a
@@ -164,6 +221,12 @@ app.whenReady().then(async () => {
       // eslint-disable-next-line no-console
       console.log(`[main] backend up on port ${port}`);
     } catch (err) {
+      const event = crashReporter.record({
+        kind: 'backend-spawn-failure',
+        message: (err as Error).message,
+        context: { entry: backend.getStatus().backendEntry },
+      });
+      void crashReporter.forwardToBackend(event, backend.getStatus().port);
       const status = backend.getStatus();
       dialog.showErrorBox(
         'MoonLight Backend failed to start',
@@ -176,6 +239,24 @@ app.whenReady().then(async () => {
   }
 
   await createWindow();
+
+  // v2.6-4: wire renderer-side crash events into the local reporter.
+  if (mainWindow) {
+    mainWindow.webContents.on('render-process-gone', (_e, details) => {
+      const event = crashReporter.recordRendererCrash('renderer-gone', {
+        reason: details.reason,
+        exitCode: details.exitCode,
+      });
+      void crashReporter.forwardToBackend(event, backend.getStatus().port);
+    });
+    mainWindow.webContents.on('unresponsive', () => {
+      crashReporter.record({
+        kind: 'renderer-crashed',
+        message: 'renderer became unresponsive',
+        context: {},
+      });
+    });
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

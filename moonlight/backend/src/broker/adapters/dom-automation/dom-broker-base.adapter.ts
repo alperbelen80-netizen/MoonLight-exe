@@ -22,25 +22,29 @@ import {
   DomBrowserSessionManager,
   DomSession,
   SelectorRegistry,
+  SelectorDriftGuard,
   VersionedSelectorBundle,
 } from './dom-base';
 
 /**
- * V2.5-4 Base DOM Broker Adapter
+ * V2.6-5-B Hardened DOM Broker Adapter Base
  *
  * Common skeleton for Olymp / Binomo / Expert DOM-automation adapters.
  *
- * Fail-safe semantics (unchanged by this phase):
- *   - If `BROKER_DOM_AUTOMATION_ENABLED` is not "true" → connectSession()
- *     throws `DOM_AUTOMATION_DISABLED` so the router falls back to the
- *     simulated adapter for this brokerId.
- *   - If the selector registry has no bundle for this broker → treated as
- *     DISABLED (broker health flips to DISABLED + audit log).
- *   - `sendOrder()` in dry-run mode does NOT actually click the confirm
- *     button; it verifies the full selector chain can be reached and
- *     reports ACK with a synthetic position id prefixed `DOM_DRYRUN_*`.
- *     Real clicks require `BROKER_DOM_LIVE_ORDERS=true` (opt-in beyond
- *     the automation flag).
+ * Fail-safe semantics:
+ *   - `BROKER_DOM_AUTOMATION_ENABLED` must be "true" → otherwise throws
+ *     `DOM_AUTOMATION_DISABLED` at connect time.
+ *   - `SELECTOR_BUNDLE_MISSING` → DISABLED.
+ *   - Soft-disable via `SelectorDriftGuard` after N consecutive
+ *     selector misses (per broker) — adapter refuses `stageOrder`
+ *     until the operator updates selectors and calls reset.
+ *   - Live click path requires:
+ *       * `BROKER_DOM_LIVE_ORDERS=true` (second opt-in)
+ *       * Pre-flight safety: demo badge detected OR explicit
+ *         `BROKER_DOM_ALLOW_LIVE_REAL=true` override.
+ *       * `confirmButton` selector present in bundle.
+ *       * `request.stake_amount <= BROKER_DOM_MAX_STAKE` (default 25).
+ *     Any failure returns a REJECT with a clear code.
  */
 export abstract class DomBrokerAdapterBase implements BrokerAdapterInterface {
   protected readonly logger: Logger;
@@ -48,6 +52,12 @@ export abstract class DomBrokerAdapterBase implements BrokerAdapterInterface {
   protected health: SessionHealth = SessionHealth.DOWN;
   protected lastLatencyMs: number | null = null;
   protected readonly positions: Map<string, BrokerPositionDTO> = new Map();
+  // v2.6-5-B: optional drift guard injected by the module. If absent the
+  // adapter behaves as before (no soft-disable).
+  protected drift: SelectorDriftGuard | null = null;
+  protected lastBalance: number | null = null;
+  protected lastDemoCheckAt: number | null = null;
+  protected lastDemoVerified: boolean | null = null;
 
   constructor(
     protected readonly brokerId: BrokerId,
@@ -56,6 +66,11 @@ export abstract class DomBrokerAdapterBase implements BrokerAdapterInterface {
     protected readonly healthRegistry: BrokerHealthRegistryService,
   ) {
     this.logger = new Logger(`DomBrokerAdapter[${brokerId}]`);
+  }
+
+  /** v2.6-5-B: wire a SelectorDriftGuard after DI. */
+  setDriftGuard(guard: SelectorDriftGuard): void {
+    this.drift = guard;
   }
 
   getBrokerId(): string {
@@ -68,6 +83,33 @@ export abstract class DomBrokerAdapterBase implements BrokerAdapterInterface {
 
   getLastLatencyMs(): number | null {
     return this.lastLatencyMs;
+  }
+
+  getLastBalance(): number | null {
+    return this.lastBalance;
+  }
+
+  /** Structured runtime diagnostics for the Owner Console. */
+  getRuntimeDiagnostics(): {
+    brokerId: string;
+    health: SessionHealth;
+    softDisabled: boolean;
+    lastBalance: number | null;
+    lastDemoVerified: boolean | null;
+    lastDemoCheckAt: number | null;
+    positions: number;
+    lastLatencyMs: number | null;
+  } {
+    return {
+      brokerId: this.brokerId,
+      health: this.health,
+      softDisabled: this.drift?.isSoftDisabled(this.brokerId) ?? false,
+      lastBalance: this.lastBalance,
+      lastDemoVerified: this.lastDemoVerified,
+      lastDemoCheckAt: this.lastDemoCheckAt,
+      positions: this.positions.size,
+      lastLatencyMs: this.lastLatencyMs,
+    };
   }
 
   // ---- Subclass contract --------------------------------------------------
@@ -173,6 +215,15 @@ export abstract class DomBrokerAdapterBase implements BrokerAdapterInterface {
         `session not ready (health=${this.health})`,
       );
     }
+    // v2.6-5-B: respect selector-drift soft-disable.
+    if (this.drift?.isSoftDisabled(this.brokerId)) {
+      return this.reject(
+        request,
+        0,
+        'DOM_SOFT_DISABLED',
+        `${this.brokerId} soft-disabled by SelectorDriftGuard — update selectors and reset`,
+      );
+    }
     const bundle = this.selectors.get(this.brokerId);
     if (!bundle) {
       return this.reject(
@@ -183,23 +234,31 @@ export abstract class DomBrokerAdapterBase implements BrokerAdapterInterface {
       );
     }
 
+    // v2.6-5-B: pre-flight safety gate — only run when operator actually
+    // wants to go live. Keep dry-run path fast and cheap.
+    const live = process.env.BROKER_DOM_LIVE_ORDERS === 'true';
+    if (live) {
+      const check = await this.preflightLive(bundle, request);
+      if (check) return check; // pre-flight returned a REJECT
+    }
+
     try {
       await this.stageOrder(this.session.page, bundle, request);
+      this.drift?.recordHit(this.brokerId, 'stakeInput');
       const latency = Date.now() - start;
       this.lastLatencyMs = latency;
       this.healthRegistry.recordOrderLatency(this.brokerId, latency);
 
-      // Live click path is gated behind a second opt-in flag — we default
-      // to dry-run so operators must explicitly commit to real trades.
-      const live = process.env.BROKER_DOM_LIVE_ORDERS === 'true';
+      const quote = (await this.readQuote(
+        this.session.page,
+        bundle,
+        request.symbol,
+      )) ?? 0;
+      const now = new Date();
+
       if (!live) {
+        // Dry-run ACK (legacy path) — no real click.
         const positionId = `DOM_DRYRUN_${this.brokerId}_${uuidv4()}`;
-        const now = new Date();
-        const quote = (await this.readQuote(
-          this.session.page,
-          bundle,
-          request.symbol,
-        )) ?? 0;
         const position: BrokerPositionDTO = {
           position_id: positionId,
           symbol: request.symbol,
@@ -224,16 +283,72 @@ export abstract class DomBrokerAdapterBase implements BrokerAdapterInterface {
         };
       }
 
-      // Live click: subclasses may override stageOrder to also confirm; if
-      // not, we treat this as unsupported rather than silently dry-running.
-      return this.reject(
-        request,
-        latency,
-        'DOM_LIVE_UNSUPPORTED',
-        'live click flow not implemented for this broker (dry-run only)',
+      // v2.6-5-B: LIVE CLICK path.
+      const confirmSel = bundle.selectors.confirmButton;
+      if (!confirmSel) {
+        return this.reject(
+          request,
+          latency,
+          'DOM_LIVE_UNSUPPORTED',
+          'confirmButton selector missing — cannot commit trade safely',
+        );
+      }
+      try {
+        await this.session.page.waitForSelector(confirmSel, { timeout: 3_000 });
+        await this.session.page.click(confirmSel, { timeout: 3_000 });
+        this.drift?.recordHit(this.brokerId, 'confirmButton');
+      } catch (err) {
+        this.drift?.recordMiss(
+          this.brokerId,
+          'confirmButton',
+          confirmSel,
+          (err as Error).message,
+        );
+        return this.reject(
+          request,
+          Date.now() - start,
+          'DOM_CONFIRM_FAILED',
+          (err as Error).message,
+        );
+      }
+
+      const livePositionId = `DOM_LIVE_${this.brokerId}_${uuidv4()}`;
+      const livePosition: BrokerPositionDTO = {
+        position_id: livePositionId,
+        symbol: request.symbol,
+        direction: request.direction,
+        stake_amount: request.stake_amount,
+        entry_price: quote,
+        open_ts_utc: now.toISOString(),
+        expiry_ts_utc: new Date(
+          now.getTime() + request.expiry_minutes * 60_000,
+        ).toISOString(),
+        status: BrokerPositionStatus.OPEN,
+      };
+      this.positions.set(livePositionId, livePosition);
+      const finalLatency = Date.now() - start;
+      this.lastLatencyMs = finalLatency;
+      this.healthRegistry.recordOrderLatency(this.brokerId, finalLatency);
+      this.logger.log(
+        `LIVE order placed on ${this.brokerId}: ${request.direction} ${request.symbol} ${request.stake_amount} → ${livePositionId}`,
       );
+      return {
+        broker_request_id: request.broker_request_id,
+        broker_order_id: livePositionId,
+        status: BrokerOrderStatus.ACK,
+        response_ts_utc: now.toISOString(),
+        latency_ms: finalLatency,
+        open_price: quote,
+        open_ts_utc: livePosition.open_ts_utc,
+      };
     } catch (err) {
       const latency = Date.now() - start;
+      this.drift?.recordMiss(
+        this.brokerId,
+        'stageOrder',
+        'stage_order_chain',
+        (err as Error).message,
+      );
       this.healthRegistry.transition(
         this.brokerId,
         'ERRORED',
@@ -248,15 +363,120 @@ export abstract class DomBrokerAdapterBase implements BrokerAdapterInterface {
     }
   }
 
-  async getOpenPositions(_accountId: string): Promise<BrokerPositionDTO[]> {
-    return Array.from(this.positions.values());
+  /**
+   * v2.6-5-B: Pre-flight safety check before a LIVE click.
+   *
+   * Order of checks (any failure returns a REJECT Ack; otherwise null):
+   *   1. `request.stake_amount` ≤ `BROKER_DOM_MAX_STAKE` (default 25 to
+   *      cap accidental big trades).
+   *   2. Demo account verification: the bundle's `demoBadge` selector
+   *      must be present in the DOM, unless operator explicitly sets
+   *      `BROKER_DOM_ALLOW_LIVE_REAL=true` (acknowledges real-money risk).
+   *   3. Balance sanity: read `balanceDisplay` — if parseable and less
+   *      than `request.stake_amount`, reject with INSUFFICIENT_BALANCE.
+   *
+   * Any step that fails to read the DOM is logged via `drift.recordMiss`
+   * but does NOT automatically fail the pre-flight (operator intent +
+   * explicit flags are what ultimately gate).
+   */
+  protected async preflightLive(
+    bundle: VersionedSelectorBundle,
+    request: BrokerOrderRequestDTO,
+  ): Promise<BrokerOrderAckDTO | null> {
+    if (!this.session) {
+      return this.reject(request, 0, 'DOM_NOT_READY', 'no session');
+    }
+    const page = this.session.page;
+    const maxStake = Number(process.env.BROKER_DOM_MAX_STAKE ?? '25');
+    if (Number.isFinite(maxStake) && request.stake_amount > maxStake) {
+      return this.reject(
+        request,
+        0,
+        'DOM_MAX_STAKE_EXCEEDED',
+        `stake ${request.stake_amount} > BROKER_DOM_MAX_STAKE ${maxStake}`,
+      );
+    }
+
+    const allowReal = process.env.BROKER_DOM_ALLOW_LIVE_REAL === 'true';
+    let demoVerified: boolean | null = null;
+    if (bundle.selectors.demoBadge) {
+      try {
+        await page.waitForSelector(bundle.selectors.demoBadge, { timeout: 1_500 });
+        demoVerified = true;
+        this.drift?.recordHit(this.brokerId, 'demoBadge');
+      } catch {
+        demoVerified = false;
+        this.drift?.recordMiss(
+          this.brokerId,
+          'demoBadge',
+          bundle.selectors.demoBadge,
+          'demoBadge not found within 1500ms',
+        );
+      }
+    }
+    this.lastDemoVerified = demoVerified;
+    this.lastDemoCheckAt = Date.now();
+
+    if (demoVerified === false && !allowReal) {
+      return this.reject(
+        request,
+        0,
+        'DOM_DEMO_UNVERIFIED',
+        'demoBadge not found — refusing live click. Set BROKER_DOM_ALLOW_LIVE_REAL=true to override.',
+      );
+    }
+
+    if (bundle.selectors.balanceDisplay) {
+      try {
+        const txt = await page.textContent(bundle.selectors.balanceDisplay);
+        if (txt) {
+          const n = parseFloat(txt.replace(/[^0-9.\-]/g, ''));
+          if (Number.isFinite(n)) {
+            this.lastBalance = n;
+            this.drift?.recordHit(this.brokerId, 'balanceDisplay');
+            if (n < request.stake_amount) {
+              return this.reject(
+                request,
+                0,
+                'DOM_INSUFFICIENT_BALANCE',
+                `balance ${n} < stake ${request.stake_amount}`,
+              );
+            }
+          }
+        }
+      } catch (err) {
+        this.drift?.recordMiss(
+          this.brokerId,
+          'balanceDisplay',
+          bundle.selectors.balanceDisplay,
+          (err as Error).message,
+        );
+      }
+    }
+    return null;
   }
 
+  /** v2.6-5-B: read balance on-demand — used by dynamic payout + routing. */
   async getBalance(_accountId: string): Promise<number> {
-    // Base implementation: DOM balance read is broker-specific. Subclasses
-    // can override. Returning 0 (no throw) keeps this safe in mixed-session
-    // reconciliation contexts.
-    return 0;
+    if (!this.session) return this.lastBalance ?? 0;
+    const bundle = this.selectors.get(this.brokerId);
+    if (!bundle?.selectors.balanceDisplay) return this.lastBalance ?? 0;
+    try {
+      const txt = await this.session.page.textContent(bundle.selectors.balanceDisplay);
+      if (!txt) return this.lastBalance ?? 0;
+      const n = parseFloat(txt.replace(/[^0-9.\-]/g, ''));
+      if (Number.isFinite(n)) {
+        this.lastBalance = n;
+        return n;
+      }
+    } catch {
+      /* ignore */
+    }
+    return this.lastBalance ?? 0;
+  }
+
+  async getOpenPositions(_accountId: string): Promise<BrokerPositionDTO[]> {
+    return Array.from(this.positions.values());
   }
 
   // Helpers -----------------------------------------------------------------

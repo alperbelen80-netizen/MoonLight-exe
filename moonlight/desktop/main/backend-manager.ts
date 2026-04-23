@@ -68,10 +68,37 @@ export class BackendManager {
   private readonly opts: Required<Omit<BackendManagerOptions, 'extraEnv'>>;
   private readonly extraEnv: NodeJS.ProcessEnv;
   private shuttingDown = false;
+  // v2.6-4: optional crash hook. Electron main wires this up to the
+  // CrashReporterService so unexpected exits land in crash-history.jsonl
+  // and optionally forward to backend /api/crash/report.
+  private onUnexpectedExit:
+    | ((params: {
+        code: number | null;
+        signal: string | null;
+        lastError: string | null;
+        entry: string | null;
+        logFile: string | null;
+        uptimeMs: number | null;
+      }) => void)
+    | null = null;
 
   constructor(options: BackendManagerOptions = {}) {
     this.opts = { ...DEFAULT_OPTIONS, ...options };
     this.extraEnv = options.extraEnv ?? {};
+  }
+
+  /** v2.6-4: register a crash hook. Called only for non-graceful exits. */
+  setCrashHook(
+    hook: (params: {
+      code: number | null;
+      signal: string | null;
+      lastError: string | null;
+      entry: string | null;
+      logFile: string | null;
+      uptimeMs: number | null;
+    }) => void,
+  ): void {
+    this.onUnexpectedExit = hook;
   }
 
   getStatus(): BackendStatus {
@@ -207,7 +234,8 @@ export class BackendManager {
 
     this.proc.on('exit', (code, signal) => {
       const msg = `backend exited (code=${code} signal=${signal})`;
-      if (!this.shuttingDown) this.lastError = msg;
+      const wasShutdown = this.shuttingDown;
+      if (!wasShutdown) this.lastError = msg;
       try {
         this.logStream?.write(`\n[BackendManager] ${msg}\n`);
       } catch {
@@ -215,7 +243,25 @@ export class BackendManager {
       }
       this.logStream?.end();
       this.logStream = null;
+      const uptime = this.startedAtMs ? Date.now() - this.startedAtMs : null;
+      const entry = this.backendEntry;
+      const logFile = this.logFile;
       this.proc = null;
+      // v2.6-4: surface crash to registered hook (CrashReporterService).
+      if (!wasShutdown && this.onUnexpectedExit) {
+        try {
+          this.onUnexpectedExit({
+            code,
+            signal: signal ?? null,
+            lastError: msg,
+            entry,
+            logFile,
+            uptimeMs: uptime,
+          });
+        } catch {
+          /* ignore — crash hooks must never cascade */
+        }
+      }
     });
 
     try {

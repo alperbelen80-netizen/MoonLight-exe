@@ -35,4 +35,32 @@ contextBridge.exposeInMainWorld('moonlight', {
     delete: (key: string) => ipcRenderer.invoke('moonlight:vault:delete', key),
     audit: () => ipcRenderer.invoke('moonlight:vault:audit'),
   },
+
+  // v2.6-4: Auto-updater surface. All methods return a UpdateStatus snapshot.
+  updater: {
+    status: () => ipcRenderer.invoke('moonlight:update:status'),
+    check: () => ipcRenderer.invoke('moonlight:update:check'),
+    download: () => ipcRenderer.invoke('moonlight:update:download'),
+    install: () => ipcRenderer.invoke('moonlight:update:install'),
+    onStatus: (cb: (status: unknown) => void) => {
+      const listener = (_e: unknown, payload: unknown) => cb(payload);
+      ipcRenderer.on('moonlight:update:status', listener);
+      return () => ipcRenderer.removeListener('moonlight:update:status', listener);
+    },
+  },
+
+  // v2.6-4: Crash reporter surface.
+  crash: {
+    status: () => ipcRenderer.invoke('moonlight:crash:status'),
+    history: (limit?: number) =>
+      ipcRenderer.invoke('moonlight:crash:history', limit),
+    backendReports: (limit?: number) =>
+      ipcRenderer.invoke('moonlight:crash:backend-reports', limit),
+    backendStats: () => ipcRenderer.invoke('moonlight:crash:backend-stats'),
+    onEvent: (cb: (event: unknown) => void) => {
+      const listener = (_e: unknown, payload: unknown) => cb(payload);
+      ipcRenderer.on('moonlight:crash:event', listener);
+      return () => ipcRenderer.removeListener('moonlight:crash:event', listener);
+    },
+  },
 });

@@ -55,7 +55,10 @@ export class BrokerScoringService {
     const payoutRatio = payoutData?.payout_ratio || 0.85;
     const payoutScore = payoutRatio * 100;
 
-    const routingScore = 100;
+    // v2.6-6: routing score derived from registry priority (lower idx →
+    // higher routing preference). Operators can override by setting
+    // `BROKER_ROUTING_PRIORITY=FAKE,IQ_OPTION,OLYMP_TRADE,BINOMO,EXPERT_OPTION`.
+    const routingScore = this.computeRoutingScore(brokerId);
 
     const healthScore =
       latencyScore * this.LATENCY_WEIGHT +
@@ -75,6 +78,28 @@ export class BrokerScoringService {
       is_available: isAvailable,
       last_check: new Date(),
     };
+  }
+
+  /**
+   * v2.6-6 routing score heuristic.
+   *
+   * Priority ordering (high → low):
+   *   1. operator override via `BROKER_ROUTING_PRIORITY` env (CSV).
+   *   2. default: IQ_OPTION > OLYMP_TRADE > BINOMO > EXPERT_OPTION > FAKE.
+   *
+   * First broker in the list gets 100, each subsequent broker drops by
+   * 15 points (floor 25). This makes the routing score a meaningful
+   * 10% of the total without completely dominating latency/payout.
+   */
+  private computeRoutingScore(brokerId: string): number {
+    const override = process.env.BROKER_ROUTING_PRIORITY;
+    const priorityOrder = override
+      ? override.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
+      : ['IQ_OPTION', 'OLYMP_TRADE', 'BINOMO', 'EXPERT_OPTION', 'FAKE'];
+    const idx = priorityOrder.indexOf(brokerId.toUpperCase());
+    if (idx < 0) return 50; // unknown broker → neutral
+    const score = 100 - idx * 15;
+    return Math.max(25, score);
   }
 
   async rankBrokersForSignal(

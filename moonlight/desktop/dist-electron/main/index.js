@@ -51,14 +51,24 @@ exports.mainWindow = exports.backend = void 0;
 var electron_1 = require("electron");
 var path = require("path");
 var backend_manager_1 = require("./backend-manager");
-// MoonLight v2.6-2 — Electron Main Process
+var auto_updater_1 = require("./auto-updater");
+var crash_reporter_1 = require("./crash-reporter");
+// MoonLight v2.6-4 — Electron Main Process
 //
 // Boots the Desktop shell AND the bundled NestJS backend together so a
 // double-clicked installer "just works" on Windows. Also bridges the
 // localhost-only /api/secrets surface into the renderer via IPC so the
 // Settings UI can manage credentials without the renderer needing direct
 // HTTP access to the vault API.
+//
+// v2.6-4 additions:
+//   - `AutoUpdaterService` (electron-updater wrapper) for GitHub
+//     Releases feed; feature-flagged and fail-safe.
+//   - `CrashReporterService` writes crashes to <userData>/logs and
+//     forwards to backend /api/crash/report for correlation.
 var isDev = process.env.NODE_ENV === 'development' || !electron_1.app.isPackaged;
+var crashReporter = new crash_reporter_1.CrashReporterService();
+var autoUpdater = new auto_updater_1.AutoUpdaterService();
 var backend = new backend_manager_1.BackendManager({
     preferredPort: 8001,
     extraEnv: {
@@ -77,6 +87,21 @@ var backend = new backend_manager_1.BackendManager({
     },
 });
 exports.backend = backend;
+// v2.6-4: when the backend dies unexpectedly, log it and try to forward
+// to its own /api/crash/report on whichever port it was bound to (or, if
+// it's already dead, we just keep the local history file).
+backend.setCrashHook(function (info) {
+    var event = crashReporter.recordBackendCrash(info);
+    var port = backend.getStatus().port;
+    // Fire-and-forget; never throws.
+    void crashReporter.forwardToBackend(event, port);
+    try {
+        mainWindow === null || mainWindow === void 0 ? void 0 : mainWindow.webContents.send('moonlight:crash:event', event);
+    }
+    catch (_a) {
+        /* ignore */
+    }
+});
 /**
  * Tiny helper: fetch the backend over loopback using Electron's `net`
  * client (faster than `fetch` in older Electrons + no CORS surprises).
@@ -245,6 +270,41 @@ function registerIpc() {
             }
         });
     }); });
+    // v2.6-4: Auto-update IPC surface.
+    electron_1.ipcMain.handle('moonlight:update:status', function () { return autoUpdater.getStatus(); });
+    electron_1.ipcMain.handle('moonlight:update:check', function () { return autoUpdater.checkForUpdates(); });
+    electron_1.ipcMain.handle('moonlight:update:download', function () { return autoUpdater.downloadUpdate(); });
+    electron_1.ipcMain.handle('moonlight:update:install', function () { return autoUpdater.quitAndInstall(); });
+    // v2.6-4: Crash reporter IPC surface (reads local desktop history and
+    // proxies to backend for the correlated view).
+    electron_1.ipcMain.handle('moonlight:crash:status', function () { return crashReporter.getStatus(); });
+    electron_1.ipcMain.handle('moonlight:crash:history', function (_e, limit) {
+        return crashReporter.getHistory(typeof limit === 'number' ? limit : 50);
+    });
+    electron_1.ipcMain.handle('moonlight:crash:backend-reports', function (_e, limit) { return __awaiter(_this, void 0, void 0, function () {
+        var n, r;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    n = typeof limit === 'number' ? limit : 50;
+                    return [4 /*yield*/, backendFetch('GET', "/api/crash/reports?limit=".concat(n))];
+                case 1:
+                    r = _a.sent();
+                    return [2 /*return*/, safeJson(r)];
+            }
+        });
+    }); });
+    electron_1.ipcMain.handle('moonlight:crash:backend-stats', function () { return __awaiter(_this, void 0, void 0, function () {
+        var r;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, backendFetch('GET', '/api/crash/stats')];
+                case 1:
+                    r = _a.sent();
+                    return [2 /*return*/, safeJson(r)];
+            }
+        });
+    }); });
 }
 function safeJson(r) {
     try {
@@ -256,11 +316,18 @@ function safeJson(r) {
     }
 }
 electron_1.app.whenReady().then(function () { return __awaiter(void 0, void 0, void 0, function () {
-    var shouldSpawnBackend, port, err_1, status_1;
+    var shouldSpawnBackend, port, err_1, event_1, status_1;
     var _a, _b;
     return __generator(this, function (_c) {
         switch (_c.label) {
             case 0:
+                // v2.6-4: start the native crash reporter before anything else so any
+                // subsequent crash in this session gets captured.
+                crashReporter.start();
+                process.on('uncaughtException', function (err) {
+                    var event = crashReporter.recordMainUncaught(err);
+                    void crashReporter.forwardToBackend(event, backend.getStatus().port);
+                });
                 registerIpc();
                 shouldSpawnBackend = !isDev || process.env.MOONLIGHT_SPAWN_BACKEND === 'true';
                 if (!shouldSpawnBackend) return [3 /*break*/, 4];
@@ -275,6 +342,12 @@ electron_1.app.whenReady().then(function () { return __awaiter(void 0, void 0, v
                 return [3 /*break*/, 4];
             case 3:
                 err_1 = _c.sent();
+                event_1 = crashReporter.record({
+                    kind: 'backend-spawn-failure',
+                    message: err_1.message,
+                    context: { entry: backend.getStatus().backendEntry },
+                });
+                void crashReporter.forwardToBackend(event_1, backend.getStatus().port);
                 status_1 = backend.getStatus();
                 electron_1.dialog.showErrorBox('MoonLight Backend failed to start', "".concat(err_1.message, "\n\n") +
                     "Entry: ".concat((_a = status_1.backendEntry) !== null && _a !== void 0 ? _a : 'n/a', "\nLog: ").concat((_b = status_1.logFile) !== null && _b !== void 0 ? _b : 'n/a'));
@@ -283,6 +356,23 @@ electron_1.app.whenReady().then(function () { return __awaiter(void 0, void 0, v
             case 4: return [4 /*yield*/, createWindow()];
             case 5:
                 _c.sent();
+                // v2.6-4: wire renderer-side crash events into the local reporter.
+                if (mainWindow) {
+                    mainWindow.webContents.on('render-process-gone', function (_e, details) {
+                        var event = crashReporter.recordRendererCrash('renderer-gone', {
+                            reason: details.reason,
+                            exitCode: details.exitCode,
+                        });
+                        void crashReporter.forwardToBackend(event, backend.getStatus().port);
+                    });
+                    mainWindow.webContents.on('unresponsive', function () {
+                        crashReporter.record({
+                            kind: 'renderer-crashed',
+                            message: 'renderer became unresponsive',
+                            context: {},
+                        });
+                    });
+                }
                 electron_1.app.on('activate', function () {
                     if (electron_1.BrowserWindow.getAllWindows().length === 0) {
                         createWindow();

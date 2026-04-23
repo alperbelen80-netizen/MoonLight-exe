@@ -17,6 +17,7 @@ import { AICoachModule } from './ai-coach/ai-coach.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { HealthModule } from './health/health.module';
+import { CrashReporterModule } from './health/crash-reporter.module';
 import { JournalModule } from './journal/journal.module';
 import { RiskProfileModule } from './risk/risk-profile.module';
 import { AlertsDispatcherModule } from './alerts/alerts-dispatcher.module';
@@ -72,6 +73,7 @@ import { SecurityModule } from './security/security.module';
     AlertsDispatcherModule,
     AICoachModule,
     HealthModule,
+    CrashReporterModule,
     JournalModule,
     TrinityOversightModule,
     MoeBrainModule,

@@ -113,6 +113,104 @@ export class SelectorRegistry {
   }
 }
 
+// ---- V2.6-5-B Selector Drift Guard --------------------------------------
+//
+// Tracks per-broker / per-selector miss counters so the Owner Console can
+// surface "the login button selector hasn't matched in 5 attempts on
+// OLYMP_TRADE — operator, please check `DOM_SELECTORS_JSON`".
+//
+// After `autoDisableAfter` consecutive misses for any selector the guard
+// flips the broker into a soft-disabled state — the adapter will refuse
+// to `stageOrder` until the operator resolves it (by updating selectors
+// or clearing the counter).
+
+export interface SelectorMissEvent {
+  brokerId: string;
+  selector: string;
+  logicalName: string;
+  at: string;
+  reason: string;
+}
+
+export class SelectorDriftGuard {
+  private readonly logger = new Logger('SelectorDriftGuard');
+  private readonly missCounts = new Map<string, number>();
+  private readonly lastMisses: SelectorMissEvent[] = [];
+  private readonly softDisabled = new Set<string>();
+
+  constructor(private readonly autoDisableAfter = 5) {}
+
+  /** Call when a selector fails to match. Returns whether the broker is now soft-disabled. */
+  recordMiss(brokerId: string, logicalName: string, selector: string, reason: string): boolean {
+    const key = `${brokerId}::${logicalName}`;
+    const prev = this.missCounts.get(key) ?? 0;
+    const next = prev + 1;
+    this.missCounts.set(key, next);
+    const evt: SelectorMissEvent = {
+      brokerId,
+      selector,
+      logicalName,
+      at: new Date().toISOString(),
+      reason,
+    };
+    this.lastMisses.push(evt);
+    if (this.lastMisses.length > 200) {
+      this.lastMisses.splice(0, this.lastMisses.length - 200);
+    }
+    this.logger.warn(
+      `selector miss ${key} (${next}/${this.autoDisableAfter}): ${reason}`,
+    );
+    if (next >= this.autoDisableAfter) {
+      if (!this.softDisabled.has(brokerId)) {
+        this.logger.error(
+          `broker ${brokerId} SOFT-DISABLED due to selector drift on ${logicalName}`,
+        );
+      }
+      this.softDisabled.add(brokerId);
+      return true;
+    }
+    return this.softDisabled.has(brokerId);
+  }
+
+  /** Reset counters for a broker. Used after a selector bundle upgrade. */
+  reset(brokerId: string): void {
+    for (const k of Array.from(this.missCounts.keys())) {
+      if (k.startsWith(`${brokerId}::`)) this.missCounts.delete(k);
+    }
+    this.softDisabled.delete(brokerId);
+    this.logger.log(`drift counters reset for ${brokerId}`);
+  }
+
+  /** Record a successful selector match — halves the counter (self-healing). */
+  recordHit(brokerId: string, logicalName: string): void {
+    const key = `${brokerId}::${logicalName}`;
+    const prev = this.missCounts.get(key) ?? 0;
+    if (prev > 0) {
+      this.missCounts.set(key, Math.floor(prev / 2));
+      if (this.missCounts.get(key) === 0) {
+        this.missCounts.delete(key);
+      }
+    }
+  }
+
+  isSoftDisabled(brokerId: string): boolean {
+    return this.softDisabled.has(brokerId);
+  }
+
+  /** Snapshot for the Owner Console + /api/broker/dom/status */
+  snapshot(): {
+    softDisabled: string[];
+    counts: Record<string, number>;
+    lastMisses: SelectorMissEvent[];
+  } {
+    return {
+      softDisabled: Array.from(this.softDisabled),
+      counts: Object.fromEntries(this.missCounts.entries()),
+      lastMisses: this.lastMisses.slice(-50),
+    };
+  }
+}
+
 // ---- Browser session manager ----
 
 export interface DomSessionConfig {

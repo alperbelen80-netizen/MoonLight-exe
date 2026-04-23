@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:electron": "MOONLIGHT_SPAWN_BACKEND=true electron .",
-    "build": "tsc && vite build && tsc main/index.ts main/backend-manager.ts --outDir dist-electron/main && tsc main/preload.ts --outDir dist-electron",
+    "build": "tsc && vite build && tsc main/index.ts main/backend-manager.ts main/auto-updater.ts main/crash-reporter.ts --outDir dist-electron/main && tsc main/preload.ts --outDir dist-electron",
     "build:preload": "tsc main/preload.ts --outDir dist-electron",
     "preview": "vite preview",
     "prepackage": "node scripts/prepackage-check.js",
@@ -20,6 +20,7 @@
   "dependencies": {
     "clsx": "^2.1.0",
     "cmdk": "^1.1.1",
+    "electron-updater": "6.1.7",
     "lucide-react": "^0.303.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

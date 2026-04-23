@@ -1,6 +1,7 @@
 import { RiskProfilePanel } from '../components/settings/RiskProfilePanel';
 import { AlertsWebhookPanel } from '../components/settings/AlertsWebhookPanel';
 import { CredentialsVaultPanel } from '../components/settings/CredentialsVaultPanel';
+import { AboutPanel } from '../components/settings/AboutPanel';
 
 export function SettingsPage() {
   return (
@@ -8,19 +9,20 @@ export function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Risk profili, alert kanalları, credentials vault ve sistem ayarları.
+          Risk profili, alert kanalları, credentials vault, güncellemeler ve sistem ayarları.
         </p>
       </div>
 
       <CredentialsVaultPanel />
       <RiskProfilePanel />
       <AlertsWebhookPanel />
+      <AboutPanel />
 
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
         <h3 className="font-semibold text-gray-900 dark:text-gray-100">Sistem</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
           <Item label="Backend" value={import.meta.env.VITE_API_BASE_URL || '/api'} />
-          <Item label="Version" value="1.9.0 (Prod-Hardened)" />
+          <Item label="Version" value="2.6.4 (Productionized)" />
           <Item label="Theme" value="Auto (system / manual toggle)" />
           <Item label="Shortcut" value="Cmd/Ctrl + K — Komut Paleti" />
         </div>

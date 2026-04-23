@@ -36,6 +36,11 @@ export class IQOptionRealAdapter extends BaseWSAdapter implements BrokerAdapterI
   private readonly accountPositions: Map<string, BrokerPositionDTO[]> = new Map();
   private lastKnownBalance = 0;
   private readonly payoutCache: Map<string, number> = new Map();
+  // v2.6-5: Subscriptions we restore on every (re)connect. Keeps the
+  // session self-healing: if the broker drops us briefly we come back
+  // with the same feeds primed without the operator doing anything.
+  private readonly activeSubscriptions: Set<string> = new Set();
+  private lastAuthVerifiedAt: number | null = null;
 
   constructor(private readonly creds: BrokerCredentialsService) {
     const url = process.env.IQ_OPTION_WS_URL || 'wss://iqoption.com/echo/websocket';
@@ -46,10 +51,48 @@ export class IQOptionRealAdapter extends BaseWSAdapter implements BrokerAdapterI
       maxReconnectAttempts: 6,
       reconnectBaseDelayMs: 1000,
     });
+    // v2.6-5: rebind subscriptions whenever the socket transitions back to UP.
+    this.on('health-change', (e: { from: SessionHealth; to: SessionHealth }) => {
+      if (e.to === SessionHealth.UP && e.from !== SessionHealth.UP) {
+        this.restoreSubscriptions();
+      }
+    });
   }
 
   getBrokerId(): string {
     return 'IQ_OPTION';
+  }
+
+  /**
+   * V2.6-5: expose a snapshot of cached payouts, subscriptions and last
+   * auth verification for the Owner Console + health registry. Never
+   * exposes the SSID itself.
+   */
+  getRuntimeDiagnostics(): {
+    health: SessionHealth;
+    authenticated: boolean;
+    lastAuthVerifiedAt: number | null;
+    subscriptions: string[];
+    payoutCount: number;
+    lastLatencyMs: number | null;
+    balance: number;
+  } {
+    return {
+      health: this.getSessionHealth(),
+      authenticated: this.authenticated,
+      lastAuthVerifiedAt: this.lastAuthVerifiedAt,
+      subscriptions: Array.from(this.activeSubscriptions),
+      payoutCount: this.payoutCache.size,
+      lastLatencyMs: this.getLastLatencyMs(),
+      balance: this.lastKnownBalance,
+    };
+  }
+
+  /** Snapshot of the payout cache — used by the Dynamic Payout Matrix provider. */
+  snapshotPayouts(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const [k, v] of this.payoutCache.entries()) out[k] = v;
+    return out;
   }
 
   /**
@@ -106,6 +149,7 @@ export class IQOptionRealAdapter extends BaseWSAdapter implements BrokerAdapterI
     }
     if (obj.name === 'profile.balance' && obj.msg?.amount !== undefined) {
       this.lastKnownBalance = Number(obj.msg.amount);
+      this.lastAuthVerifiedAt = Date.now();
       return { event: 'balance', payload: obj.msg };
     }
     if (obj.name === 'instruments.binary.payout' && obj.msg) {
@@ -117,7 +161,84 @@ export class IQOptionRealAdapter extends BaseWSAdapter implements BrokerAdapterI
       }
       return { event: 'payout', payload: obj.msg };
     }
+    // v2.6-5: track position close events so getOpenPositions reflects reality.
+    if (obj.name === 'position-changed' && obj.msg) {
+      this.trackPositionUpdate(obj.msg);
+      return { event: 'position', payload: obj.msg };
+    }
+    if (obj.name === 'timeSync') {
+      // ping-pong companion; not useful as event.
+      return null;
+    }
     return { event: obj.name, payload: obj.msg };
+  }
+
+  /**
+   * v2.6-5: Subscribe to payout and balance streams after auth. Called
+   * on every successful (re)connect so operators don't have to replay
+   * subscription after a dropped session.
+   */
+  private restoreSubscriptions(): void {
+    if (!this.ws || !this.authenticated) return;
+    this.logger.log('Restoring subscriptions after session up');
+    const defaultSubs = [
+      'portfolio.position-changed',
+      'profile.balance',
+      'instruments.binary.payout',
+    ];
+    for (const sub of defaultSubs) {
+      this.activeSubscriptions.add(sub);
+    }
+    for (const sub of this.activeSubscriptions) {
+      try {
+        this.sendPush({
+          name: 'subscribeMessage',
+          msg: { name: sub, version: '1.0' },
+        });
+      } catch (err) {
+        this.logger.warn(
+          `subscription ${sub} push failed: ${(err as Error).message}`,
+        );
+      }
+    }
+  }
+
+  private trackPositionUpdate(msg: any): void {
+    try {
+      const accountId = String(msg.user_balance_id ?? 'default');
+      const arr = this.accountPositions.get(accountId) ?? [];
+      const id = String(msg.id ?? msg.position_id ?? '');
+      if (!id) return;
+      const status =
+        msg.status === 'closed'
+          ? BrokerPositionStatus.CLOSED
+          : BrokerPositionStatus.OPEN;
+      const openTs = msg.open_time
+        ? new Date(msg.open_time * 1000).toISOString()
+        : new Date().toISOString();
+      const expiryTs = msg.expiry_time
+        ? new Date(msg.expiry_time * 1000).toISOString()
+        : (msg.close_time
+            ? new Date(msg.close_time * 1000).toISOString()
+            : openTs);
+      const existing = arr.findIndex((p) => p.position_id === id);
+      const next: BrokerPositionDTO = {
+        position_id: id,
+        symbol: String(msg.active_id ?? msg.active ?? ''),
+        direction:
+          msg.direction === 'call' ? SignalDirection.CALL : SignalDirection.PUT,
+        status,
+        stake_amount: Number(msg.invest ?? 0),
+        entry_price: Number(msg.open_quote ?? msg.price ?? 0),
+        open_ts_utc: openTs,
+        expiry_ts_utc: expiryTs,
+      };
+      if (existing >= 0) arr[existing] = next;
+      else arr.push(next);
+      this.accountPositions.set(accountId, arr);
+    } catch {
+      // Never let a malformed broker payload crash the adapter.
+    }
   }
 
   async sendOrder(request: BrokerOrderRequestDTO): Promise<BrokerOrderAckDTO> {
@@ -240,15 +361,24 @@ export class IQOptionRealAdapter extends BaseWSAdapter implements BrokerAdapterI
   }
 
   private resolveActiveId(symbol: string): number {
+    // v2.6-5: expanded map covering the common FX, commodities and crypto
+    // actives that IQ Option exposes on binary options. This is a
+    // static fallback; the adapter also honors dynamic IDs coming in via
+    // `instruments.binary.payout` events — the resolver is used only
+    // when we're placing a fresh order without prior cache.
     const map: Record<string, number> = {
-      EURUSD: 1,
-      GBPUSD: 2,
-      USDJPY: 3,
-      AUDUSD: 5,
-      USDCAD: 7,
-      XAUUSD: 81,
-      BTCUSD: 816,
-      ETHUSD: 817,
+      // FX majors
+      EURUSD: 1, GBPUSD: 2, EURJPY: 3, USDJPY: 4, AUDUSD: 5, USDRUB: 6,
+      USDCAD: 7, NZDUSD: 8, USDCHF: 9, EURGBP: 10,
+      // FX crosses
+      EURCHF: 11, AUDCAD: 12, AUDJPY: 13, EURAUD: 14, EURNZD: 15,
+      GBPCAD: 16, GBPCHF: 17, GBPJPY: 18, NZDJPY: 19, CHFJPY: 20,
+      // Commodities
+      XAUUSD: 81, XAGUSD: 82, XPTUSD: 83, XPDUSD: 84,
+      // Indices
+      US500: 102, US30: 103, NAS100: 104, UK100: 105, GER30: 106,
+      // Crypto
+      BTCUSD: 816, ETHUSD: 817, LTCUSD: 818, XRPUSD: 819, BCHUSD: 820,
     };
     return map[symbol] ?? 1;
   }

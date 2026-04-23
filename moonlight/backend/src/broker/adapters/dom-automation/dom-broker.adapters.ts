@@ -4,18 +4,22 @@ import {
   DomBrowserSessionManager,
   DomPageLike,
   SelectorRegistry,
+  SelectorDriftGuard,
   VersionedSelectorBundle,
 } from './dom-base';
 import { BrokerHealthRegistryService } from '../../health/broker-health-registry.service';
 import { BrokerOrderRequestDTO } from '../../../shared/dto/broker-order.dto';
 
 /**
- * V2.5-4 Olymp Trade DOM adapter (skeleton).
+ * V2.6-5-B Olymp Trade DOM adapter.
  *
  * Uses the versioned selector bundle registered under 'OLYMP_TRADE'. See
  * `default-selectors.ts` for the shipped defaults — operators should keep
  * a newer bundle in their deployment so selector drift can be hot-patched
  * without a full release cycle.
+ *
+ * Live click is handled generically in the base class via `confirmButton`.
+ * Per-broker login flow + quote read + stage order remain specialised.
  */
 @Injectable()
 export class OlympTradeDomAdapter extends DomBrokerAdapterBase {
@@ -23,8 +27,10 @@ export class OlympTradeDomAdapter extends DomBrokerAdapterBase {
     sessions: DomBrowserSessionManager,
     selectors: SelectorRegistry,
     health: BrokerHealthRegistryService,
+    drift: SelectorDriftGuard,
   ) {
     super('OLYMP_TRADE', sessions, selectors, health);
+    this.setDriftGuard(drift);
   }
 
   protected async performLogin(
@@ -81,8 +87,10 @@ export class BinomoDomAdapter extends DomBrokerAdapterBase {
     sessions: DomBrowserSessionManager,
     selectors: SelectorRegistry,
     health: BrokerHealthRegistryService,
+    drift: SelectorDriftGuard,
   ) {
     super('BINOMO', sessions, selectors, health);
+    this.setDriftGuard(drift);
   }
 
   protected async performLogin(
@@ -135,8 +143,10 @@ export class ExpertOptionDomAdapter extends DomBrokerAdapterBase {
     sessions: DomBrowserSessionManager,
     selectors: SelectorRegistry,
     health: BrokerHealthRegistryService,
+    drift: SelectorDriftGuard,
   ) {
     super('EXPERT_OPTION', sessions, selectors, health);
+    this.setDriftGuard(drift);
   }
 
   protected async performLogin(

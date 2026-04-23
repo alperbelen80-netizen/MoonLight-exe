@@ -19,6 +19,7 @@ import { BrokerLatencyTracker } from './metrics/broker-latency-tracker.service';
 import { BrokerScoringService } from './metrics/broker-scoring.service';
 import { MultiBrokerRouter } from './multi-broker-router.service';
 import { PayoutMatrixService } from './payout/payout-matrix.service';
+import { DynamicPayoutProvider } from './payout/dynamic-payout-provider.service';
 import { OwnerAccount } from '../database/entities/owner-account.entity';
 import { BrokerHealthModule } from './health/broker-health.module';
 import { BrokerHealthRegistryService } from './health/broker-health-registry.service';
@@ -32,6 +33,7 @@ import { BrokerSimController } from './adapters/simulated/broker-sim.controller'
 import {
   DomBrowserSessionManager,
   SelectorRegistry,
+  SelectorDriftGuard,
 } from './adapters/dom-automation/dom-base';
 import {
   OlympTradeDomAdapter,
@@ -91,6 +93,7 @@ function makeSimFactory(
     BrokerScoringService,
     MultiBrokerRouter,
     PayoutMatrixService,
+    DynamicPayoutProvider,
     // V2.5-2: simulator stack.
     BrokerSimRegistry,
     // V2.5-4: DOM automation stack (lazy-load, feature-flagged).
@@ -107,6 +110,11 @@ function makeSimFactory(
         reg.register('EXPERT_OPTION', DEFAULT_EXPERT_OPTION_SELECTORS);
         return reg;
       },
+    },
+    // V2.6-5-B: SelectorDriftGuard singleton — injected into DOM adapters.
+    {
+      provide: SelectorDriftGuard,
+      useFactory: () => new SelectorDriftGuard(5),
     },
     OlympTradeDomAdapter,
     BinomoDomAdapter,
@@ -164,6 +172,8 @@ function makeSimFactory(
     ExpertOptionDomAdapter,
     DomBrowserSessionManager,
     SelectorRegistry,
+    SelectorDriftGuard,
+    DynamicPayoutProvider,
     BROKER_ADAPTER,
   ],
 })

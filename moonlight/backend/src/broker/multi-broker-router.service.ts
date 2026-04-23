@@ -88,6 +88,7 @@ export class MultiBrokerRouter {
         eligibleBrokers.push({
           brokerId: broker.id,
           brokerName: broker.name,
+          priority: broker.priority,
           score: score.health_score,
           latency: score.latency_score,
           reliability: score.reliability_score,
@@ -102,7 +103,7 @@ export class MultiBrokerRouter {
       return {
         brokerId: 'FAKE',
         score: 0,
-        reason: 'FALLBACK: No brokers available',
+        reason: 'FALLBACK: No brokers available (Trinity audit: no-op — session/account not ready)',
         fallbackUsed: true,
       };
     }
@@ -110,15 +111,25 @@ export class MultiBrokerRouter {
     eligibleBrokers.sort((a, b) => b.score - a.score);
 
     const selected = eligibleBrokers[0];
+    // v2.6-6: build an audit-friendly reason string that captures the
+    // full score matrix. Trinity GÖZ-2 ingests this verbatim so operators
+    // can reconstruct "why broker X was chosen over Y" retrospectively.
+    const competitors = eligibleBrokers
+      .slice(1, 4)
+      .map((c) => `${c.brokerId}:${c.score.toFixed(0)}`)
+      .join(', ');
+    const breakdown =
+      `latency=${selected.latency} reliability=${selected.reliability} payout=${selected.payout} priority=${selected.priority}`;
+    const reason = competitors
+      ? `${selected.brokerId} chosen (health=${selected.score.toFixed(0)} ${breakdown}) over [${competitors}]`
+      : `${selected.brokerId} chosen (health=${selected.score.toFixed(0)} ${breakdown}) — sole eligible broker`;
 
-    this.logger.log(
-      `Broker selected: ${selected.brokerName} (score: ${selected.score.toFixed(1)}, latency: ${selected.latency}, payout: ${selected.payout})`,
-    );
+    this.logger.log(reason);
 
     return {
       brokerId: selected.brokerId,
       score: selected.score,
-      reason: `Best score among ${eligibleBrokers.length} brokers`,
+      reason,
       fallbackUsed: false,
     };
   }
