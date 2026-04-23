@@ -1,6 +1,167 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.5.5 — Ray GPU Simulation + Resource Broker (token bucket)
+
+**Release Date:** 2026-04-23
+**Scope:** GÖZ-1/GÖZ-3 için gerçek kaynak yönetimi. Ray-local mode benzeri CPU/GPU
+token allocation, %80 budget enforcement, priority queue, simulasyon toggle.
+
+### 🧠 V2.5-5-A — ResourceBroker genişletildi
+- Önceki stub (`sample()` + `requestBudget()`) **backwards-compatible** şekilde korundu.
+- Yeni token-bucket API:
+  - `tryAcquire({cpu, gpu, priority, ownerId})` → sync lease veya `null`
+  - `acquire(req, timeoutMs)` → async, timeout'lu queue desteği
+  - `release(leaseId)` → tek çağrı, FIFO queue'yu otomatik drain eder
+  - `snapshot()` → `{cpu, gpu, leases, queueDepth, simulationEnabled, sessionTotals}`
+- `MOE_BUDGET_PCT` (default 80) **gerçekten** enforce ediliyor:
+  - `cpuCap = floor(cpuTotal × budgetPct / 100)`
+  - `gpuCap = floor(gpuTotal × budgetPct / 100)`
+- Priority seviyeleri (0 normal, 1 high, 2 critical):
+  - Yüksek öncelik queue başına atlıyor ama **mevcut lease'leri asla pre-empt etmez** (fail-safe).
+
+### 🛰️ V2.5-5-B — Simulasyon toggle (Ray-local)
+- `RESOURCE_SIMULATION_ENABLED=true` → 4 sanal GPU havuzu otomatik aktif.
+- `RESOURCE_CPU_TOKENS`, `RESOURCE_GPU_TOKENS` env ile havuz boyutu ayarlanabilir.
+- Runtime toggle:
+  - `POST /api/trinity/simulation {"enabled": true|false}` → snapshot döndürür.
+  - GPU lease'leri varken OFF'a geçmek engellenir (deferred), aksi halde zombi lease kalır.
+- GÖZ-1 (System Observer) artık GÖZ-3 (Topology Governor) için gerçek kapasite sinyali üretebiliyor.
+
+### 🌐 V2.5-5-C — Yeni REST API
+- `GET  /api/trinity/resources` → token havuzu, aktif lease'ler, queue depth, simulation flag.
+- `POST /api/trinity/simulation` → simülasyonu açıp kapatır.
+
+### 🧪 Yeni testler (11)
+- `src/tests/unit/trinity-oversight/resource-broker.spec.ts`:
+  - budget cap CPU ve GPU token enforcement
+  - queue + release chain
+  - deadline timeout resolves null
+  - priority queue head insertion
+  - simulation toggle creates 4 GPU default
+  - snapshot consistency (used + free = cap)
+  - unknown lease release no-op
+  - requestBudget backward compat
+
+### 🔐 Migration notları (operator)
+- Kullanmak istiyorsanız:
+  - `MOE_BUDGET_PCT=80` (varsayılan)
+  - `RESOURCE_CPU_TOKENS=<N>` (atlanırsa `os.cpus().length`)
+  - `RESOURCE_SIMULATION_ENABLED=true` → 4 sanal GPU
+- Çalışma zamanında:
+  - `POST /api/trinity/simulation {"enabled":true}` ile açın.
+  - `GET /api/trinity/resources` ile canlı telemetry izleyin.
+
+---
+
+## v2.5.3 — IQ Option Real WSS/REST Feature-Flag Guard
+
+**Release Date:** 2026-04-23
+**Scope:** Gerçek IQ Option bağlantısının **kazaen** canlı order göndermesini engelleyecek
+explicit opt-in mekanizması + fail-safe fallback simülatöre.
+
+### 🔐 V2.5-3-A — `BROKER_IQOPTION_REAL_ENABLED` feature-flag
+- Varsayılan: **OFF**. Flag `"true"` değerine eşit değilse IQ Option adapter hiç bağlanmaz.
+- `IQOptionRealAdapter.isRealEnabled()` static method eklendi (runtime + testable).
+- `connectSession()`:
+  - Flag OFF → `throw new Error('IQ_OPTION_REAL_DISABLED')` + log + `SessionHealth.DOWN`.
+  - Flag ON + credentials yok + non-mock → `throw new Error('IQ_OPTION_CREDENTIALS_MISSING')`.
+  - Flag ON + credentials/mock → gerçek WSS handshake denenir.
+- `sendOrder()`:
+  - Flag OFF → REJECT `REAL_DISABLED` (latency_ms=0, network denenmez).
+  - Flag ON + credentials yok + non-mock → REJECT `NOT_CONFIGURED`.
+  - Flag ON + session DOWN → REJECT `SESSION_DOWN`.
+
+### 🔁 V2.5-3-B — Fail-safe fallback semantiği
+- `IQ_OPTION_REAL_DISABLED` hatası, MultiBrokerRouter / Test-MoE için sinyal:
+  **simülatöre (SimulatedBrokerAdapter) route et**.
+- Loglama operatörü uyarıyor: "Falling back to simulated routing. Set the flag to enable real WSS."
+
+### 🧪 Yeni testler (5)
+- `src/tests/unit/broker/iq-option-real-feature-flag.spec.ts`:
+  - `isRealEnabled()` default false ve `"true"` dışında hep false
+  - connectSession flag off → REAL_DISABLED
+  - sendOrder flag off → REJECT / REAL_DISABLED / latency=0
+  - flag on + credentials yok → CREDENTIALS_MISSING
+
+### 🛠️ Mevcut WSS test uyumluluğu
+- `src/tests/unit/broker/wss-adapters.spec.ts` içindeki 3 IQ Option testi
+  `BROKER_IQOPTION_REAL_ENABLED=true` env setup'ı ile güncellendi.
+  (Yeni guard semantiği mevcut happy-path testlerini bozmadı.)
+
+---
+
+## v2.5.2 — Broker Simulation Mode (unified, deterministic, replayable)
+
+**Release Date:** 2026-04-23
+**Scope:** 4 broker (IQ/Olymp/Binomo/Expert) + FAKE için tek bir deterministik
+simülasyon adapter'ı. PRNG seed ile bit-for-bit replayable. BrokerHealthRegistry
+entegreli. REST control surface.
+
+### 🎲 V2.5-2-A — Deterministik PRNG
+- `src/shared/utils/deterministic-prng.ts`:
+  - Mulberry32 tabanlı (`DeterministicPrng`) → `next()`, `nextInt`, `nextRange`, `nextBool`.
+  - `DeterministicPrng.seedFromString(s)` (FNV-1a 32-bit) → string tabanlı stabil seed.
+  - `gaussianSample(prng, mean, std)` (Box–Muller) → latency/slippage için.
+- **Aynı seed → aynı dizi** garantili.
+
+### 🏗️ V2.5-2-B — SimulatedBrokerAdapter (unified)
+- `src/broker/adapters/simulated/simulated-broker.adapter.ts`:
+  - Tek sınıf, `brokerId` ile 4 quad-core broker + FAKE'i temsil edebiliyor.
+  - Profile-based execution characteristics (latency, slippage, rejection, payout,
+    sessionFlake) — `DEFAULT_SIM_PROFILES` ile varsayılanlar:
+    - IQ_OPTION: 180±45ms latency, 2% reject, 86% payout
+    - OLYMP_TRADE: 260±70ms, 3% reject, 82% payout
+    - BINOMO: 340±95ms, 5% reject, 78% payout
+    - EXPERT_OPTION: 290±80ms, 4% reject, 80% payout
+    - FAKE: 50±10ms, 0% reject, 90% payout
+  - `BrokerAdapterInterface`'i tamamen implement ediyor (getBrokerId, getSessionHealth,
+    connectSession, disconnectSession, sendOrder, getOpenPositions, getBalance,
+    getPayoutRatio, getLastLatencyMs).
+  - `BrokerHealthRegistryService` ile state transitions:
+    `DISCONNECTED → CONNECTING → AUTHENTICATING → READY → (THROTTLED/ERRORED/DISCONNECTED)`.
+  - Admin surface: `reset()`, `configure({seed, profile, reset})`, `snapshot()`.
+
+### 🗂️ V2.5-2-C — BrokerSimRegistry + BrokerModule wiring
+- `BrokerSimRegistry` (singleton) tüm sim adapter'ları toplar.
+- BrokerModule 5 sim adapter'ı factory provider ile kaydeder:
+  - `SIM_BROKER_IQ_OPTION`, `SIM_BROKER_OLYMP_TRADE`, `SIM_BROKER_BINOMO`,
+    `SIM_BROKER_EXPERT_OPTION`, `SIM_BROKER_FAKE`
+- BrokerHealthModule import'u modüle eklendi → registry cross-module erişilebilir.
+
+### 🌐 V2.5-2-D — REST API
+- `GET  /api/broker/sim/state` → 5 broker snapshot'ı
+- `POST /api/broker/sim/reset` → tüm sim state'leri sıfırlar (seed, counters, positions, PRNG)
+- `POST /api/broker/sim/configure {brokerId, seed?, profile?, reset?}` → hedef broker'ı reseed/override
+
+### 🧪 Yeni testler (18)
+- `src/tests/unit/shared/deterministic-prng.spec.ts` (8 test):
+  - identical seeds → identical sequences
+  - seed değişikliği sequence değiştirir
+  - `next()` aralığı [0,1)
+  - `nextInt` bounds, `nextBool(0|1)` deterministik
+  - `seedFromString` stabil ve collision-free
+  - NaN/Infinity/negative seed güvenli
+  - Gaussian sample mean yakınsar
+- `src/tests/unit/broker/simulated-broker-adapter.spec.ts` (10 test):
+  - identity + profile snapshot
+  - health transitions (DISCONNECTED→READY)
+  - SESSION_DOWN rejection
+  - **aynı seed → identical order sequence** (status, latency, open_price bit-for-bit eşit)
+  - farklı broker profilleri farklı latency distribution
+  - FAKE profile → 0% reject over 100 orders
+  - `reset()` sonra replay → identical output
+  - `configure({seed, profile})` → live apply
+  - `getPayoutRatio` deterministik (symbol, expiry, brokerId, seed)
+  - `BrokerSimRegistry.resetAll()` tüm adapter'ları sıfırlar
+
+### 🔁 Replayability
+- `BROKER_SIM_SEED` env veya `configure({seed})` ile tüm sim run tam **replayable**.
+- Contract test suite bit-for-bit deterministik → regresyon tespiti kolay.
+
+---
+
+
 ## v2.5.1 — Startup CPU Loop Fix + Bootstrap Hardening
 
 **Release Date:** 2026-04-23

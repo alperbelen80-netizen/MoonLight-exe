@@ -38,6 +38,8 @@ describe('WSS Broker Adapters (with MockWSServer)', () => {
       process.env.IQ_OPTION_WS_URL = `ws://127.0.0.1:${port}`;
       process.env.IQ_OPTION_SSID = 'TEST_SSID';
       process.env.IQ_OPTION_BALANCE_ID = '42';
+      // V2.5-3: real adapter gated behind explicit opt-in flag.
+      process.env.BROKER_IQOPTION_REAL_ENABLED = 'true';
 
       const moduleRef = await Test.createTestingModule({
         providers: [BrokerCredentialsService, IQOptionRealAdapter],
@@ -72,6 +74,9 @@ describe('WSS Broker Adapters (with MockWSServer)', () => {
       delete process.env.IQ_OPTION_SSID;
       delete process.env.IQ_OPTION_BALANCE_ID;
       delete process.env.BROKER_MOCK_MODE;
+      // V2.5-3: enable the real adapter so this path exercises the
+      // "configured-but-no-credentials" branch rather than the flag guard.
+      process.env.BROKER_IQOPTION_REAL_ENABLED = 'true';
 
       const moduleRef = await Test.createTestingModule({
         providers: [BrokerCredentialsService, IQOptionRealAdapter],
@@ -87,6 +92,7 @@ describe('WSS Broker Adapters (with MockWSServer)', () => {
       process.env.IQ_OPTION_WS_URL = `ws://127.0.0.1:${port}`;
       process.env.IQ_OPTION_SSID = 'TEST_SSID';
       process.env.IQ_OPTION_BALANCE_ID = '42';
+      process.env.BROKER_IQOPTION_REAL_ENABLED = 'true';
 
       const moduleRef = await Test.createTestingModule({
         providers: [BrokerCredentialsService, IQOptionRealAdapter],

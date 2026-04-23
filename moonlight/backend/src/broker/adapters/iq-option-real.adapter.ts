@@ -52,7 +52,27 @@ export class IQOptionRealAdapter extends BaseWSAdapter implements BrokerAdapterI
     return 'IQ_OPTION';
   }
 
+  /**
+   * V2.5-3: Real IQ Option WSS is OFF by default. Operators must explicitly
+   * opt-in via BROKER_IQOPTION_REAL_ENABLED=true. This protects the system
+   * from accidentally initiating real trades when a stray SSID cookie is
+   * present in the environment.
+   */
+  static isRealEnabled(): boolean {
+    return process.env.BROKER_IQOPTION_REAL_ENABLED === 'true';
+  }
+
   async connectSession(_accountId: string): Promise<void> {
+    if (!IQOptionRealAdapter.isRealEnabled()) {
+      // Fail-safe fallback: do NOT attempt a real connection. Callers can
+      // still route through the SimulatedBrokerAdapter for IQ_OPTION.
+      this.logger.warn(
+        'IQ Option real adapter disabled (BROKER_IQOPTION_REAL_ENABLED!=true). ' +
+          'Falling back to simulated routing. Set the flag to enable real WSS.',
+      );
+      this.setHealth(SessionHealth.DOWN);
+      throw new Error('IQ_OPTION_REAL_DISABLED');
+    }
     const { present } = this.creds.getIQOption();
     if (!present && !this.creds.isMockMode()) {
       this.logger.warn('IQ Option credentials not configured. Session will not open.');
@@ -102,6 +122,21 @@ export class IQOptionRealAdapter extends BaseWSAdapter implements BrokerAdapterI
 
   async sendOrder(request: BrokerOrderRequestDTO): Promise<BrokerOrderAckDTO> {
     const startTs = Date.now();
+
+    // V2.5-3: gate order placement behind the real-enabled flag.
+    if (!IQOptionRealAdapter.isRealEnabled()) {
+      return {
+        broker_request_id: request.broker_request_id,
+        broker_order_id: 'REAL_DISABLED',
+        status: BrokerOrderStatus.REJECT,
+        response_ts_utc: new Date().toISOString(),
+        latency_ms: 0,
+        reject_code: 'REAL_DISABLED',
+        reject_message:
+          'IQ Option real adapter disabled. Set BROKER_IQOPTION_REAL_ENABLED=true or route via the simulator.',
+      };
+    }
+
     const { creds } = this.creds.getIQOption();
 
     if (!creds && !this.creds.isMockMode()) {
