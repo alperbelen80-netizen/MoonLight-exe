@@ -1,38 +1,22 @@
 [
   {
-    "content": "V2.6-4-A: electron-updater entegrasyonu",
+    "content": "V2.6-7: Runtime Flags full stack (backend + IPC + UI)",
     "status": "completed"
   },
   {
-    "content": "V2.6-4-B: Electron crashReporter.start() + backend crash telemetry",
+    "content": "V2.6-8: First-Run Onboarding Wizard",
     "status": "completed"
   },
   {
-    "content": "V2.6-4-C: Settings → About panel",
+    "content": "V2.6-9: Dashboard Safety Widget",
     "status": "completed"
   },
   {
-    "content": "V2.6-5-A: IQ Option real WSS hardening",
+    "content": "Regresyon: Backend 415/415 PASS + Desktop Vitest 17/17 + bundle smoke + packaged smoke",
     "status": "completed"
   },
   {
-    "content": "V2.6-5-B: DOM brokers live click + pre-flight safety + SelectorDriftGuard",
-    "status": "completed"
-  },
-  {
-    "content": "V2.6-5-C: DynamicPayoutProvider",
-    "status": "completed"
-  },
-  {
-    "content": "V2.6-6: Multi-broker intelligent routing skor tuning",
-    "status": "completed"
-  },
-  {
-    "content": "Regresyon: Backend 404/404 PASS + Desktop Vitest 17/17 PASS + bundle smoke + packaged smoke",
-    "status": "completed"
-  },
-  {
-    "content": "CHANGELOG + plan.md güncellemesi",
+    "content": "CHANGELOG + plan.md update",
     "status": "completed"
   }
 ]

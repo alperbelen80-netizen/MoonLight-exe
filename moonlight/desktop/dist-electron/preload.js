@@ -63,4 +63,14 @@ electron_1.contextBridge.exposeInMainWorld('moonlight', {
             return function () { return electron_1.ipcRenderer.removeListener('moonlight:crash:event', listener); };
         },
     },
+    // v2.6-7: Runtime Flags surface (in-app live trading safety switches).
+    flags: {
+        list: function () { return electron_1.ipcRenderer.invoke('moonlight:flags:list'); },
+        set: function (name, value, actor, acknowledgeRealMoney) {
+            if (acknowledgeRealMoney === void 0) { acknowledgeRealMoney = false; }
+            return electron_1.ipcRenderer.invoke('moonlight:flags:set', name, value, actor, acknowledgeRealMoney);
+        },
+        reset: function (actor) { return electron_1.ipcRenderer.invoke('moonlight:flags:reset', actor); },
+        audit: function () { return electron_1.ipcRenderer.invoke('moonlight:flags:audit'); },
+    },
 });

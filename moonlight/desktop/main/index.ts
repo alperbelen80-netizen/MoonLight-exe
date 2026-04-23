@@ -188,6 +188,38 @@ function registerIpc(): void {
     const r = await backendFetch('GET', '/api/crash/stats');
     return safeJson(r);
   });
+
+  // V2.6-7 Runtime Flags surface (localhost-only backend API proxied via
+  // Electron IPC so the renderer doesn't need direct HTTP to the port).
+  ipcMain.handle('moonlight:flags:list', async () => {
+    const r = await backendFetch('GET', '/api/flags');
+    return safeJson(r);
+  });
+  ipcMain.handle(
+    'moonlight:flags:set',
+    async (
+      _e,
+      name: string,
+      value: string,
+      actor: string,
+      acknowledge_real_money = false,
+    ) => {
+      const r = await backendFetch('PUT', `/api/flags/${encodeURIComponent(name)}`, {
+        value,
+        actor,
+        acknowledge_real_money,
+      });
+      return safeJson(r);
+    },
+  );
+  ipcMain.handle('moonlight:flags:reset', async (_e, actor: string) => {
+    const r = await backendFetch('POST', '/api/flags/reset', { actor });
+    return safeJson(r);
+  });
+  ipcMain.handle('moonlight:flags:audit', async () => {
+    const r = await backendFetch('GET', '/api/flags/audit');
+    return safeJson(r);
+  });
 }
 
 function safeJson(r: { status: number; body: string }): unknown {

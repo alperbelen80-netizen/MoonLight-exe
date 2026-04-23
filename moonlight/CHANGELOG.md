@@ -1,6 +1,123 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.6.7 — Zero-Terminal UX: In-App Live Flags + Onboarding + Safety Widget
+
+**Release Date:** 2026-04-23
+**Scope:** Son UX engelini kaldırır — kullanıcı artık `.env` dosyası
+düzenlemez, terminal açmaz. Her şey paketlenmiş `.exe` içinde, UI'dan
+toggle + confirm ile yönetilir.
+
+### 🎛️ V2.6-7 — Runtime Flags (In-App Live Trading Switches)
+
+- Yeni `backend/src/runtime-flags/runtime-flags.module.ts`:
+  - `RuntimeFlagsService` — flag'ler vault'a persist edilir,
+    `process.env` hot-reload edilir, EventEmitter ile subscribers
+    haberdar edilir.
+  - `REGISTERED_FLAGS` — 10 curated flag (type, default, label, description,
+    dangerous, requiresAcknowledge).
+  - Bool / number / enum / csv type validation.
+  - `BROKER_DOM_ALLOW_LIVE_REAL=true` → explicit `acknowledge_real_money: true`
+    body alanı zorunlu.
+  - Audit ring buffer (200 entry, newest first).
+  - Endpoints (loopback-only):
+    - `GET /api/flags` — listele (her flag'in mevcut + default değeri).
+    - `PUT /api/flags/:name` — set et.
+    - `POST /api/flags/reset` — hepsini default'a döndür.
+    - `GET /api/flags/audit` — son 100 değişiklik.
+- Boot-time warm-load: vault'ta kayıtlı flag'ler `onModuleInit`'te
+  `process.env`'e yazılır → restart'tan sonra aynı davranış.
+- Electron preload: `window.moonlight.flags.{list,set,reset,audit}`.
+- React `LiveFlagsPanel`:
+  - Her flag için tip-uygun control (toggle / select / input).
+  - Dangerous flag'ler kırmızı border + onay modal'ı (CONFIRM yazma).
+  - Real-money flag için `ENABLE REAL MONEY` typed confirmation.
+  - Audit trail listesi (son 20 değişiklik).
+  - Bridge yoksa (dev browser) read-only degrade.
+- `SettingsPage` artık CredentialsVault'tan sonra LiveFlags'i de gösterir.
+
+### 🎓 V2.6-8 — First-Run Onboarding Wizard
+
+- Yeni `components/onboarding/OnboardingWizard.tsx`:
+  - 5-adımlı full-screen modal, localStorage ile ilk-açılış detection.
+  - Adım 1: Welcome + sürüm bilgisi + yol haritası.
+  - Adım 2: **Backend healthcheck** (15x polling, /healthz → 200 bekler,
+    başarısızsa "İleri" kilitlenir).
+  - Adım 3: **Vault probe** — kaç credential var, SSID ekleme ipucu.
+  - Adım 4: **Simülasyon smoke** — flags API'ye ping atar, healthy doğrular.
+  - Adım 5: **Live Flags rehberi** — her flag'i açıklar, hangi sırayla
+    açılmalı, demo hesap önerisi.
+  - "Atla" butonu her adımda mevcut.
+  - Tamamlandığında `localStorage.moonlight.onboarding.done = 'true'`.
+- Dashboard'daki SafetyStatusWidget'tan "Onboarding'i tekrar aç"
+  butonuyla her zaman yeniden başlatılabilir.
+
+### 📊 V2.6-9 — Dashboard Safety Status Widget
+
+- Yeni `components/dashboard/SafetyStatusWidget.tsx`:
+  - Her sayfa yüklendiğinde flag'leri çeker, **Safety Tier**'ı klasifikleştirir:
+    - 🟢 **Full Simulation** — hiçbir canlı bağlantı yok
+    - 🔵 **Live Data, Dry Run** — gerçek veri akıyor, click yok
+    - 🟡 **Live Trades — DEMO** — gerçek click ama demo hesap
+    - 🔴 **LIVE — REAL MONEY** ⚠ — gerçek para
+  - Her tier için renkli border + açıklama.
+  - 7 kritik flag için ON/OFF/value badge'leri.
+  - "Live Flags →" ve "Onboarding'i tekrar aç" quick-link'leri.
+  - 15 sn polling ile self-refresh.
+- `DashboardPage` üst bloğa mount edildi → operatör her zaman
+  "şu an hangi modaym" görür.
+
+### ✅ Test Coverage
+
+- Backend Jest: **415/415 PASS** (+11 yeni V2.6-7 test):
+  - List default values round-trip
+  - Set persists + hot-reloads
+  - Unknown flag rejection
+  - Bool / number / enum validation
+  - Dangerous flag acknowledge gate
+  - Reset restores defaults
+  - Audit trail
+  - onChange EventEmitter
+- Desktop Vitest: **17/17 PASS** (regresyonsuz)
+- Bundle smoke: **PASS**
+- Packaged Linux smoke: **PASS** (IndicatorRegistry + Flags API + Vault hepsi green)
+
+### 📦 Yeni Dosyalar
+- `backend/src/runtime-flags/runtime-flags.module.ts`
+- `backend/src/tests/unit/runtime-flags/runtime-flags.spec.ts`
+- `desktop/renderer/src/components/settings/LiveFlagsPanel.tsx`
+- `desktop/renderer/src/components/onboarding/OnboardingWizard.tsx`
+- `desktop/renderer/src/components/dashboard/SafetyStatusWidget.tsx`
+
+### 🔀 Düzenlenen Dosyalar
+- `backend/src/app.module.ts` (RuntimeFlagsModule register)
+- `desktop/main/index.ts` (flags IPC handlers)
+- `desktop/main/preload.ts` (flags surface)
+- `desktop/renderer/src/routes/SettingsPage.tsx` (LiveFlagsPanel mount)
+- `desktop/renderer/src/routes/DashboardPage.tsx` (SafetyStatusWidget mount)
+- `desktop/renderer/src/App.tsx` (OnboardingWizard mount)
+
+### 🎯 Kullanıcı UX'i (Son Kullanıcı Gözünden)
+
+**Önceki akış (V2.6-6):**
+1. `.exe` kur
+2. Terminal aç, `.env` dosyasını edit et (kafa karıştırıcı)
+3. App'i manuel restart et
+4. Settings'e git, SSID gir
+5. Live test
+
+**Yeni akış (V2.6-7):**
+1. `.exe` kur → çift tıkla → app açılır
+2. **Onboarding Wizard** açılır, 5 adımda yönlendirir
+3. Settings → Credentials Vault → SSID gir
+4. Settings → **Live Flags** → toggle'ları aç (confirm modal'larıyla güvenli)
+5. Dashboard'daki **Safety Widget**'ta "LIVE — DEMO" tier görünür
+6. Düşük stake ile ilk canlı smoke
+7. Terminal HİÇ açılmadı, `.env` dosyası HİÇ düzenlenmedi.
+
+---
+
+
 ## v2.6.4/5/6 — Auto-Update + Crash Telemetry + Real Broker Hardening + Routing Tuning
 
 **Release Date:** 2026-04-23

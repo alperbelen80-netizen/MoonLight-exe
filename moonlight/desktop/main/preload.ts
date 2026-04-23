@@ -63,4 +63,24 @@ contextBridge.exposeInMainWorld('moonlight', {
       return () => ipcRenderer.removeListener('moonlight:crash:event', listener);
     },
   },
+
+  // v2.6-7: Runtime Flags surface (in-app live trading safety switches).
+  flags: {
+    list: () => ipcRenderer.invoke('moonlight:flags:list'),
+    set: (
+      name: string,
+      value: string,
+      actor: string,
+      acknowledgeRealMoney = false,
+    ) =>
+      ipcRenderer.invoke(
+        'moonlight:flags:set',
+        name,
+        value,
+        actor,
+        acknowledgeRealMoney,
+      ),
+    reset: (actor: string) => ipcRenderer.invoke('moonlight:flags:reset', actor),
+    audit: () => ipcRenderer.invoke('moonlight:flags:audit'),
+  },
 });

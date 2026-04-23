@@ -46,6 +46,15 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.mainWindow = exports.backend = void 0;
 var electron_1 = require("electron");
@@ -299,6 +308,63 @@ function registerIpc() {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, backendFetch('GET', '/api/crash/stats')];
+                case 1:
+                    r = _a.sent();
+                    return [2 /*return*/, safeJson(r)];
+            }
+        });
+    }); });
+    // V2.6-7 Runtime Flags surface (localhost-only backend API proxied via
+    // Electron IPC so the renderer doesn't need direct HTTP to the port).
+    electron_1.ipcMain.handle('moonlight:flags:list', function () { return __awaiter(_this, void 0, void 0, function () {
+        var r;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, backendFetch('GET', '/api/flags')];
+                case 1:
+                    r = _a.sent();
+                    return [2 /*return*/, safeJson(r)];
+            }
+        });
+    }); });
+    electron_1.ipcMain.handle('moonlight:flags:set', function (_e_1, name_1, value_1, actor_1) {
+        var args_1 = [];
+        for (var _i = 4; _i < arguments.length; _i++) {
+            args_1[_i - 4] = arguments[_i];
+        }
+        return __awaiter(_this, __spreadArray([_e_1, name_1, value_1, actor_1], args_1, true), void 0, function (_e, name, value, actor, acknowledge_real_money) {
+            var r;
+            if (acknowledge_real_money === void 0) { acknowledge_real_money = false; }
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, backendFetch('PUT', "/api/flags/".concat(encodeURIComponent(name)), {
+                            value: value,
+                            actor: actor,
+                            acknowledge_real_money: acknowledge_real_money,
+                        })];
+                    case 1:
+                        r = _a.sent();
+                        return [2 /*return*/, safeJson(r)];
+                }
+            });
+        });
+    });
+    electron_1.ipcMain.handle('moonlight:flags:reset', function (_e, actor) { return __awaiter(_this, void 0, void 0, function () {
+        var r;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, backendFetch('POST', '/api/flags/reset', { actor: actor })];
+                case 1:
+                    r = _a.sent();
+                    return [2 /*return*/, safeJson(r)];
+            }
+        });
+    }); });
+    electron_1.ipcMain.handle('moonlight:flags:audit', function () { return __awaiter(_this, void 0, void 0, function () {
+        var r;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, backendFetch('GET', '/api/flags/audit')];
                 case 1:
                     r = _a.sent();
                     return [2 /*return*/, safeJson(r)];

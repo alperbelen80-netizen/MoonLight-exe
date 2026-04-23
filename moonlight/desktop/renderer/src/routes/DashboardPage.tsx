@@ -12,6 +12,7 @@ import { PnlHistoryChart } from '../components/dashboard/PnlHistoryChart';
 import { LastLiveSignalsWidget } from '../components/dashboard/LastLiveSignalsWidget';
 import { BrokerHealthPanel } from '../components/dashboard/BrokerHealthPanel';
 import { AIInsightsCard } from '../components/dashboard/AIInsightsCard';
+import { SafetyStatusWidget } from '../components/dashboard/SafetyStatusWidget';
 import { DashboardSkeleton } from '../components/common/Skeleton';
 
 export function DashboardPage() {
@@ -88,6 +89,9 @@ export function DashboardPage() {
           />
         </div>
       </div>
+
+      {/* V2.6-9: at-a-glance safety tier for operator situational awareness. */}
+      <SafetyStatusWidget />
 
       <div className="grid grid-cols-3 gap-4">
         <KPICard

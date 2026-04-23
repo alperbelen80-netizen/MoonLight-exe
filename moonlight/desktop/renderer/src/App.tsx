@@ -19,6 +19,7 @@ import { TrinityPage } from './routes/TrinityPage';
 import { AppToaster } from './components/common/AppToaster';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { CommandPalette } from './components/common/CommandPalette';
+import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { useLiveSignalNotifications } from './hooks/useLiveSignalNotifications';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
@@ -38,6 +39,7 @@ function App() {
       <BrowserRouter>
         <GlobalEffects onOpenPalette={() => setPaletteOpen(true)} />
         <AppToaster />
+        <OnboardingWizard />
         <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
         <Routes>
           <Route path="/" element={<ShellLayout />}>
