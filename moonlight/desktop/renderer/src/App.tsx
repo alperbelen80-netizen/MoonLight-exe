@@ -15,6 +15,7 @@ import { DataSourcesPage } from './routes/DataSourcesPage';
 import { AICoachPage } from './routes/AICoachPage';
 import { MarketIntelligencePage } from './routes/MarketIntelligencePage';
 import { JournalPage } from './routes/JournalPage';
+import { TrinityPage } from './routes/TrinityPage';
 import { AppToaster } from './components/common/AppToaster';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { CommandPalette } from './components/common/CommandPalette';
@@ -50,6 +51,7 @@ function App() {
             <Route path="ai-coach" element={<AICoachPage />} />
             <Route path="intel" element={<MarketIntelligencePage />} />
             <Route path="journal" element={<JournalPage />} />
+            <Route path="trinity" element={<TrinityPage />} />
             <Route path="matrix" element={<ExecutionMatrixPage />} />
             <Route path="backtests" element={<BacktestsPage />} />
             <Route path="data-health" element={<DataHealthPage />} />

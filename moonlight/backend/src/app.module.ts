@@ -22,6 +22,7 @@ import { RiskProfileModule } from './risk/risk-profile.module';
 import { AlertsDispatcherModule } from './alerts/alerts-dispatcher.module';
 import { MoeBrainModule } from './moe-brain/moe-brain.module';
 import { TrinityOversightModule } from './trinity-oversight/trinity-oversight.module';
+import { IndicatorRegistryModule } from './indicators/indicator-registry.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { TrinityOversightModule } from './trinity-oversight/trinity-oversight.mo
     JournalModule,
     TrinityOversightModule,
     MoeBrainModule,
+    IndicatorRegistryModule,
   ],
   controllers: [],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

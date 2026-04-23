@@ -1,26 +1,6 @@
 [
   {
-    "content": "V2.0-α: moe-brain ve trinity-oversight NestJS modül iskeletlerini oluştur (contracts, enums, DTOs)",
-    "status": "completed"
-  },
-  {
-    "content": "V2.0-α: Ray local-mode resource broker stub (max %80 bütçe) + GÖZ-1 telemetry servisi",
-    "status": "completed"
-  },
-  {
-    "content": "V2.0-α: 38 parite + 7 TF seed script (product_execution_config idempotent)",
-    "status": "completed"
-  },
-  {
-    "content": "V2.0-α: /api/trinity/status stub endpoint + minimal DTO'lar, app.module'a register",
-    "status": "completed"
-  },
-  {
-    "content": "V2.0-α: Jest unit testler (seed idempotency, resource broker %80 clamp, trinity eyes stub)",
-    "status": "completed"
-  },
-  {
-    "content": "V2.0-α: yarn test & yarn build, CHANGELOG notu, kullanıcıya α kapanış raporu",
+    "content": "V2.0-RC: backend testing agent tam koşu + v2.0.0 release notu",
     "status": "completed"
   }
 ]

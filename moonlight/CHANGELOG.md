@@ -1,6 +1,257 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.0.0 — Evrimsel AI Architecture: RELEASE
+
+**Release Date:** 2026-04-23
+**Scope:** α + β + γ + δ + ε fazlarının konsolide release'i. 5 iterasyon tek bir V2.0 mimarisi olarak kilitlendi.
+
+### 🏁 Net çıktılar
+- **3 Local MoE Beyin** (CEO 5p + TRADE 5p + TEST 5p) — hybrid LLM + deterministik fallback.
+- **Global MoE Orchestrator + Ensemble** — 3 beyin → tek karar (ALLOW/SKIP/VETO/MANUAL_REVIEW).
+- **MoE Gate** — execution-side opt-in gate (`MOE_GATE_ENABLED`, strict/non-strict).
+- **Trinity Oversight** — GÖZ-1 System Observer + GÖZ-2 Decision Auditor + GÖZ-3 Topology Governor + 2-of-3 majority consensus.
+- **Ray local-mode Resource Broker** — MAX %80 utilization budget, fail-closed sample hattı.
+- **38 işlem çifti × 7 timeframe (= 266)** idempotent seed'i + Trinity UI'dan apply butonu.
+- **100 İndikatör + 100 Şablon** registry'si — `GET /api/indicators` çağrılabilir, family/tf/text filtreleri var.
+- **6 Sinaptik kural** guardrail'li — HEBBIAN/ANTI-HEBBIAN/RESIDUAL/HOMEOSTATIC/PLASTIC/SPIKE.
+- **Desktop `/trinity` sayfası** — 3 göz + ensemble weights + roster + training toggle + seed apply, 4s polling.
+
+### ✅ Doğrulama
+- Backend: **`yarn test` → 261/261 PASS**, `yarn build` PASS, ESLint-equivalent (tsc) clean.
+- Renderer: `tsc --noEmit` PASS, `vite build` PASS (410 KB / 116 KB gzip).
+- V2.0-α'da 26, β'de 34, γ'de 18, ε'de 20 yeni Jest testi → toplam **+98 test** (baseline 163 → 261).
+
+### 🛡️ Fail-safe matrisi
+| Senaryo                                        | Davranış                                 |
+| ---------------------------------------------- | ---------------------------------------- |
+| `EMERGENT_LLM_KEY` yok                         | CEO/TRADE → deterministik fallback       |
+| LLM timeout > `MOE_LLM_TIMEOUT_MS`             | Fallback + reason code                   |
+| LLM garbage JSON                               | Fallback (parser ok=false, outputs={})   |
+| CEO/TRADE/TEST beyin throw                     | Ensemble → SAFE_SKIP                     |
+| TEST-MoE vetoFlag                              | Ensemble → VETO (CEO/TRADE ignored)      |
+| Brain skorları çakışıyor                       | Ensemble → MANUAL_REVIEW (asla sessiz)   |
+| Resource broker sample hatası                  | `allowed=false` (fail-closed)            |
+| GÖZ-1 HALT                                     | Consensus HALT (2/3 majority'ye geçmez)  |
+| Training mode açıldı ama bütçe aşıldı          | `PAUSED_BY_BUDGET`                       |
+| MoE gate error + strict                        | Block                                    |
+| MoE gate error + non-strict                    | Allow + `ERRORED` reason                 |
+| Sinaptik weight `maxStep` / bounds aşımı       | Hard clamp + `clamped=true`              |
+
+### 🌐 Yeni API yüzeyi (özet)
+- Trinity: `/api/trinity/{status,audit,topology,training}`
+- MoE brains: `/api/moe/brain/{roster, :type/evaluate}`
+- MoE ensemble: `/api/moe/{weights, evaluate}`
+- MoE seed: `/api/moe/seed/{preview, apply}`
+- Synaptic: `/api/moe/synaptic/{config, rules, apply}`
+- Indicators: `/api/indicators`, `/api/indicators/stats`, `/api/indicators/templates`, `/api/indicators/:id`
+
+### 🔮 Sıradaki (V2.1 candidate)
+- Strategy Factory'ye 100 şablonun otomatik bağlanması (live backtest/signal üzerinde koşum).
+- GÖZ-3'ün SynapticRulesService'i beyin prior'larını gerçek zamanlı evrimleştirmek için kullanması (kapalı döngü).
+- Gerçek Ray cluster + GPU inference için worker process fallback (opt-in).
+- Quad-core broker adapter'ların (IQ Option WSS, Olymp Trade DOM, Binomo, Expert Option) gerçek implementasyonu.
+
+---
+
+
+
+## v2.0.0-epsilon — 100 İndikatör Registry + 6 Sinaptik Kural
+
+**Release Date:** 2026-04-23
+**Scope:** `Eklenecek Göstege Sinyal Üreticiler.md` kaynak alınarak 100 indikatör + 100 çoklu-kullanım şablonu registry'ye yüklendi. 6 sinaptik öğrenme kuralı production-grade guardrail'lerle kodlandı.
+
+### 📚 Indicator Registry (`backend/src/indicators/`)
+- **Parser script** `backend/scripts/parse-indicators.js` markdown tabloyu JSON'a dönüştürür (deterministik, tekrar çalıştırılabilir).
+- **Kataloglar**:
+  - `templates/indicators.json` — 100 indikatör: id (`ind_001_sma` gibi), family, measures, defaultParams, suitableTimeframes, long/short reading, bestMatch.
+  - `templates/templates.json` — 100 çoklu-kullanım şablonu: id, purpose, components, long/short rule.
+- **`IndicatorRegistryService`** load-time: `Indicator registry loaded: 100 indicators + 100 templates`.
+- **Query helpers**: `listIndicators()`, `listTemplates()`, `getIndicator(id|n)`, `getTemplate(id|n)`, `searchIndicators({family, timeframe, textLike, implemented})`, `stats()`.
+- **`nest-cli.json`** → `indicators/templates/**/*.json` artık build output'a kopyalanıyor (`assets` + `watchAssets`).
+
+### 🌐 Indicator API
+- `GET /api/indicators` — query: `?family=Trend&tf=15m&q=EMA&implemented=false`
+- `GET /api/indicators/stats` — {totalIndicators, totalTemplates, implementedCount, familyCounts{…}}
+- `GET /api/indicators/templates` — 100 multi-use templates
+- `GET /api/indicators/:id` — id (slug) veya numerik `n` (1..100) ile lookup, 404 fail-closed.
+
+### 🧬 SynapticRulesService (`moe-brain/synaptic/`)
+- **6 kural**: RESIDUAL, HEBBIAN, ANTI_HEBBIAN, HOMEOSTATIC, PLASTIC, SPIKE.
+- Tüm deltalar **3 aşamalı guardrail**'den geçer:
+  1. `maxStep` cap (default 0.1) — tek adımda büyük zıplama yasak.
+  2. `decay` (default 0.001) — weights zamanla 0'a çekilmez, ama sürekli bir miktar sönümleme.
+  3. `minWeight` / `maxWeight` hard clamp (default 0.02 ↔ 0.98) — dead neuron / saturation engeli.
+- **Rule matematikleri**:
+  - Residual: identity-preserving `η·0.1·(x − w)`
+  - Hebbian: `Δw = η·x·y`
+  - Anti-Hebbian: `Δw = −η·x·y`
+  - Homeostatic: `w ← w·(target/actual)` (crude rate-controller)
+  - Plastic: dynamic LR = `η·(1 + |x−y|)·x·y`
+  - Spike: eşik altı sessiz; üstü `η·sign(x)·y`
+- **`applyBatch()`** — weight-map + signal-map üzerinde toplu güncelleme.
+- **Endpoint'ler**:
+  - `GET  /api/moe/synaptic/config`
+  - `POST /api/moe/synaptic/config` (runtime config patch)
+  - `GET  /api/moe/synaptic/rules`
+  - `POST /api/moe/synaptic/apply` (tek-shot rule uygulama, diagnostic)
+
+### 🧪 Testler
+- **+20 yeni Jest test** → toplam **261/261 PASS** (241 + 20).
+  - `indicator-registry.service.spec.ts` (8): 100/100 sayımı, id formatı, getBy id|n, unknown null, family search, text search, stats, template rule fields.
+  - `synaptic-rules.service.spec.ts` (12): default config, her 6 rule'un karakteristik davranışı, hard clamp (max/min), setConfig, applyBatch filtering.
+
+### 🔗 Entegrasyon
+- `MoeBrainModule` → SynapticRulesService + SynapticController export'landı → GÖZ-3 Topology Governor ileriki aşamada expert prior'larını bu servisle evrimleştirecek.
+- `AppModule` → IndicatorRegistryModule kaydedildi.
+- Backend build: PASS.
+
+
+
+## v2.0.0-delta — Trinity Console (Desktop UI)
+
+**Release Date:** 2026-04-23
+**Scope:** Masaüstü renderer'a `/trinity` rotası eklenerek Trinity Oversight + MoE canlı izleme konsolu aktif.
+
+### 🧿 Yeni: TrinityPage (`/trinity`)
+- 4 saniyede bir otomatik polling ile Trinity status + 30s weights + 60s roster çeker.
+- **Üst bar**: Global Consensus badge (OK / WARN / HALT, renk kodlu), manuel yenile butonu.
+- **3 Göz paneli**:
+  - **GÖZ-1 System Observer** → CPU %, Mem %, Event Loop Lag ms bar grafik (bütçe eşiği renk değişimi: yeşil <85%, amber, kırmızı ≥budget).
+  - **GÖZ-2 Decision Auditor** → drift skoru + son reason code chip'leri (ring buffer'dan).
+  - **GÖZ-3 Topology Governor** → training mode badge (ON/OFF/PAUSED_BY_BUDGET), synaptic health, **Training Aç / Kapat butonları**.
+- **Ensemble Weights paneli**: CEO / TRADE / TEST için renkli yatay bar chart (indigo/cyan/rose).
+- **Roster paneli**: 3×5 uzman kadrosunun tam listesi + "38×7 Ürün Seed Uygula" butonu (idempotent, inserted/existing raporu).
+
+### 🌐 API Client (`services/trinity-api.ts`)
+- `TrinityApi`: status / audit / topology / setTraining
+- `MoEApi`: weights / roster / seedPreview / seedApply
+- Mevcut `apiGet` / `apiPost` helper'larını kullanır (8s timeout + structured error).
+
+### 🔀 Entegrasyon
+- `App.tsx` → `<Route path="trinity" element={<TrinityPage />} />`
+- `SidebarNav.tsx` → "🧿 Trinity / MoE" nav item + versiyon etiketi `v2.0.0-γ Trinity/MoE`
+- **Test IDs**: `trinity-page`, `trinity-consensus-badge`, `eye1-panel`, `eye2-panel`, `eye3-panel`, `training-enable-btn`, `training-disable-btn`, `seed-apply-btn`, `ensemble-weights-panel`, `roster-panel` vb.
+
+### ✅ Doğrulama
+- `tsc --noEmit` → **0 error**
+- `vite build` → **PASS** (1549 modül, 410 KB JS / 116 KB gzip).
+- Mevcut sayfalara ve componentlere hiçbir müdahale yok; pure additive.
+
+
+
+## v2.0.0-gamma — Global MoE Orchestrator + Ensemble + FSM Gate
+
+**Release Date:** 2026-04-23
+**Scope:** CEO/TRADE/TEST beyinlerini tek karara indiren global ensemble + execution-side gate hook.
+
+### 🌐 GlobalMoEOrchestratorService
+- 3 beynin **paralel** çağrısı (`Promise.all`). Herhangi biri throw ederse → **SAFE_SKIP**.
+- **Ensemble ağırlıkları**: default `CEO=0.4, TRADE=0.4, TEST=0.2`.
+  - Env: `MOE_ENSEMBLE_WEIGHTS="CEO:0.6,TRADE:0.2,TEST:0.2"` (sum=1’e renormalize edilir).
+- **TEST veto hard override** → diğer beyin kararlarından bağımsız `VETO` döner; reason codes'a `TEST_MOE_VETO` + `TEST_{role}_REJECT` eklenir.
+- **Skorlama**: `score = Σ(brainWeight × voteScore × brainConfidence)` (APPROVE=+1, REJECT=-1, NEUTRAL=0).
+- Eşikler: `MOE_ALLOW_THRESHOLD=0.3`, `MOE_SKIP_THRESHOLD=-0.2` (config'lenebilir).
+- Dead-band içinde kalırsa → **MANUAL_REVIEW** (hiçbir zaman sessiz kabul yok).
+- reasonCodes her zaman 3 beyin özeti içerir: `CEO_APPROVE_0.90`, `TRADE_REJECT_0.72`, `TEST_NEUTRAL_0.30`.
+
+### 🚪 MoEGateService (execution-side)
+- Upstream caller'lar (LiveSignalEngine, Auto-Executor, FSM) emir vermeden önce çağırır.
+- Default: **opt-in** (`MOE_GATE_ENABLED=true` ile aktif).
+- Gate semantiği:
+  - `ALLOW` → allow
+  - `MANUAL_REVIEW` → non-strict=allow, strict=block
+  - `SKIP` / `VETO` → block
+  - Orchestrator throw → `MOE_GATE_STRICT=true` ise block; değilse allow + reason.
+- DevOps / ops paneli için `decision` alanı `DISABLED | ERRORED` ekstra case'lerini de yayar.
+
+### 🌐 Yeni API'lar
+- `GET  /api/moe/weights` — etkin ensemble ağırlıkları.
+- `POST /api/moe/evaluate` — tam 3-beyin ensemble; body `MoEContext`.
+  - Her çağrı reason codes → **GÖZ-2 audit**'e yazılır (`Eye2DecisionAuditorService`).
+  - 400 eksik `symbol/timeframe/direction`.
+
+### 🔌 Modül entegrasyonu
+- `MoeBrainModule` → orchestrator + ensemble controller kaydı.
+- `ExecutionModule` → `MoeBrainModule` import + `MoEGateService` provide/export.
+- Döngüsel bağımlılık yok; MoeBrain bağımsız modül olarak kalır.
+
+### 🧪 Testler
+- **+18 yeni Jest test** → toplam **241/241 PASS** (223 + 18).
+  - `global-moe-orchestrator.spec.ts` (7): ALLOW, TEST veto override, SKIP, MANUAL_REVIEW, SAFE_SKIP on throw, env weight override, brain summary codes.
+  - `moe-gate.service.spec.ts` (8): disabled → allow, ALLOW, VETO block, SKIP block, MANUAL_REVIEW strict/non-strict, fail-open / fail-closed on error.
+  - `moe-ensemble.controller.spec.ts` (3): weights, audit kaydı, missing fields 400.
+
+### 🛡️ Fail-safe kısa özet
+- Brain failure ≡ SAFE_SKIP (decision=SKIP, confidence=0).
+- TEST veto ≡ hard VETO (her zaman kazanır).
+- MoE gate default kapalı; açıksa strict mode Orchestrator hatasında **hard block** yapar.
+
+
+
+## v2.0.0-beta — Evrimsel AI: Local MoE Brains (CEO / TRADE / TEST)
+
+**Release Date:** 2026-04-23
+**Scope:** Üç Local MoE beynin tam implementasyonu + softmax gating + brain controller.
+
+### 🧠 CEO-MoE — Strategic brain (Hybrid LLM)
+- **5 persona expert**: TREND, MEAN_REVERSION, VOLATILITY, NEWS, MACRO
+- Tek Gemini 2.5 Flash çağrısı ile tüm 5 persona değerlendirilir (JSON schema kontrollü).
+- `EMERGENT_LLM_KEY` yok / `MOE_LLM_DISABLED=true` ise **deterministik fallback** (ADX, EMA slope, RSI, ATR%, BB width, session hour heuristics).
+- LLM timeout: `MOE_LLM_TIMEOUT_MS` (default **10s**) → aşılırsa fallback.
+- Gating priors: TREND=0.6, VOLATILITY=0.5, MEAN_REV=0.2, NEWS=0.3, MACRO=0.3.
+- **Veto trigger**: VOLATILITY expert REJECT ≥ 0.7 confidence → `vetoFlag=true`.
+
+### ⚡ TRADE-MoE — Execution brain (Hybrid LLM)
+- **5 persona expert**: ENTRY, EXIT, SLIPPAGE, PAYOUT, SESSION
+- Aynı single-call LLM pattern + deterministik fallback.
+- Gating priors: PAYOUT=0.7 (binary-aware, en yüksek), ENTRY=0.5, SLIPPAGE=0.4, EXIT=0.3, SESSION=0.3.
+- **Veto trigger**: PAYOUT REJECT ≥ 0.7 → `vetoFlag=true` (fixed-time için kritik).
+
+### 🛡️ TEST-MoE — Red Team (Pure deterministic)
+- **5 rule-based expert**: OVERFIT_HUNTER, DATA_LEAK_DETECTOR, BIAS_AUDITOR, ADVERSARIAL_ATTACKER, ROBUSTNESS_TESTER
+- LLM **kullanmaz**; asla sessiz geçmez, tamamen reproducible.
+- Gating priors: DATA_LEAK=0.9, OVERFIT=0.8, ADVERSARIAL=0.6, BIAS=0.5, ROBUSTNESS=0.5.
+- **3 veto trigger**: OVERFIT_HUNTER, DATA_LEAK_DETECTOR, ADVERSARIAL_ATTACKER (REJECT ≥ 0.7).
+- Yakaladıkları:
+  - Sample < 30 → SAMPLE_SIZE_TOO_SMALL
+  - Win rate > 95% → WIN_RATE_SUSPICIOUS_HIGH
+  - featureLeakSuspicion ≥ 0.5 → FEATURE_LEAK_SUSPECTED
+  - WR > 80% & MDD < 1% → UNREALISTIC_WR_ZERO_DD (curve-fit kokusu)
+  - ADX > 30 & slope karşı yönde → STRONG_COUNTER_TREND
+  - ATR% > 7 → EXTREME_VOLATILITY
+
+### 🧮 Softmax Gating (`gating/softmax-gating.ts`)
+- `softmax(logits)` → normalize (numerik stabil, max shift).
+- `aggregate(brain, experts, priors, opts, latency)`:
+  - APPROVE=+1, REJECT=-1, NEUTRAL=0 skor haritası.
+  - Weighted score = Σ(vote × prior × confidence); dead-band ±0.15 → NEUTRAL.
+  - Errored expert'ler contribution'dan düşer.
+  - vetoTriggerRoles + rejectThreshold yapılandırılabilir.
+
+### 🌐 Yeni API'lar
+- `GET  /api/moe/brain/roster` — 3×5 expert layout.
+- `POST /api/moe/brain/:type/evaluate` — `type ∈ {CEO, TRADE, TEST}`, body: `MoEContext`.
+  - 400 unknown type / missing symbol-timeframe-direction.
+  - Sonuç: `BrainOutput` (experts[], aggregate{vote,confidence,weights}, vetoFlag, latencyMs).
+  - Her çağrı reasonCodes → **GÖZ-2 audit ring buffer**'a otomatik yazılır.
+
+### 🧪 Testler
+- **+34 yeni Jest test** → toplam **223/223 PASS** (189 + 34).
+  - `softmax-gating.spec.ts` — softmax dağılımı, APPROVE/REJECT/NEUTRAL, veto trigger, errored expert skip, weight sum=1.
+  - `test-brain.service.spec.ts` — 6 red-team senaryosu (küçük sample, leak, balanced, counter-trend, unrealistic WR, reasonCodes).
+  - `ceo-trade-brains.spec.ts` — 8 senaryo: fallback approve, fallback veto, LLM success path, LLM garbage, LLM throw.
+  - `llm-persona.spec.ts` — 6 parser test (clean JSON, code fences, unknown roles, confidence clamp, invalid vote, malformed).
+  - `moe-brain.controller.spec.ts` — 7 e2e controller testi: roster, 3 beyin evaluate, unknown type 400, missing fields 400, audit kayıt.
+
+### 🔀 Mimari notlar
+- CEO/TRADE tek LLM call/brain policy → **2 LLM call/signal max** (20ms fallback, ~1-3s LLM). Rate-limit coach'ta zaten mevcut.
+- `strategy/factory` dokunulmadı — MoE, upstream sinyalin **üzerine** overlay.
+- Global Ensemble (γ) burada çağrılar sıralı/paralel hale getirecek.
+- UI/renderer dokunulmadı — `/trinity` ekranı δ fazında.
+
+
+
 ## v2.0.0-alpha — Evrimsel AI: Foundation (MoE + Trinity Oversight)
 
 **Release Date:** 2026-04-23

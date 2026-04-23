@@ -5,6 +5,11 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "webpack": false,
-    "tsConfigPath": "tsconfig.json"
+    "tsConfigPath": "tsconfig.json",
+    "assets": [
+      { "include": "indicators/templates/**/*.json", "outDir": "dist/backend/src" },
+      { "include": "config/**/*.yaml", "outDir": "dist/backend/src" }
+    ],
+    "watchAssets": true
   }
 }

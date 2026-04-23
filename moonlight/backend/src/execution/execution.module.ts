@@ -25,6 +25,8 @@ import { RiskModule } from '../risk/risk.module';
 import { BrokerModule } from '../broker/broker.module';
 import { StrategyModule } from '../strategy/strategy.module';
 import { DataModule } from '../data/data.module';
+import { MoeBrainModule } from '../moe-brain/moe-brain.module';
+import { MoEGateService } from './moe-gate.service';
 
 @Module({
   imports: [
@@ -33,6 +35,7 @@ import { DataModule } from '../data/data.module';
     BrokerModule,
     StrategyModule,
     DataModule,
+    MoeBrainModule,
   ],
   controllers: [ExecutionController, ReconciliationController, LiveSignalController],
   providers: [
@@ -50,6 +53,7 @@ import { DataModule } from '../data/data.module';
     SemiAutomaticExecutor,
     FullAutomaticExecutor,
     HealthScoreCalculator,
+    MoEGateService,
   ],
   exports: [
     ExecutionFSM,
@@ -59,6 +63,7 @@ import { DataModule } from '../data/data.module';
     FullAutomaticExecutor,
     DataFeedOrchestrator,
     HealthScoreCalculator,
+    MoEGateService,
   ],
 })
 export class ExecutionModule implements OnModuleInit {
