@@ -1,46 +1,46 @@
 [
   {
-    "content": "Phase A: AI Reasoning Layer (entity + service + endpoints + auto-batch)",
+    "content": "T1.1: DB index'ler (@Index LiveSignal + BacktestRun)",
     "status": "completed"
   },
   {
-    "content": "Phase A5: LiveSignals UI 🧠 reasoning modal + verdict badges",
+    "content": "T1.2: gzip + throttler + /healthz + global error filter + graceful shutdown",
     "status": "completed"
   },
   {
-    "content": "Phase B: Dashboard AI Insights widget + /daily-insights endpoint + cache",
+    "content": "T1.3: BacktestAIAnalyzerService + endpoint (Çalışıyor!)",
     "status": "completed"
   },
   {
-    "content": "Phase C: Market Intelligence sayfası + regime-heatmap endpoint",
+    "content": "T1.4: AlertDispatcherService + threshold monitor + outgoing webhooks",
     "status": "completed"
   },
   {
-    "content": "Phase D: Strategy Leaderboard + AI Tune endpoint + UI",
+    "content": "T1.5: Trade Journal backend + UI (100 entry görüntülendi)",
     "status": "completed"
   },
   {
-    "content": "Phase E1: Dark mode toggle + theme tokens + tailwind config",
+    "content": "T2.1: Risk Profile presets (backend + UI + toast)",
     "status": "completed"
   },
   {
-    "content": "Phase E2: Status bar + Toast notifications (sonner) + Keyboard shortcuts",
+    "content": "T1.6: Command Palette (cmdk) + 15 komut",
     "status": "completed"
   },
   {
-    "content": "Phase E3: +18 Jest test (147/147 PASS)",
+    "content": "T1.7: React ErrorBoundary wrapper",
     "status": "completed"
   },
   {
-    "content": "Final: testing_agent_v3 kapsamlı backend test (94% / 16 of 17 endpoints)",
+    "content": "Webhook UI (Settings sayfasında)",
     "status": "completed"
   },
   {
-    "content": "Final: Critical route-shadow bug fix + doğrula",
+    "content": "163/163 Jest test PASS",
     "status": "completed"
   },
   {
-    "content": "Final: CHANGELOG v1.8.0 güncelle",
-    "status": "completed"
+    "content": "Final: testing_agent_v3 + CHANGELOG v1.9.0",
+    "status": "in_progress"
   }
 ]

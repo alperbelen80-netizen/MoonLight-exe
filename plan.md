@@ -1,21 +1,28 @@
-# MoonLight Trading OS — Stabilize → Scenario B Live Signals → Multi‑Source Feed Auto‑Select (AI‑verified) → Scenario C AI Coach → **v1.8 AI‑Native Trading OS**
+# MoonLight Trading OS — Stabilize → Scenario B Live Signals → Multi‑Source Feed Auto‑Select (AI‑verified) → Scenario C AI Coach → **v1.8 AI‑Native Trading OS** → **v1.9 Production‑Ready Hardening + Advanced Features**
 
 ## Objectives
-- Keep **stability locked**: backend + desktop builds green; unit tests green (**129/129 PASS baseline**).
+- Keep **stability locked**: backend + desktop builds green; unit tests green (**147/147 PASS current baseline**).
 - Deliver **Scenario B (Live Signals)** end‑to‑end using **Mock Live Feed** (K8s geo‑blocks Binance 451 + Bybit 403) with **FAST_DEMO** candle emission so UI shows signals immediately.
 - Provide **Multi‑Source Data Feed** layer (Mock + Binance CCXT + Bybit CCXT + TradingView Webhook + IQ Option skeleton) with:
   - parallel provider health checks
-  - latency + deterministic scoring + tie-breakers
+  - latency + deterministic scoring + tie‑breakers
   - **AI‑validated auto‑selection (fail‑closed)**
-- Provide **Scenario C (AI Coach)** as a first-class module:
+- Provide **Scenario C (AI Coach)** as a first‑class module:
   - chat + strategy analysis
   - feed selection validation
 - Upgrade to **v1.8 “AI‑Native Trading OS”**:
-  - **AI Reasoning Layer per live signal (AI Guard)**
+  - **AI Reasoning Layer per live signal (AI Guard)** + periodic auto‑batch
   - AI Insights on Dashboard
-  - Market Intelligence heatmap
-  - Strategy Leaderboard + AI tuning
+  - Market Intelligence heatmap + strategy leaderboard + AI Tune
   - Polish & hardening (dark mode, status bar, toasts, shortcuts)
+- **NEW (v1.9)**: Production‑ready hardening + advanced features:
+  - DB indexes + query performance
+  - gzip + per‑IP throttling + healthz + structured errors + graceful shutdown
+  - Backtest AI Analyzer
+  - Alert System V2 (outgoing webhooks + thresholds)
+  - Trade Journal timeline
+  - Command Palette (Cmd+K)
+  - React ErrorBoundary
 
 ---
 
@@ -34,7 +41,7 @@
 
 **Carry‑over invariants to keep**
 - Deterministic logs + reason codes
-- Fail‑closed defaults (Core-First)
+- Fail‑closed defaults (Core‑First)
 - Idempotency semantics
 
 ---
@@ -44,7 +51,7 @@
 **Status:** COMPLETE
 
 **Completed (Scenario B evidence)**
-- `MockLiveDataFeedAdapter` FAST_DEMO: 100-bar seed + ~1500ms candles.
+- `MockLiveDataFeedAdapter` FAST_DEMO: 100‑bar seed + ~1500ms candles.
 - `LiveSignalEngine` produces and persists live signals to SQLite.
 - UI confirms signals flowing on `/live/signals` page.
 
@@ -59,23 +66,23 @@
 **Status:** COMPLETE (expanded)
 
 **Completed**
-- Backend Jest: **129/129 tests PASS**.
+- Backend Jest: **147/147 tests PASS**.
 - Backend build: PASS
 - Desktop build: PASS
-- Comprehensive backend endpoint testing: PASS (testing_agent_v3)
+- Comprehensive backend endpoint testing: PASS for v1.7; v1.8 testing agent reported 16/17 due to route shadowing → fixed.
 
 **Known expected constraints**
-- Binance CCXT → HTTP 451 geo-block in cluster
-- Bybit CCXT → HTTP 403 geo-block in cluster
+- Binance CCXT → HTTP 451 geo‑block in cluster
+- Bybit CCXT → HTTP 403 geo‑block in cluster
 - TradingView webhook requires external alert configuration
 
 ---
 
-### Phase 4 — Next Direction (post-stable checkpoint)
+### Phase 4 — Next Direction (post‑stable checkpoint)
 
-**Status:** IN PROGRESS (v1.8 planning)
+**Status:** COMPLETE for v1.7/v1.8, moving to v1.9
 
-#### Track A — Scenario B: Live Signals Demo (finish)
+#### Track A — Scenario B: Live Signals Demo
 **Status:** COMPLETE
 
 **Deliverables (done)**
@@ -86,7 +93,7 @@
 
 **Deliverables (done)**
 - `GET /api/data/providers/health`
-- `POST /api/data/providers/auto-select` (AI dry-run + apply)
+- `POST /api/data/providers/auto-select` (AI dry‑run + apply)
 - `POST /api/data/providers/switch`
 - Desktop: **Data Sources** page (`/data-sources`) showing provider health + AI buttons.
 
@@ -102,120 +109,199 @@
 
 ## v1.8.0 Roadmap — “AI‑Native Trading OS” (User granted full authority)
 
+**Status:** COMPLETE ✅
+
 ### Phase A — AI Reasoning Layer (KRİTİK)
-**Goal:** Every live signal gets an AI “muhakeme” verdict. **AI Guard mode**: if AI rejects → signal becomes `SKIPPED` (fail‑closed).
+**Goal:** Every live signal gets an AI “muhakeme” verdict.
 
-**Backend**
-- Add `AIReasoningService`:
-  - Input: live signal + pack score + regime + key indicators + payout snapshot + risk layer summary
-  - Output JSON: `{ approved, confidence, reasoning, riskFactors[], expectedWR, expectedEV, notes }`
-  - Rate-limit: max **30 analyses/min** (token bucket) + circuit breaker on AI failures.
-- DB changes:
-  - `LiveSignal` entity add columns:
-    - `ai_verdict` (enum/string: APPROVED/REJECTED/UNKNOWN)
-    - `ai_confidence` (real)
-    - `ai_reasoning` (text/json)
-    - `ai_reasoned_at_utc` (datetime)
+**Delivered**
+- `AIReasoningService`:
+  - Rate limit: token bucket (default **30/min**)
+  - Circuit breaker: 5 consecutive AI failures → 60s cooldown
+  - Auto‑batch: every 30s reasons latest 5 UNKNOWN/PENDING signals
+  - Strict guard (optional): if `AI_GUARD_STRICT=true` and AI rejects → `status=SKIPPED`
+- DB:
+  - `LiveSignal` columns: `ai_verdict`, `ai_confidence`, `ai_reasoning`, `ai_reasoned_at_utc`
+  - TypeORM `synchronize` now opt‑out via `DB_SYNCHRONIZE=false` (default ON)
 - Endpoints:
-  - `POST /api/ai-coach/reason-signal/:id` (manual trigger)
-  - `POST /api/ai-coach/reason-signal/batch` (latest N NEW signals)
-  - `GET /api/ai-coach/reasoning-history` (filters: symbol/tf/verdict/date)
-- Integration points:
-  - In `LiveSignalEngine` after signal persisted → enqueue AI reasoning job (Bull) if enabled.
-  - Fail-safe: if AI down or rate limited → `ai_verdict=UNKNOWN`, do not auto-skip unless `AI_GUARD_STRICT=true`.
+  - `POST /api/ai-coach/reason-signal/:id`
+  - `POST /api/ai-coach/reason-signal/batch` (**route shadowing fixed by ordering static route before `:id`**)
+  - `GET /api/ai-coach/reasoning-history`
 
-**Frontend**
+**Frontend delivered**
 - Live Signals table:
-  - Add 🧠 “Reason” action per row → modal shows verdict, confidence, risk factors.
-  - Filter by `ai_verdict`.
+  - AI verdict column (APPROVED/REJECTED/UNKNOWN + confidence %)
+  - 🧠 “Muhakeme” button with modal (reasoning + risk factors + expected WR)
 
-**Tests**
-- Unit tests for:
-  - JSON extraction strictness
-  - rate limiter
-  - fail‑closed behavior
-  - schema validation
+**Tests delivered**
+- Unit coverage for JSON extraction, rate limiter, circuit breaker, clamp01, degraded mode
 
 ---
 
 ### Phase B — Dashboard AI Insights Widget
-**Goal:** Daily “what happened today” summary with actionable suggestions.
+**Status:** COMPLETE ✅
 
-**Backend**
-- `GET /api/ai-coach/daily-insights`:
-  - top symbols/strategies
-  - regime distribution
-  - risk summary (Triple‑Check + M3)
-  - 3 actionable recommendations
-- Cache: 5 minutes (in-memory / Redis if available).
-
-**Frontend**
-- Dashboard: add **AI Insights** card (auto refresh 5 min) with expandable details.
+**Delivered**
+- Backend: `GET /api/ai-coach/daily-insights` with 5‑minute in‑memory cache
+- Frontend: AI Insights card on Dashboard (summary + totals + top symbols + regime distribution + 3 recommendations)
 
 ---
 
 ### Phase C — Market Intelligence Page
-**Goal:** Provide a “data center” view: regime heatmap + signal distribution.
+**Status:** COMPLETE ✅
 
-**Backend**
-- `GET /api/market/regime-heatmap`:
-  - matrix: symbol × timeframe → `{ regime, adx, ts_utc }`
-- (Optional) `GET /api/market/signal-distribution`:
-  - per symbol/timeframe counts + verdict split.
-
-**Frontend**
-- New page `/market-intelligence`:
-  - heatmap grid
-  - distribution chart
+**Delivered**
+- Backend: `GET /api/ai-coach/regime-heatmap`
+- Frontend: `/intel` page with heatmap (symbol×tf) + ADX tooltip
 
 ---
 
 ### Phase D — Strategy Leaderboard + AI Tuning
-**Goal:** Make strategy performance transparent and AI-assisted.
+**Status:** COMPLETE ✅
 
-**Backend**
-- `GET /api/strategies/leaderboard`:
-  - live signals count, executed count, win rate, avg confidence, AI approval rate.
-- `POST /api/ai-coach/tune-strategy`:
-  - batch analysis of a strategy family + recommendations
-
-**Frontend**
-- Strategies page:
-  - sortable leaderboard
-  - “AI Tune” button per strategy
+**Delivered**
+- Backend: `GET /api/ai-coach/strategy-leaderboard`
+- Backend: `POST /api/ai-coach/tune-strategy`
+- Frontend: Leaderboard table + per‑row AI Tune modal
 
 ---
 
 ### Phase E — Polish & Hardening
-**Goal:** Premium-grade usability + operational safety.
+**Status:** COMPLETE ✅
 
-- Dark mode toggle (localStorage) + Tailwind theme tokens
-- Status bar: active provider + AI availability + rate limit meter
-- Toast notifications (sonner) for:
-  - new AI-approved signals
-  - feed switch events
-  - AI failures (circuit breaker)
-- Keyboard shortcuts:
-  - `g d` dashboard
-  - `g l` live signals
-  - `g a` AI coach
-  - `g m` market intelligence
-- Docs updates:
-  - `/docs/AI_COACH.md`
-  - `/docs/DATA_FEEDS.md`
-- Tests target: **150+** total, 0 regressions
+**Delivered**
+- Dark mode toggle (Tailwind `darkMode: 'class'`)
+- Status bar (AI model + feed + provider UP count + rate tokens)
+- Toast notifications (sonner) for new signals + AI approvals
+- Keyboard shortcuts (`g d/l/i/a/s/b/h`)
+
+---
+
+## v1.9.0 Roadmap — Production‑Ready Hardening + Advanced Features
+
+### 🎯 Ana Hedefler
+- Mevcut **147 Jest** + regression endpointleri **tam yeşil**
+- Minimum **+15 yeni Jest test** (hedef: **167+**)
+- Performans iyileştirmeleri: DB index, caching, gzip
+- Kurumsal seviye: alerts, journal, backtest AI
+
+---
+
+### Tier 1 — Critical (Bu sprint)
+
+#### T1.1 — DB Index + Query Hızlandırma
+**Goal:** LiveSignals/Insights/History sorgularını hızlandırmak.
+- Add TypeORM `@Index` decorators:
+  - `LiveSignal(symbol, timestamp_utc)`
+  - `LiveSignal(ai_verdict)`
+  - `LiveSignal(strategy_family, timestamp_utc)`
+  - `BacktestRun(environment, created_at_utc)` (entity adı repo’da hangi isimle ise)
+- Validate via: reasoning-history + daily-insights latency before/after
+- Tests:
+  - schema presence check (sqlite pragma index_list)
+
+#### T1.2 — Backend Hardening
+**Goal:** Production safety.
+- gzip compression middleware (`compression`)
+- Per‑IP throttling (`@nestjs/throttler`): 100 req/min (owner UI endpoints), 30 req/min (AI endpoints)
+- `GET /api/healthz` structured:
+  - db ok, ai ok, feed provider ok, broker adapter health, queue health
+- Global exception filter (structured JSON: code, message, correlation_id)
+- Graceful shutdown (SIGTERM): close db, clear timers, disconnect feeds
+- Tests:
+  - healthz contract
+  - throttler behavior
+  - error filter format
+
+#### T1.3 — Backtest AI Analyzer
+**Goal:** Backtest sonuçlarını AI ile yorumlama.
+- `BacktestAIAnalyzerService`:
+  - Input: backtest run stats + per‑strategy breakdown + drawdown metrics
+  - Output: weaknesses, regime fit, top improvements, recommended parameter bands
+- Endpoint: `POST /api/backtest/:id/ai-analyze`
+- Frontend: BacktestsPage “AI Analiz” button + modal
+- Tests:
+  - degraded mode (no key)
+  - JSON schema extraction
+
+#### T1.4 — Alert System V2
+**Goal:** Operasyonel alarm altyapısı.
+- `AlertDispatcherService`: outgoing webhooks (Discord/Telegram/Slack templates)
+- `POST /api/alerts/test-webhook`
+- Threshold monitoring (cron/interval):
+  - AI approval rate < 30% (last 60m) → alert
+  - circuit breaker OPEN → alert
+  - feed switched → info alert
+- Frontend: webhook config UI + test button
+- Tests:
+  - webhook payload contract
+  - threshold evaluator
+
+#### T1.5 — Trade Journal Sayfası
+**Goal:** Sinyal → AI verdict → (future) execution outcome timeline.
+- Backend:
+  - `GET /api/journal?from=&to=&status=&symbol=&strategy=`
+  - Response: grouped cards (signal + reasoning + status + timestamps)
+- Frontend:
+  - Timeline view (filterable)
+- Tests:
+  - filtering correctness
+
+#### T1.6 — Command Palette (Cmd+K)
+**Goal:** Power‑user hız.
+- Frontend: `cmdk` command palette
+  - Navigate actions
+  - Toggle theme
+  - Trigger AI dry-run auto-select
+  - Trigger reason-batch
+  - Kill switch quick action (future)
+- Tests:
+  - basic rendering + action dispatch
+
+#### T1.7 — Error Boundary
+**Goal:** UI crash‑proof.
+- React ErrorBoundary wrapper around routes
+- Friendly fallback + “Reload” button
+- Tests:
+  - renders fallback on error
+
+---
+
+### Tier 2 — Polish (Bu sprint sonunda)
+
+#### T2.1 — Risk Profile Presets
+- Conservative / Moderate / Aggressive / Custom
+- Extend `ExecutionConfig` to store profile + overrides
+- Apply profile defaults into risk layer
+- UI: Settings radio group
+
+#### T2.2 — Notification History Drawer
+- Persist last 50 toasts in localStorage
+- Drawer UI (right slide‑in)
+
+#### T2.3 — AI Regime Forecast
+- Endpoint: `POST /api/ai-coach/forecast-regime {symbol, tf}`
+- Input: last 2h candles + ADX + volatility snapshot
+- Output: next 30m regime forecast + confidence + key risks
+- Frontend: Market Intel expandable detail
+
+---
+
+### Tier 3 — Future
+- lightweight‑charts signal overlay
+- Virtualization (`react-window`) for long tables
+- Onboarding tour (react-joyride)
 
 ---
 
 ## Next Actions (Immediate)
-1. **Implement Phase A (AI Reasoning Layer)**
-   - DB migration for LiveSignal AI columns
-   - `AIReasoningService` + endpoints
-   - LiveSignals UI 🧠 modal
-2. **Dashboard AI Insights (Phase B)**
-3. **Market Intelligence (Phase C)**
-4. **Strategy Leaderboard + AI Tune (Phase D)**
-5. **Polish & hardening (Phase E)**
+1. **T1.1 DB Indexes** (quick win) + verify latency improvements
+2. **T1.2 Backend hardening**: gzip + throttler + `/healthz` + error filter + graceful shutdown
+3. **T1.3 Backtest AI Analyzer** + Backtests UI modal
+4. **T1.4 Alerts V2** webhook dispatcher + threshold monitor + UI
+5. **T1.5 Trade Journal** backend endpoint + timeline page
+6. **T1.6 Command Palette** (Cmd+K)
+7. **T1.7 Error Boundary**
 
 ---
 
@@ -223,15 +309,18 @@
 - Stability
   - `yarn verify` → PASS
   - Backend + Desktop build → PASS
-  - Tests ≥ 150 PASS
-- AI Reasoning Layer
-  - Per-signal AI verdict persisted + queryable
-  - AI Guard can SKIP signals deterministically
-  - Rate limiting + circuit breaker verified
-- Insights + Intelligence
-  - Daily insights endpoint cached and renders on Dashboard
-  - Regime heatmap page usable and performant
-- Strategy Leaderboard
-  - Leaderboard metrics correct, AI tuning produces consistent structured output
-- UX Quality
-  - Dark mode, status bar, toasts, shortcuts all functional
+  - Tests ≥ **167** PASS
+- Performance
+  - Live signals + history queries are indexed (measurable improvement)
+  - Daily insights cache hit ratio visible (optional metric)
+- Ops readiness
+  - `/api/healthz` returns structured status
+  - throttling prevents abuse
+  - graceful shutdown verified
+- AI features
+  - Reasoning pipeline continues to work; batch endpoints not shadowed
+  - Backtest AI analyzer produces consistent structured output
+- UX quality
+  - Command palette functional
+  - ErrorBoundary prevents blank screen
+  - Journal timeline usable and filterable

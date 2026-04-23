@@ -14,6 +14,12 @@ import { OwnerModule } from './owner/owner.module';
 import { ConfigModule } from './config/config.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { AICoachModule } from './ai-coach/ai-coach.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { HealthModule } from './health/health.module';
+import { JournalModule } from './journal/journal.module';
+import { RiskProfileModule } from './risk/risk-profile.module';
+import { AlertsDispatcherModule } from './alerts/alerts-dispatcher.module';
 
 @Module({
   imports: [
@@ -40,9 +46,16 @@ import { AICoachModule } from './ai-coach/ai-coach.module';
           },
     ),
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot([
+      {
+        ttl: parseInt(process.env.THROTTLE_TTL_S || '60', 10) * 1000,
+        limit: parseInt(process.env.THROTTLE_LIMIT || '100', 10),
+      },
+    ]),
     SharedModule,
     ExecutionModule,
     RiskModule,
+    RiskProfileModule,
     BrokerModule,
     DataModule,
     StrategyModule,
@@ -51,9 +64,12 @@ import { AICoachModule } from './ai-coach/ai-coach.module';
     OwnerModule,
     ConfigModule,
     AlertsModule,
+    AlertsDispatcherModule,
     AICoachModule,
+    HealthModule,
+    JournalModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

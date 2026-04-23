@@ -4,6 +4,7 @@ import { Repository, Between } from 'typeorm';
 import { AICoachService } from './ai-coach.service';
 import { AIReasoningService } from './ai-reasoning.service';
 import { AIInsightsService } from './ai-insights.service';
+import { BacktestAIAnalyzerService } from './backtest-ai-analyzer.service';
 import { DataFeedOrchestrator } from '../data/sources/data-feed-orchestrator.service';
 import { LiveSignal } from '../database/entities/live-signal.entity';
 
@@ -33,6 +34,7 @@ export class AICoachController {
     private readonly coach: AICoachService,
     private readonly reasoning: AIReasoningService,
     private readonly insights: AIInsightsService,
+    private readonly backtestAnalyzer: BacktestAIAnalyzerService,
     private readonly orchestrator: DataFeedOrchestrator,
     @InjectRepository(LiveSignal)
     private readonly liveSignalRepo: Repository<LiveSignal>,
@@ -193,5 +195,31 @@ export class AICoachController {
       consecutiveLosses: 0,
     });
     return { strategyId: entry.strategy_family, stats: entry, advice, model: this.coach.getModelName() };
+  }
+
+  // ---- Phase v1.9: Backtest AI Analyzer ----
+
+  @Post('analyze-backtest')
+  async analyzeBacktest(
+    @Body()
+    body: {
+      runId: string;
+      environment?: string;
+      symbols?: string[];
+      timeframes?: string[];
+      total_trades?: number;
+      net_pnl?: number;
+      win_rate?: number;
+      max_drawdown?: number;
+      avg_trade_pnl?: number;
+      profit_factor?: number;
+      sharpe?: number;
+      per_strategy?: Array<{ strategy: string; trades: number; win_rate: number; pnl: number }>;
+    },
+  ) {
+    if (!body?.runId) {
+      return { error: 'runId_required' };
+    }
+    return this.backtestAnalyzer.analyze(body);
   }
 }

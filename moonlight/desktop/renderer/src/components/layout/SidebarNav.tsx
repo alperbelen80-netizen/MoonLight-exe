@@ -10,6 +10,7 @@ const navItems = [
   { path: '/data-sources', label: 'Data Sources', icon: '📡' },
   { path: '/ai-coach', label: 'AI Coach', icon: '🧬' },
   { path: '/intel', label: 'Market Intel', icon: '🔭' },
+  { path: '/journal', label: 'Trade Journal', icon: '📒' },
   { path: '/matrix', label: 'Execution Matrix', icon: '⚙️' },
   { path: '/backtests', label: 'Backtests', icon: '📈' },
   { path: '/data-health', label: 'Data Health', icon: '💚' },
@@ -23,7 +24,7 @@ export function SidebarNav() {
       <div className="text-xl font-bold mb-8">
         <span className="text-blue-400">Moon</span>
         <span className="text-white">Light</span>
-        <div className="text-xs text-gray-400 mt-1">v1.8 AI‑Native</div>
+        <div className="text-xs text-gray-400 mt-1">v1.9 Prod-Hardened</div>
       </div>
       <nav className="space-y-1">
         {navItems.map((item) => (

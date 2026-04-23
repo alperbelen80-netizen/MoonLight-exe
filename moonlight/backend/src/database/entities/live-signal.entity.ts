@@ -1,6 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 @Entity('live_signals')
+@Index('idx_live_signals_symbol_ts', ['symbol', 'timestamp_utc'])
+@Index('idx_live_signals_verdict', ['ai_verdict'])
+@Index('idx_live_signals_strategy_ts', ['strategy_family', 'timestamp_utc'])
+@Index('idx_live_signals_status', ['status'])
 export class LiveSignal {
   @PrimaryGeneratedColumn('uuid')
   id: string;
