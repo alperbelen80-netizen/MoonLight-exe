@@ -241,6 +241,16 @@ app.whenReady().then(async () => {
     void crashReporter.forwardToBackend(event, backend.getStatus().port);
   });
 
+  // v2.7.0: also capture unhandled promise rejections in the main process.
+  process.on('unhandledRejection', (reason) => {
+    const err =
+      reason instanceof Error
+        ? reason
+        : new Error(`UnhandledRejection: ${String(reason)}`);
+    const event = crashReporter.recordMainUncaught(err);
+    void crashReporter.forwardToBackend(event, backend.getStatus().port);
+  });
+
   registerIpc();
 
   // In dev mode the operator typically runs `yarn backend:dev` in a

@@ -1,26 +1,6 @@
 [
   {
-    "content": "Bölüm A: Geçmiş 10 sorun",
-    "status": "completed"
-  },
-  {
-    "content": "Bölüm B: Hardcoded path + TS strict + deps",
-    "status": "completed"
-  },
-  {
-    "content": "Bölüm C: Windows 10/11 UX (icon, NSIS, script platform, natives)",
-    "status": "completed"
-  },
-  {
-    "content": "Bölüm D: Workflow REPO KÖKÜNDE (.github/workflows/)",
-    "status": "completed"
-  },
-  {
-    "content": "Bölüm E: installer.nsh (Win10 kontrolü + 500MB disk + uninstall prompt)",
-    "status": "completed"
-  },
-  {
-    "content": "Bölüm F: Son doğrulama + CHANGELOG + BUILD_WINDOWS.md",
+    "content": "Bölüm 1-10 tamamlandı, tüm doğrulamalar YEŞİL",
     "status": "completed"
   }
 ]

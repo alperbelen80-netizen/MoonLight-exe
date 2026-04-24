@@ -1,5 +1,12 @@
 node_modules/
 dist/
+dist-bundle/
+dist-renderer/
+dist-electron/
+desktop/dist/
+desktop/dist-renderer/
+desktop/dist-electron/
+backend/dist/
 out/
 coverage/
 *.log

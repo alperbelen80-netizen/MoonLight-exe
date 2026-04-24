@@ -7,6 +7,23 @@ import compression from 'compression';
 
 dotenv.config();
 
+// ---------------------------------------------------------------------------
+// Top-level safety net: we NEVER want the backend to crash silently when
+// running inside the packaged Electron spawn. Log loudly and let the
+// Electron BackendManager decide whether to restart us.
+// ---------------------------------------------------------------------------
+const topLogger = new Logger('Process');
+process.on('unhandledRejection', (reason) => {
+  topLogger.error(
+    `UnhandledRejection: ${reason instanceof Error ? reason.stack : String(reason)}`,
+  );
+});
+process.on('uncaughtException', (err) => {
+  topLogger.error(`UncaughtException: ${err.stack || err.message}`);
+  // Exit non-zero so the parent (Electron BackendManager) can react.
+  process.exit(1);
+});
+
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, {
@@ -65,4 +82,10 @@ async function bootstrap() {
   );
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  // Bootstrap itself failed (e.g. module DI error, port in use).
+  // Print and exit 1 so the Electron BackendManager logs + retries.
+  // eslint-disable-next-line no-console
+  console.error('[bootstrap] FATAL:', err);
+  process.exit(1);
+});

@@ -178,6 +178,11 @@
       "menuCategory": "MoonLight",
       "include": "build/installer.nsh"
     },
-    "publish": null
+    "publish": [
+      {
+        "provider": "github",
+        "releaseType": "release"
+      }
+    ]
   }
 }

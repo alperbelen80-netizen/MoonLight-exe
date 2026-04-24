@@ -1,18 +1,29 @@
 name: MoonLight Windows Installer Build
 
-# MoonLight v2.7.0 — Windows NSIS installer release pipeline.
+# =============================================================================
+# MoonLight v2.7.0 — Windows NSIS installer release pipeline (hardened).
+# =============================================================================
 #
-# Repo layout: `moonlight/` is a sub-directory (monorepo) of this repo.
-# All Node commands run with PowerShell 7 (pwsh) on windows-latest.
+# Repo layout     : `moonlight/` is a monorepo sub-directory.
+# Runner          : windows-latest (Windows Server 2022)
+# Shell           : pwsh (PowerShell 7) — default for every `run:` step
+# Triggers        :
+#   • push of a SemVer tag (v*.*.*) → builds + publishes GitHub Release
+#   • manual workflow_dispatch with `debug_mode` / `publish_release` inputs
 #
-# Triggers:
-#   - push of a SemVer tag (e.g. v2.7.0) → publishes GitHub Release
-#   - manual workflow_dispatch with `debug_mode` input
+# Artifacts       :
+#   • moonlight/desktop/dist/MoonLight-Owner-<version>-win-x64.exe   (NSIS installer)
+#   • moonlight/desktop/dist/*.exe.sha256                            (checksum)
+#   • moonlight/desktop/dist/latest.yml                              (auto-update manifest)
+#   • build-logs/                                                    (on failure only)
 #
-# Output:
-#   - moonlight/desktop/dist/MoonLight-Owner-<version>-win-x64.exe
-#   - moonlight/desktop/dist/*.exe.sha256
-#   - moonlight/desktop/dist/latest.yml (electron-updater manifest)
+# Fail-fast guards:
+#   • free disk ≥ 2 GB before we start
+#   • dist-bundle/backend.js must exist AND be ≥ 100 KB
+#   • desktop/dist-electron/ and desktop/dist-renderer/ must exist
+#   • final .exe must exist AND be ≥ 10 MB
+#
+# =============================================================================
 
 on:
   push:
@@ -38,41 +49,69 @@ defaults:
 
 jobs:
   build:
-    name: Build Windows EXE
+    name: Build Windows EXE (NSIS x64)
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
 
     env:
+      # Electron binary cache (reused across runs to speed up future builds).
       ELECTRON_CACHE: ${{ github.workspace }}\.cache\electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}\.cache\electron-builder
+      # Packaged-mode flag for the build environment.
       MOONLIGHT_PACKAGED: 'true'
+      # Don't try to auto-discover a cert on the runner; code-signing is opt-in.
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
     steps:
-      # 1. Checkout
-      - name: Checkout repository
+      # ---------------------------------------------------------------------
+      # 1. Checkout source at the tagged commit (full history for release notes)
+      # ---------------------------------------------------------------------
+      - name: 1. Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 2. Node.js 20
-      - name: Setup Node.js 20
+      # ---------------------------------------------------------------------
+      # 2. Install Node.js 20 toolchain
+      # ---------------------------------------------------------------------
+      - name: 2. Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # 3. Toolchain diagnostics
-      - name: Log toolchain versions
+      # ---------------------------------------------------------------------
+      # 3. Toolchain diagnostics — makes the CI log self-documenting
+      # ---------------------------------------------------------------------
+      - name: 3. Log toolchain versions
         run: |
+          Write-Host "=== Toolchain ==="
           node --version
           yarn --version
           npm --version
-          Write-Host "Platform: $env:RUNNER_OS ($env:RUNNER_ARCH)"
-          Write-Host "Working dir: $(Get-Location)"
-          Write-Host "pwsh version: $($PSVersionTable.PSVersion)"
+          Write-Host "Runner OS     : $env:RUNNER_OS ($env:RUNNER_ARCH)"
+          Write-Host "Working dir   : $(Get-Location)"
+          Write-Host "pwsh version  : $($PSVersionTable.PSVersion)"
+          Write-Host "================="
 
-      # 4. Yarn + Electron binary cache
-      - name: Cache Yarn + Electron binaries
+      # ---------------------------------------------------------------------
+      # 4. Preflight: require at least 2 GB free space on the runner disk
+      # ---------------------------------------------------------------------
+      - name: 4. Preflight — disk space check (≥2 GB)
+        run: |
+          $drive = (Get-Location).Drive
+          $freeGB = [math]::Round($drive.Free / 1GB, 2)
+          Write-Host "Free space on $($drive.Name): $freeGB GB"
+          if ($freeGB -lt 2) {
+            Write-Error "Insufficient disk space: $freeGB GB < 2 GB required"
+            exit 1
+          }
+
+      # ---------------------------------------------------------------------
+      # 5. Cache Yarn packages + Electron binaries.
+      #    Key hashes BOTH yarn.lock AND desktop/package.json so bumping
+      #    Electron / electron-builder also invalidates the cache.
+      # ---------------------------------------------------------------------
+      - name: 5. Cache Yarn + Electron binaries
         uses: actions/cache@v4
         with:
           path: |
@@ -82,125 +121,250 @@ jobs:
             moonlight/desktop/node_modules
             ${{ env.ELECTRON_CACHE }}
             ${{ env.ELECTRON_BUILDER_CACHE }}
-          key: ${{ runner.os }}-moonlight-${{ hashFiles('moonlight/**/yarn.lock') }}
+          key: ${{ runner.os }}-moonlight-${{ hashFiles('moonlight/**/yarn.lock', 'moonlight/desktop/package.json') }}
           restore-keys: |
             ${{ runner.os }}-moonlight-
 
-      # 5. Install root (monorepo) dependencies
-      - name: Install root dependencies
+      # ---------------------------------------------------------------------
+      # 6. Install monorepo root deps (yarn with npm fallback for resilience)
+      # ---------------------------------------------------------------------
+      - name: 6. Install root dependencies (yarn → npm fallback)
         working-directory: moonlight
-        run: yarn install --frozen-lockfile --network-timeout 300000
+        run: |
+          $start = Get-Date
+          try {
+            yarn install --frozen-lockfile --network-timeout 600000
+            if ($LASTEXITCODE -ne 0) { throw "yarn install exit=$LASTEXITCODE" }
+          } catch {
+            Write-Warning "yarn install failed: $_ — falling back to npm install"
+            npm install --legacy-peer-deps --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { Write-Error "npm fallback failed"; exit 1 }
+          }
+          $elapsed = ((Get-Date) - $start).TotalSeconds
+          Write-Host "[step-6] elapsed = $([math]::Round($elapsed,1))s"
 
-      # 6. Install backend dependencies explicitly (ensure workspace is hydrated)
-      - name: Install backend dependencies
+      # ---------------------------------------------------------------------
+      # 7. Install backend workspace deps (explicit to guarantee hydration)
+      # ---------------------------------------------------------------------
+      - name: 7. Install backend dependencies
         working-directory: moonlight/backend
-        run: yarn install --frozen-lockfile --network-timeout 300000
+        run: |
+          $start = Get-Date
+          try {
+            yarn install --frozen-lockfile --network-timeout 600000
+            if ($LASTEXITCODE -ne 0) { throw "yarn install exit=$LASTEXITCODE" }
+          } catch {
+            Write-Warning "yarn install failed in backend: $_ — falling back to npm install"
+            npm install --legacy-peer-deps --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { Write-Error "npm fallback failed"; exit 1 }
+          }
+          $elapsed = ((Get-Date) - $start).TotalSeconds
+          Write-Host "[step-7] elapsed = $([math]::Round($elapsed,1))s"
 
-      # 7. Install desktop dependencies explicitly
-      - name: Install desktop dependencies
+      # ---------------------------------------------------------------------
+      # 8. Install desktop workspace deps
+      # ---------------------------------------------------------------------
+      - name: 8. Install desktop dependencies
         working-directory: moonlight/desktop
-        run: yarn install --frozen-lockfile --network-timeout 300000
+        run: |
+          $start = Get-Date
+          try {
+            yarn install --frozen-lockfile --network-timeout 600000
+            if ($LASTEXITCODE -ne 0) { throw "yarn install exit=$LASTEXITCODE" }
+          } catch {
+            Write-Warning "yarn install failed in desktop: $_ — falling back to npm install"
+            npm install --legacy-peer-deps --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { Write-Error "npm fallback failed"; exit 1 }
+          }
+          $elapsed = ((Get-Date) - $start).TotalSeconds
+          Write-Host "[step-8] elapsed = $([math]::Round($elapsed,1))s"
 
-      # 8. TypeScript strict type check (backend + desktop)
-      - name: TypeScript type check
+      # ---------------------------------------------------------------------
+      # 9. TypeScript strict type-check (backend + desktop). 0 errors required.
+      # ---------------------------------------------------------------------
+      - name: 9. TypeScript type check (strict)
         working-directory: moonlight
-        run: yarn typecheck
+        run: |
+          $start = Get-Date
+          try {
+            yarn typecheck
+            if ($LASTEXITCODE -ne 0) { throw "typecheck exit=$LASTEXITCODE" }
+          } catch {
+            Write-Error "TypeScript typecheck failed: $_"
+            exit 1
+          }
+          $elapsed = ((Get-Date) - $start).TotalSeconds
+          Write-Host "[step-9] elapsed = $([math]::Round($elapsed,1))s"
 
-      # 9. Backend TS build
-      - name: Build backend (TypeScript → dist)
+      # ---------------------------------------------------------------------
+      # 10. Compile backend (NestJS tsc → dist/)
+      # ---------------------------------------------------------------------
+      - name: 10. Build backend (TypeScript → dist)
         working-directory: moonlight
-        run: yarn build:backend
+        run: |
+          $start = Get-Date
+          try {
+            yarn build:backend
+            if ($LASTEXITCODE -ne 0) { throw "build:backend exit=$LASTEXITCODE" }
+          } catch {
+            Write-Error "Backend build failed: $_"
+            exit 1
+          }
+          $elapsed = ((Get-Date) - $start).TotalSeconds
+          Write-Host "[step-10] elapsed = $([math]::Round($elapsed,1))s"
 
-      # 10. esbuild bundle (minified production)
-      - name: Bundle backend (esbuild, minified)
+      # ---------------------------------------------------------------------
+      # 11. esbuild production bundle (single-file, minified)
+      # ---------------------------------------------------------------------
+      - name: 11. Bundle backend (esbuild, minified)
         working-directory: moonlight
-        run: yarn bundle:backend:prod
+        run: |
+          $start = Get-Date
+          try {
+            yarn bundle:backend:prod
+            if ($LASTEXITCODE -ne 0) { throw "bundle:backend:prod exit=$LASTEXITCODE" }
+          } catch {
+            Write-Error "Backend bundle failed: $_"
+            exit 1
+          }
+          $elapsed = ((Get-Date) - $start).TotalSeconds
+          Write-Host "[step-11] elapsed = $([math]::Round($elapsed,1))s"
 
-      # 11. Verify backend bundle
-      - name: Verify backend bundle
+      # ---------------------------------------------------------------------
+      # 12. Verify backend bundle (exists, size ≥ 100 KB, syntax OK)
+      # ---------------------------------------------------------------------
+      - name: 12. Verify backend bundle
         run: |
           $bundle = "moonlight/dist-bundle/backend.js"
           if (-Not (Test-Path $bundle)) {
-            Write-Error "HATA: $bundle bulunamadi! Bundle adimi sessizce basarisiz olmus olabilir."
+            Write-Error "Bundle missing: $bundle"
             exit 1
           }
           $size = (Get-Item $bundle).Length
           $sizeMB = [math]::Round($size / 1MB, 2)
-          Write-Host "Bundle boyutu: $sizeMB MB ($size bytes)"
+          Write-Host "Bundle size: $sizeMB MB ($size bytes)"
           if ($size -lt 102400) {
-            Write-Error "HATA: Bundle cok kucuk ($size bytes < 100KB), build basarisiz olmus olmali."
+            Write-Error "Bundle too small ($size bytes < 100 KB) — build likely failed"
+            exit 1
+          }
+          Write-Host "Syntax check: node --check $bundle"
+          node --check $bundle
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Bundle syntax check failed"
             exit 1
           }
           Write-Host "Backend bundle OK."
 
-      # 12. Backend runtime native deps (sqlite3, ws, ccxt, keytar, ...)
-      #     These ship inside the installer under resources/backend-bundle/node_modules.
-      - name: Install backend runtime deps (natives)
+      # ---------------------------------------------------------------------
+      # 13. Install backend runtime native deps (sqlite3, keytar, ws, ccxt)
+      #     Shipped inside the installer under resources/backend-bundle/node_modules.
+      # ---------------------------------------------------------------------
+      - name: 13. Install backend runtime deps (natives)
         working-directory: moonlight/backend
         run: |
+          $start = Get-Date
           npm install --omit=dev --no-package-lock --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { Write-Error "npm install failed"; exit 1 }
           if (-Not (Test-Path "node_modules/sqlite3")) {
-            Write-Error "sqlite3 missing in backend/node_modules after install"
+            Write-Error "sqlite3 missing under backend/node_modules"
             exit 1
           }
-          Write-Host "Backend runtime deps OK."
+          $elapsed = ((Get-Date) - $start).TotalSeconds
+          Write-Host "[step-13] elapsed = $([math]::Round($elapsed,1))s"
 
-      # 13. Rebuild natives for Electron ABI (best-effort, doesn't fail release)
-      - name: Rebuild native modules for Electron ABI
+      # ---------------------------------------------------------------------
+      # 14. Rebuild natives for Electron ABI (best-effort, won't block release)
+      # ---------------------------------------------------------------------
+      - name: 14. Rebuild native modules for Electron ABI
         working-directory: moonlight/desktop
-        run: |
-          npx --yes @electron/rebuild -m ../backend/node_modules -o sqlite3,keytar,bufferutil,utf-8-validate -f
         continue-on-error: true
-
-      # 14. Desktop build (vite + tsc)
-      - name: Build desktop (renderer + main + preload)
-        working-directory: moonlight
-        run: yarn build:desktop
-
-      # 15. Verify desktop build
-      - name: Verify desktop build
         run: |
-          if (-Not (Test-Path "moonlight/desktop/dist-electron")) {
-            Write-Error "HATA: moonlight/desktop/dist-electron klasoru bulunamadi!"
-            exit 1
-          }
-          if (-Not (Test-Path "moonlight/desktop/dist-renderer")) {
-            Write-Error "HATA: moonlight/desktop/dist-renderer klasoru bulunamadi!"
-            exit 1
-          }
-          Write-Host "Desktop build OK."
+          $start = Get-Date
+          npx --yes @electron/rebuild -m ../backend/node_modules -o sqlite3,keytar,bufferutil,utf-8-validate -f
+          $elapsed = ((Get-Date) - $start).TotalSeconds
+          Write-Host "[step-14] elapsed = $([math]::Round($elapsed,1))s"
 
-      # 16. Package Windows installer (NSIS x64)
-      - name: Package Windows installer (NSIS x64)
+      # ---------------------------------------------------------------------
+      # 15. Desktop build (vite renderer + tsc main + preload)
+      # ---------------------------------------------------------------------
+      - name: 15. Build desktop (renderer + main + preload)
+        working-directory: moonlight
+        run: |
+          $start = Get-Date
+          try {
+            yarn build:desktop
+            if ($LASTEXITCODE -ne 0) { throw "build:desktop exit=$LASTEXITCODE" }
+          } catch {
+            Write-Error "Desktop build failed: $_"
+            exit 1
+          }
+          $elapsed = ((Get-Date) - $start).TotalSeconds
+          Write-Host "[step-15] elapsed = $([math]::Round($elapsed,1))s"
+
+      # ---------------------------------------------------------------------
+      # 16. Verify desktop build outputs
+      # ---------------------------------------------------------------------
+      - name: 16. Verify desktop build outputs
+        run: |
+          foreach ($dir in @("moonlight/desktop/dist-electron", "moonlight/desktop/dist-renderer")) {
+            if (-Not (Test-Path $dir)) {
+              Write-Error "Missing: $dir"
+              exit 1
+            }
+            Write-Host "OK: $dir"
+          }
+
+      # ---------------------------------------------------------------------
+      # 17. Package Windows installer (NSIS x64) — with electron-builder fallback
+      # ---------------------------------------------------------------------
+      - name: 17. Package Windows installer (NSIS x64)
         working-directory: moonlight/desktop
-        run: yarn dist:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Never let electron-builder auto-publish; we upload via
+          # action-gh-release in step 22 for full control over the release.
+          EP_PRE_RELEASE: 'false'
           DEBUG: ${{ github.event.inputs.debug_mode == 'true' && 'electron-builder' || '' }}
+        run: |
+          $start = Get-Date
+          try {
+            yarn dist:win -- --publish never
+            if ($LASTEXITCODE -ne 0) { throw "dist:win exit=$LASTEXITCODE" }
+          } catch {
+            Write-Warning "yarn dist:win failed: $_ — falling back to direct electron-builder"
+            npx --yes electron-builder --win --x64 --publish never
+            if ($LASTEXITCODE -ne 0) { Write-Error "electron-builder fallback failed"; exit 1 }
+          }
+          $elapsed = ((Get-Date) - $start).TotalSeconds
+          Write-Host "[step-17] elapsed = $([math]::Round($elapsed,1))s"
 
-      # 17. Verify .exe installer
-      - name: Verify installer .exe
+      # ---------------------------------------------------------------------
+      # 18. Verify installer (.exe present, size ≥ 10 MB)
+      # ---------------------------------------------------------------------
+      - name: 18. Verify installer .exe
         run: |
           $exes = Get-ChildItem -Path "moonlight/desktop/dist" -Filter "*.exe" -ErrorAction SilentlyContinue
           if (-not $exes -or $exes.Count -eq 0) {
-            Write-Error "HATA: .exe dosyasi uretilmedi!"
+            Write-Error "No .exe produced under moonlight/desktop/dist"
             Get-ChildItem -Path "moonlight/desktop/dist" -ErrorAction SilentlyContinue | Format-Table -AutoSize
             exit 1
           }
           $failed = $false
           foreach ($exe in $exes) {
             $sizeMB = [math]::Round($exe.Length / 1MB, 2)
-            Write-Host "EXE: $($exe.Name) - $sizeMB MB"
+            Write-Host "EXE: $($exe.Name) — $sizeMB MB"
             if ($exe.Length -lt 10485760) {
-              Write-Error "HATA: $($exe.Name) 10 MB'dan kucuk ($sizeMB MB), eksik/bozuk olabilir."
+              Write-Error "$($exe.Name) is only $sizeMB MB (< 10 MB) — probably broken"
               $failed = $true
             }
           }
           if ($failed) { exit 1 }
           Write-Host "Installer size OK."
 
-      # 18. SHA256 checksums
-      - name: Generate SHA256 checksums
+      # ---------------------------------------------------------------------
+      # 19. SHA256 checksum for every produced .exe
+      # ---------------------------------------------------------------------
+      - name: 19. Generate SHA256 checksums
         working-directory: moonlight/desktop/dist
         run: |
           Get-ChildItem -Filter "*.exe" | ForEach-Object {
@@ -211,8 +375,18 @@ jobs:
           Write-Host "=== dist contents ==="
           Get-ChildItem | Format-Table -AutoSize
 
-      # 19a. Upload artifact (always, even on partial failure — for debugging)
-      - name: Upload installer artifact
+      # ---------------------------------------------------------------------
+      # 20. Installer smoke test (Windows-native PowerShell script)
+      # ---------------------------------------------------------------------
+      - name: 20. Installer smoke test (smoke-win.ps1)
+        working-directory: moonlight
+        run: |
+          pwsh -File scripts/smoke-win.ps1 -DistDir "desktop/dist" -MinSizeMB 10
+
+      # ---------------------------------------------------------------------
+      # 21a. Always upload the installer as a workflow artifact
+      # ---------------------------------------------------------------------
+      - name: 21a. Upload installer artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -224,10 +398,29 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      # 19b. GitHub Release on tag push OR explicit opt-in
-      - name: Publish GitHub Release
+      # ---------------------------------------------------------------------
+      # 21b. On failure only — upload build logs for debugging
+      # ---------------------------------------------------------------------
+      - name: 21b. Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonlight-build-logs-${{ github.run_id }}
+          path: |
+            moonlight/dist-bundle/
+            moonlight/backend/dist/
+            moonlight/desktop/dist/
+            moonlight/desktop/dist-electron/
+            moonlight/desktop/dist-renderer/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # ---------------------------------------------------------------------
+      # 22. Publish GitHub Release on tag push OR explicit opt-in
+      # ---------------------------------------------------------------------
+      - name: 22. Publish GitHub Release
         if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish_release == 'true' }}
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             moonlight/desktop/dist/*.exe
@@ -238,3 +431,26 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---------------------------------------------------------------------
+      # 23. Failure summary — only runs when at least one prior step failed
+      # ---------------------------------------------------------------------
+      - name: 23. Failure summary
+        if: failure()
+        run: |
+          Write-Host "::error::==== MoonLight build FAILED ====" -ForegroundColor Red
+          Write-Host "Run ID      : ${{ github.run_id }}"
+          Write-Host "Run URL     : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          Write-Host "Ref         : ${{ github.ref }}"
+          Write-Host "Commit      : ${{ github.sha }}"
+          Write-Host "Triggered by: ${{ github.actor }}"
+          Write-Host "Timestamp   : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss K')"
+          Write-Host ""
+          Write-Host "Artifacts you can download from this run:"
+          Write-Host "  • moonlight-windows-installer  (if any .exe was produced)"
+          Write-Host "  • moonlight-build-logs-${{ github.run_id }}  (raw build outputs for debugging)"
+          Write-Host ""
+          Write-Host "Common next actions:"
+          Write-Host "  1. Check the 'Verify backend bundle' step — silent esbuild failure?"
+          Write-Host "  2. Check the 'Package Windows installer' step — electron-builder error?"
+          Write-Host "  3. Re-run the workflow with inputs.debug_mode = 'true' for verbose logs."

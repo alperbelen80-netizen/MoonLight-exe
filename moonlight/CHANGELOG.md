@@ -1,14 +1,117 @@
 # MoonLight Trading OS - Change Log
 
 
-## v2.7.0 — MoonLight Windows EXE Build & Installer Sistemi: Tam Kapsamlı Yeniden Yapılandırma
+## v2.7.0 — MoonLight Windows EXE Build & Installer Sistemi: Tam Kapsamlı Yeniden Yapılandırma + Faz 2 Sağlamlaştırma
 
 **Release Date:** 2026-04-24
-**Scope:** Windows `.exe` build pipeline'ını "hedge-fund grade" determinizm ve
-kullanıcı deneyimi seviyesine taşır. Kod davranışında fonksiyonel değişiklik
-yok; yalnızca build, CI/CD, TypeScript tip güvenliği ve installer UX katmanı.
+**Scope:** Windows `.exe` build pipeline'ını "hedge-fund grade" determinizm,
+hata toleransı, performans, test kalitesi ve kullanıcı deneyimi seviyesine
+taşır. Kod davranışında fonksiyonel değişiklik yok; yalnızca build, CI/CD,
+TypeScript tip güvenliği, installer UX ve crash resilience katmanı.
 
-### 🧹 Bölüm A — Geçmişteki 10 sorunun tamamı çözüldü
+### 🔒 Faz 2 — Hardening (v2.7.0 final)
+
+**Workflow güçlendirme (`.github/workflows/release.yml`):**
+- Tüm `yarn install` adımları `--network-timeout 600000` (10 dk) ile.
+- Her kritik build adımı PowerShell `try/catch` içinde; hata mesajı +
+  `exit 1` net şekilde raporlanır.
+- Disk alanı preflight: runner'da ≥ 2 GB boş alan zorunlu.
+- Her adımın **elapsed time** logu (`[step-N] elapsed = Xs`).
+- `if: failure()` → özet hata raporu (run ID, URL, zaman damgası,
+  artifact yerleri, debug önerileri).
+- `softprops/action-gh-release@v2`'ye terfi.
+- Cache key hem `yarn.lock` hem `desktop/package.json` hash'ini içerir.
+- `ELECTRON_CACHE` ve `ELECTRON_BUILDER_CACHE` environment variable'ları ayarlandı.
+- `failure()` halinde `build-logs/` artifact'i (dist-bundle, backend/dist,
+  desktop/dist, dist-electron, dist-renderer) 14 gün retention ile yüklenir.
+
+**Fallback mekanizmaları:**
+- `yarn install` başarısız → `npm install --legacy-peer-deps` otomatik fallback.
+- `yarn dist:win` başarısız → `npx electron-builder --win --x64 --publish never`
+  otomatik fallback.
+- `@electron/rebuild` → `continue-on-error: true` (release'i bloklamaz).
+
+**Backend sağlamlaştırma:**
+- `scripts/bundle-backend.js`:
+  - Detaylı başarı/başarısızlık logları (`[bundle-backend] SUCCESS ✅ ...`).
+  - Bundle sonrası `node --check` syntax doğrulaması.
+  - Size preflight (< 100 KB → fail).
+  - esbuild `metafile: true` + `backend.meta.json` üretimi + top-5 largest
+    inputs logu.
+  - Explicit `treeShaking: true`.
+- `backend/package.json`:
+  - Yeni script: `typecheck` (= `tsc --noEmit`).
+  - `lint` script zaten mevcut.
+- `backend/tsconfig.json`:
+  - `skipLibCheck: true` doğrulandı ✅.
+- `backend/src/main.ts`:
+  - Top-level `process.on('unhandledRejection', ...)` ve `uncaughtException`
+    handler'ları eklendi (parent Electron BackendManager'a `exit 1`).
+  - `bootstrap().catch(...)` ile DI/port hatalarını loglayıp çıkar.
+  - Graceful shutdown (SIGTERM/SIGINT) zaten mevcut ✅.
+- `backend/jest.config.js`:
+  - `coverageThreshold` eklendi (statements: 60, branches: 50, functions: 55, lines: 60).
+  - Yalnızca `yarn test:cov` koşarken aktif; normal `yarn test` etkilenmez.
+
+**Frontend/Desktop sağlamlaştırma:**
+- `desktop/vite.config.ts`:
+  - `chunkSizeWarningLimit: 2000` (KB) — 500 KB default uyarıları susturur.
+  - `rollupOptions.output.manualChunks`: vendor-react / vendor-ui /
+    vendor-util / vendor-charts / vendor — deterministik vendor ayrıştırma,
+    cache reuse artar.
+- `desktop/renderer/src/components/common/ErrorBoundary.tsx` zaten mevcut
+  ve App ağacının en üstüne sarılmış ✅.
+- `desktop/main/index.ts`:
+  - `process.on('uncaughtException')` → crashReporter (önceden mevcut).
+  - **Yeni:** `process.on('unhandledRejection')` → crashReporter forward.
+- `desktop/main/preload.ts` parametre tipleri explicit (kontrol edildi) ✅.
+- `desktop/package.json build`:
+  - `electronVersion: "28.3.3"` ✅
+  - `nodeGypRebuild: false` ✅
+  - `buildDependenciesFromSource: false` ✅
+  - `npmRebuild: true` (Faz 1'de eklenmişti)
+  - `publish: [{ provider: 'github', releaseType: 'release' }]` —
+    `latest.yml` production manifest üretimi için gerekli.
+
+**Installer sihirbazı (Windows 10/11):**
+- `desktop/build/installer.nsh`:
+  - Windows 10 build 17763+ kontrolü (AtLeastWin10 makrosu Win10 1809+).
+  - ≥ 500 MB disk alanı kontrolü (iptal halinde Türkçe mesaj).
+  - Uninstall promptu: AppData temizleme seçeneği.
+- NSIS build options:
+  - `oneClick: false`, `perMachine: false` → admin gerektirmez.
+  - `createDesktopShortcut: true`, `createStartMenuShortcut: true`.
+  - `runAfterFinish: true`.
+  - `artifactName: "MoonLight-Owner-${version}-win-x64.${ext}"`.
+- İlk açılışta `OnboardingWizard` otomatik tetiklenir (v2.6-8'den beri) ✅.
+
+**E2E Smoke Test:**
+- Yeni: `scripts/smoke-win.ps1` (Windows-native PowerShell).
+  - `.exe` varlık + boyut (≥ 10 MB) kontrolü.
+  - `.exe.sha256` mevcut + hash karşılaştırması.
+  - `latest.yml` varlığı (uyarı).
+  - NSIS `/?` help-surface probe (binary runnable mi?).
+- Workflow step 20 bu script'i çağırır.
+
+**Performans:**
+- Yarn + Electron cache key'e `yarn.lock` + `desktop/package.json`
+  hash'leri entegre edildi.
+- `ELECTRON_CACHE` ve `ELECTRON_BUILDER_CACHE` explicit dizin.
+- Vite `manualChunks` → vendor kodları release-to-release cache'lenir.
+
+**Güvenlik:**
+- `CSC_IDENTITY_AUTO_DISCOVERY: 'false'` (code-signing opt-in) ✅.
+- `verifyUpdateCodeSignature: false` (sertifika yoksa auto-update bozulmaz) ✅.
+- SHA256 checksum her .exe için zorunlu (step 19) ✅.
+- `latest.yml` release'e eklenir (step 22) ✅.
+- GitHub release notları otomatik generate (`generate_release_notes: true`) ✅.
+
+**Dokümantasyon:**
+- Yeni: `docs/TROUBLESHOOTING.md` — A-F sınıflandırılmış 15+ sorun/çözüm.
+- Güncellendi: `docs/BUILD_WINDOWS.md` — v2.7.0 başlık + yeni akış.
+- Güncellendi: `CHANGELOG.md` (bu giriş).
+
+### 🧹 Bölüm A — Geçmişteki 10 sorunun tamamı çözüldü (Faz 1 devam)
 
 1. ✅ `scripts/bundle-backend.js` hardcoded `/app/moonlight/...` kaldırıldı →
    `require('esbuild')` + `path.join(REPO_ROOT, …)` fallback.

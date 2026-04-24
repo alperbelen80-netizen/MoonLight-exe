@@ -141,6 +141,10 @@ async function main() {
   }
 
   const start = Date.now();
+  console.log(
+    `[bundle-backend] entry=${entryFile}  outfile=${OUT_FILE}  minify=${isMinify}`,
+  );
+
   const result = await esbuild.build({
     entryPoints: [entryFile],
     bundle: true,
@@ -151,6 +155,10 @@ async function main() {
     external: EXTERNAL,
     sourcemap: isMinify ? false : 'inline',
     minify: isMinify,
+    // Explicit tree-shaking (esbuild tree-shakes CJS too, but we make it visible).
+    treeShaking: true,
+    // Emit a metafile so we can surface bundle composition in CI logs.
+    metafile: true,
     logLevel: 'info',
     // NestJS emits decorator metadata; keep class names intact for DI.
     keepNames: true,
@@ -162,13 +170,58 @@ async function main() {
     },
   });
 
-  // Copy a minimal bootstrap wrapper so Electron can exec the bundle even
-  // when started via `ELECTRON_RUN_AS_NODE=1` (no CLI args are forwarded).
+  // ---- Integrity checks (fail-fast if silent corruption happened) --------
+  if (!fs.existsSync(OUT_FILE)) {
+    console.error('[bundle-backend] FATAL: outfile not written');
+    process.exit(1);
+  }
   const size = fs.statSync(OUT_FILE).size;
   const kb = (size / 1024).toFixed(1);
+  const mb = (size / (1024 * 1024)).toFixed(2);
   const elapsed = Date.now() - start;
+  if (size < 100 * 1024) {
+    console.error(
+      `[bundle-backend] FATAL: bundle is suspiciously small (${kb} KB < 100 KB).\n` +
+        '  Likely causes: silent esbuild failure, missing entry, or tree-shaking error.',
+    );
+    process.exit(1);
+  }
+
+  // Node --check syntax validation on the final artifact.
+  try {
+    const { execSync } = require('child_process');
+    execSync(`node --check "${OUT_FILE}"`, { stdio: 'pipe' });
+    console.log('[bundle-backend] syntax check: OK (node --check)');
+  } catch (e) {
+    console.error(
+      '[bundle-backend] FATAL: bundle failed node --check syntax validation.\n' +
+        (e.stderr ? `  stderr: ${e.stderr.toString()}` : ''),
+    );
+    process.exit(1);
+  }
+
+  // Persist the metafile next to the bundle for ad-hoc analysis.
+  try {
+    const metafilePath = path.join(OUT_DIR, 'backend.meta.json');
+    fs.writeFileSync(metafilePath, JSON.stringify(result.metafile, null, 2));
+    // Top-5 largest inputs (quick "why is bundle big?" signal)
+    const inputs = Object.entries(result.metafile.inputs)
+      .map(([k, v]) => ({ path: k, bytes: v.bytes }))
+      .sort((a, b) => b.bytes - a.bytes)
+      .slice(0, 5);
+    console.log('[bundle-backend] top-5 largest inputs:');
+    for (const i of inputs) {
+      console.log(
+        `  - ${i.path}  ${(i.bytes / 1024).toFixed(1)} KB`,
+      );
+    }
+    console.log(`[bundle-backend] metafile written: ${metafilePath}`);
+  } catch (e) {
+    console.warn('[bundle-backend] WARN: could not write metafile:', e.message);
+  }
+
   console.log(
-    `[bundle-backend] wrote ${OUT_FILE} (${kb} KB) in ${elapsed}ms`,
+    `[bundle-backend] SUCCESS ✅  wrote ${OUT_FILE}  ${mb} MB (${kb} KB)  in ${elapsed}ms`,
   );
 
   // Also write a sibling `package.json` so the bundle can be hoisted into

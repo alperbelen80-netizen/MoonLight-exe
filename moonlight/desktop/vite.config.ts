@@ -15,6 +15,24 @@ export default defineConfig({
   },
   build: {
     outDir: path.join(__dirname, 'dist-renderer'),
+    // Bundle size budget: warn only if a single chunk exceeds 2 MB
+    // (our default dashboard chunk is ~450 KB, this gives headroom).
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        // Split vendor libs into deterministic chunks to improve cache
+        // reuse between releases (e.g. only app code changes → vendor
+        // chunks stay cached).
+        manualChunks: (id) => {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('react') || id.includes('scheduler')) return 'vendor-react';
+          if (id.includes('@radix-ui') || id.includes('cmdk') || id.includes('lucide-react')) return 'vendor-ui';
+          if (id.includes('sonner') || id.includes('clsx') || id.includes('zustand')) return 'vendor-util';
+          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+          return 'vendor';
+        },
+      },
+    },
   },
   resolve: {
     alias: {
