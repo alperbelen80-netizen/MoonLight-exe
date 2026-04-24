@@ -31,11 +31,15 @@
     "verify": "yarn test && yarn build && yarn poc"
   },
   "devDependencies": {
+    "@types/node": "18.15.11",
     "concurrently": "^8.2.2",
     "esbuild": "^0.21.5",
     "redis-memory-server": "^0.16.0",
     "rimraf": "^3.0.2",
     "ts-node": "^10.9.2"
+  },
+  "resolutions": {
+    "@types/node": "18.15.11"
   },
   "dependencies": {
     "ioredis-mock": "^8.13.1"

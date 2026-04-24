@@ -348,7 +348,10 @@ class FileSecretsBackend {
     // scrypt gives us a 32-byte AES-256 key deterministically from the
     // machine material + static salt. This is intentionally deterministic
     // so the file survives backend restarts.
-    return crypto.scryptSync(material, salt, 32);
+    // Cast through `any` because TS 5.3.3 + @types/node drift: the Buffer
+    // type is internally `Uint8Array<ArrayBufferLike>` while `BinaryLike`
+    // expects `ArrayBufferView<ArrayBuffer>`. Runtime is identical.
+    return crypto.scryptSync(material as any, salt as any, 32) as Buffer;
   }
 
   private async load(): Promise<Record<string, string>> {
@@ -364,9 +367,16 @@ class FileSecretsBackend {
       const tag = buf.subarray(12, 28);
       const ct = buf.subarray(28);
       const key = this.deriveKey();
-      const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-      decipher.setAuthTag(tag);
-      const pt = Buffer.concat([decipher.update(ct), decipher.final()]);
+      const decipher = crypto.createDecipheriv(
+        'aes-256-gcm',
+        key as any,
+        iv as any,
+      );
+      decipher.setAuthTag(tag as any);
+      const pt = Buffer.concat([
+        decipher.update(ct as any) as any,
+        decipher.final() as any,
+      ]);
       this.cache = JSON.parse(pt.toString('utf-8')) as Record<string, string>;
       return this.cache;
     } catch (err) {
@@ -382,15 +392,22 @@ class FileSecretsBackend {
   private async save(obj: Record<string, string>): Promise<void> {
     const iv = crypto.randomBytes(12);
     const key = this.deriveKey();
-    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const cipher = crypto.createCipheriv(
+      'aes-256-gcm',
+      key as any,
+      iv as any,
+    );
     const pt = Buffer.from(JSON.stringify(obj), 'utf-8');
-    const ct = Buffer.concat([cipher.update(pt), cipher.final()]);
+    const ct = Buffer.concat([
+      cipher.update(pt as any) as any,
+      cipher.final() as any,
+    ]);
     const tag = cipher.getAuthTag();
-    const out = Buffer.concat([iv, tag, ct]);
+    const out = Buffer.concat([iv as any, tag as any, ct as any]);
     // atomic write
     const tmp = `${this.file}.tmp`;
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    fs.writeFileSync(tmp, out, { mode: 0o600 });
+    fs.writeFileSync(tmp, out as any, { mode: 0o600 });
     fs.renameSync(tmp, this.file);
     this.cache = obj;
   }
