@@ -36,11 +36,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'yarn'
-          cache-dependency-path: 'moonlight/yarn.lock'
+          # cache: 'yarn'  # intentionally disabled — yarn.lock presence is
+          # environment-dependent (Emergent sync may or may not track it).
+          # Using actions/cache@v4 manually below if needed for speed.
+
+      - name: Manual Yarn cache (best-effort, never fails the job)
+        uses: actions/cache@v4
+        continue-on-error: true
+        with:
+          path: |
+            ~/.yarn/cache
+            moonlight/node_modules
+            moonlight/backend/node_modules
+            moonlight/desktop/node_modules
+          key: ${{ runner.os }}-moonlight-ci-${{ hashFiles('moonlight/**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-moonlight-ci-
 
       - name: Install root (monorepo) dependencies
-        run: yarn install --frozen-lockfile --network-timeout 300000
+        run: yarn install --network-timeout 600000
 
       - name: TypeScript type check (backend + desktop)
         run: yarn typecheck
