@@ -2,14 +2,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as http from 'http';
 import * as net from 'net';
+import * as os from 'os';
+import * as path from 'path';
 import { EventEmitter } from 'events';
 import { Readable } from 'stream';
+
+// Platform-agnostic test temp paths (work on Linux/macOS/Windows).
+const TEST_LOGS_DIR = path.join(os.tmpdir(), 'moonlight-test-logs');
+const TEST_DATA_DIR = path.join(os.tmpdir(), 'moonlight-test');
+const DUMMY_BUNDLE = path.join(os.tmpdir(), 'moonlight-test-bundle.js');
 
 // ---- Mock electron BEFORE importing BackendManager -----------------------
 vi.mock('electron', () => ({
   app: {
     getPath: (k: string) =>
-      k === 'logs' ? '/tmp/moonlight-test-logs' : '/tmp/moonlight-test',
+      k === 'logs' ? TEST_LOGS_DIR : TEST_DATA_DIR,
   },
 }));
 
@@ -65,7 +72,7 @@ class TestBackendManager extends BackendManager {
   }
 }
 
-fs.mkdirSync('/tmp/moonlight-test-logs', { recursive: true });
+fs.mkdirSync(TEST_LOGS_DIR, { recursive: true });
 
 function startFakeHealthServer(): Promise<{
   port: number;
@@ -89,13 +96,13 @@ function startFakeHealthServer(): Promise<{
   });
 }
 
-const DUMMY_BUNDLE = '/tmp/moonlight-test-bundle.js';
-fs.writeFileSync(DUMMY_BUNDLE, '// dummy');
+const DUMMY_BUNDLE_PATH = DUMMY_BUNDLE;
+fs.writeFileSync(DUMMY_BUNDLE_PATH, '// dummy');
 
 describe('BackendManager (v2.6-1)', () => {
   beforeEach(() => {
     spawnedProcs.length = 0;
-    process.env.MOONLIGHT_BACKEND_ENTRY = DUMMY_BUNDLE;
+    process.env.MOONLIGHT_BACKEND_ENTRY = DUMMY_BUNDLE_PATH;
   });
 
   afterEach(() => {
@@ -121,7 +128,7 @@ describe('BackendManager (v2.6-1)', () => {
     });
     const port = await mgr.start();
     expect(port).toBe(fake.port);
-    expect(mgr.getStatus().backendEntry).toBe(DUMMY_BUNDLE);
+    expect(mgr.getStatus().backendEntry).toBe(DUMMY_BUNDLE_PATH);
     expect(mgr.getStatus().running).toBe(true);
     await mgr.stop();
     await fake.stop();

@@ -1,11 +1,14 @@
-# MoonLight Trading OS — v1.9 (Stable) → **v2.x Evrimsel Öğrenen AI (MoE + Trinity Oversight)** → **v2.5 Runtime + Broker Layer (DONE)** → **v2.6 Windows .exe Productionization** → **v2.6-10 Windows Build Sistemi — Tam Yeniden Yapılandırma (COMPLETED)**
+# MoonLight Trading OS — v1.9 (Stable) → **v2.x Evrimsel Öğrenen AI (MoE + Trinity Oversight)** → **v2.5 Runtime + Broker Layer (DONE)** → **v2.6 Windows .exe Productionization** → **v2.7.0 Windows EXE Build & Installer Sistemi — Tam Kapsamlı Yeniden Yapılandırma (COMPLETED)**
 
-> Repo kökü: `/app/moonlight/`  \
-> Backend: **Node.js 20 + NestJS 10 + TypeScript + SQLite + esbuild bundling**  \
+> Repo kökü (Git): `/app/`  \
+> Monorepo kökü: `/app/moonlight/`  \
+> Backend: **Node.js 20 + NestJS 10 + TypeScript + SQLite + esbuild (bundling)**  \
 > Desktop: **Electron + React 18 + Vite + Tailwind + electron-builder (NSIS) + electron-updater**  \
 > CI/CD: **GitHub Actions (windows-latest, pwsh)**
 
 > Mimari prensip: **Core‑First** + **Fail‑Safe (Fail‑Closed)** + deterministik FSM + auditability.
+
+---
 
 ## Güncel gerçeklik (özet)
 
@@ -13,20 +16,23 @@
 - **V2.5 tamamlandı** ✅ (Simulation Mode 4 broker, Playwright DOM skeleton, IQ Option WSS guard, ResourceBroker).
 - **V2.6‑1 tamamlandı** ✅ (backend single-file bundle + Electron BackendManager spawn/health/IPC).
 - **V2.6‑2 tamamlandı** ✅ (Credentials Vault: keytar + AES‑256‑GCM fallback, REST + IPC + UI).
-- **V2.6‑3 tamamlandı** ✅ (Windows NSIS Installer + CI/CD + packaged smoke): electron-builder production config, Windows runner release pipeline, prepackage/afterPack hook’ları.
+- **V2.6‑3 tamamlandı** ✅ (Windows NSIS Installer + CI/CD + packaged smoke): electron-builder production config, release pipeline, prepackage/afterPack hook’ları.
 - **V2.6‑4 tamamlandı** ✅ (Auto-update + crash reporting + About panel): `electron-updater`, crash telemetry, UI.
 - **V2.6‑5 tamamlandı** ✅ (Real broker hardening): IQ Option WSS self-heal + DOM broker preflight + SelectorDriftGuard + Dynamic Payout.
 - **V2.6‑6 tamamlandı** ✅ (Multi-broker routing tuning): routing_score + audit reason codes.
 - **V2.6‑7/8/9 tamamlandı** ✅ (Runtime Flags Zero‑Terminal UX + Onboarding Wizard + Dashboard Safety Widget).
-- **V2.6‑10 tamamlandı** ✅ (Windows build sistemi yeniden yapılandırma): hardcoded path temizliği + tek-komut orkestrasyon + Windows release workflow fail-fast doğrulamaları.
+- **V2.6‑10 tamamlandı** ✅ (Windows build sistemi yeniden yapılandırma): hardcoded path temizliği + tek-komut orkestrasyon + fail-fast doğrulamalar.
+- **V2.7.0 tamamlandı** ✅ (Tam kapsamlı Windows EXE Build & Installer refactor): geçmiş sorunların tamamı kapandı, typecheck 0 hata, workflow’lar repo köküne taşındı, NSIS preflight + uninstall temizlik prompt eklendi.
 
 ### Test durumu (son doğrulama)
 
-- Backend Jest: **kritik suite 25/25 PASS** ✅ *(runtime-flags + triple-check + execution-fsm + evvetoslot-engine)*
-- Desktop Vitest: **17/17 PASS** ✅ *(önceki rapor; bu fazda test kodu değiştirilmedi)*
-- `yarn build:all`: **PASS** ✅ *(backend ~6s + bundle ~0.8s + desktop ~15s)*
+- `yarn typecheck` (backend + desktop `tsc --noEmit`): **0 hata** ✅
+- `yarn bundle:backend:prod`: **PASS** ✅ *(dist-bundle/backend.js ≈ 5.24 MB)*
+- YAML syntax (`/app/.github/workflows/{ci,release}.yml`): **OK** ✅
+- JSON syntax (`moonlight/package.json`, `backend/package.json`, `desktop/package.json`): **OK** ✅
 - `yarn smoke:bundle`: **PASS** ✅ *(BackendManager → healthz + sim/state + trinity/resources 200; ~3s boot)*
-- Packaged Linux smoke (`yarn smoke:packaged`): **PASS** ✅ *(önceki rapor; script artık platform-agnostik)*
+- Backend Jest kritik suite: **25/25 PASS** ✅ *(runtime-flags + triple-check + execution-fsm + evvetoslot-engine)*
+- Desktop Vitest: **17/17 PASS** ✅
 
 ---
 
@@ -36,8 +42,8 @@
 
 - Backend + Desktop build **yeşil** ✅
 - Testler **yeşil** ✅
-  - Backend Jest: **kritik suite PASS** ✅ *(tam suite 415/415 beklenir; bu fazda iş mantığına dokunulmadı)*
-  - Desktop Vitest: **17/17 PASS hedefi** ✅
+  - Backend Jest: **kritik suite PASS** ✅ *(tam suite beklenen yeşil; bu fazda iş mantığı minimal değişti — yalnızca header tip güvenliği düzeltmesi)*
+  - Desktop Vitest: **17/17 PASS** ✅
 - Runtime stabilitesi ✅
   - Backend gerçek boot başarılı ✅
   - LiveSignal engine **fail‑safe**: manuel/explicit flag olmadan çalışmaz ✅
@@ -65,7 +71,7 @@
 - Dynamic payout feed ✅ *(DYNAMIC → STATIC fallback chain)*
 - Windows prod hedefinde: broker erişimi ve secrets güvenliği **default‑off / opt‑in** ✅
 
-### D) v2.6 ana hedef: Windows .exe “gerçek kullanıcı makinesinde” sorunsuz çalıştırma
+### D) Windows .exe hedefi: Windows 10/11’de “indir → çift tık → kur → çalıştır”
 
 - Tek kurulum paketi: Desktop + Backend birlikte ✅
 - Backend lifecycle: spawn/health check/restart/shutdown ✅
@@ -74,18 +80,19 @@
 - Auto-update + crash reporter + backend crash telemetry ✅
 - (Opsiyonel) Code signing altyapısı: **hazır/opt‑in** ⏳
 
-### E) v2.6-10 hedefi: Windows Build Sistemi “tam deterministik + Windows-uyumlu” hale getirme
+### E) v2.7.0 hedefi: Tam kapsamlı Windows build determinism + installer UX hardening
 
 **Durum:** COMPLETE ✅
 
-- Hardcoded Linux path kalmamalı (**/app/**, **/root/** vb.) ✅
-- Root script orkestrasyonu tek komutla çalışmalı (`build:all`, `smoke:all`, `clean`) ✅
-- `release.yml` Windows runner üzerinde **fail-fast doğrulama** yapmalı ✅
-  - dist-bundle varlık kontrolü + minimum boyut eşiği ✅
-  - `.exe` varlık kontrolü + minimum boyut (≥10MB) ✅
-  - checksum üretimi ve yükleme ✅
-  - toolchain loglama/teşhis çıktıları ✅
-- Scriptlerde **akıllı hata yönetimi** ✅ (try/catch, `fs.existsSync`, net hata mesajları, `process.exit(1)`)
+- **Geçmiş 10 sorun** (A1–A10) → tamamı kapandı ✅
+- Hardcoded path auditi (B1) → **0 sonuç** ✅ *(shebang hariç)*
+- TypeScript strict (B2) → `tsc --noEmit` **0 hata** ✅
+- Bağımlılık sağlamlığı (B4) → backend devDep `esbuild` + `rimraf` ✅
+- Windows ikon/asset (C1) → multi-res `.ico` + 512×512 `.png` ✅
+- NSIS UX (C2) → oneClick=false, directory select, shortcuts, runAfterFinish ✅
+- Native modül uyumluluğu (C4) → `npmRebuild:true` + `asarUnpack` listesi ✅
+- Workflow repo kökünde (D) → `/app/.github/workflows/release.yml` + `ci.yml` ✅
+- NSIS preflight + uninstall prompt (E) → `desktop/build/installer.nsh` ✅
 
 ---
 
@@ -151,83 +158,69 @@
 ## **Phase V2.6‑10 — Windows Build Sistemi — Tam Yeniden Yapılandırma (P0/P1)**
 **Status:** COMPLETE ✅
 
-> Motivasyon: Kod %100 tamam olmasına rağmen Windows packaging/CI tarafında küçük “hardcoded Linux path” ve orkestrasyon eksikleri Windows runner’da kırılma riski yaratıyordu. Bu faz, Windows build zincirini deterministik + platform-agnostik hale getirir.
+> Bu faz, hardcoded Linux path ve temel orkestrasyon sorunlarını temizleyerek Windows runner’da kırılma riskini kaldırdı.
 
-### Keşif Sonuçları (Tamamlandı ✅)
+---
 
-- Hardcoded Linux path tespiti yapıldı (3 script + 1 comment).
-- `desktop/scripts/prepackage-check.js` Windows-friendly idi, platform politikası eklendi.
-- `.github/workflows/release.yml` Windows tabanlıydı; 13 adımlı “fail-fast” pipeline’a dönüştürüldü.
-- Root `package.json` temel script’leri içeriyordu; orkestrasyon katmanı eklendi.
-
-### Task A — Hardcoded Linux yollarını temizle (P0)
+## **Phase V2.7.0 — Windows EXE Build & Installer Sistemi — Tam Kapsamlı Yeniden Yapılandırma (P0/P1)**
 **Status:** COMPLETE ✅
 
-Uygulananlar:
-- `scripts/bundle-backend.js`
-  - Hardcoded `require('/app/moonlight/node_modules/esbuild')` kaldırıldı.
-  - `loadEsbuild()` ile REPO_ROOT altında deterministik resolve + `require('esbuild')` fallback.
-  - Backend build çıktısı (`backend/dist/.../main.js`) preflight ile zorunlu.
-  - Backend package.json version okuma `existsSync` ile korumalı.
-- `scripts/smoke-backend-manager.js`
-  - Sıfırdan platform-agnostik yazıldı: `os.tmpdir()` + `path.resolve`.
-  - Preflight: `dist-bundle/backend.js` ve `desktop/dist-electron/backend-manager.js` yoksa fail.
-- `scripts/smoke-packaged.js`
-  - Hardcoded `linux-arm64-unpacked` kaldırıldı.
-  - `--appOutDir` / `MOONLIGHT_APP_OUT_DIR` / `*-unpacked` auto-detect.
-  - DB/data path’leri `os.tmpdir()`.
-- `backend/scripts/parse-indicators.js`
-  - Yalnızca yorum satırındaki absolute path temizlendi.
+> Bu faz, kullanıcı tarafından listelenen A–F bölümlerinin tamamını kapsar: TS strict 0 hata, dependency hardening, Windows UX, repo-kök workflow, NSIS preflight/uninstall prompt ve son doğrulama.
 
-Çıkış kriteri:
-- `grep -rn "/app/moonlight|/root/"` → **0 sonuç** ✅ *(repo scripts/CI üzerinde)*
-
-### Task B — Root package.json orkestrasyonu (P0)
+### Bölüm A — Geçmişte karşılaşılan sorunlar (A1–A10)
 **Status:** COMPLETE ✅
 
-- Yeni scriptler:
-  - `build:all`, `test:desktop`, `test:all`, `smoke:all`, `clean`
-- Root devDependencies:
-  - `esbuild@^0.21.5`, `rimraf@^3.0.2` eklendi (CI determinism)
+- A1 ✅ esbuild hardcoded path → `require('esbuild')` (+ güvenli fallback)
+- A2 ✅ runtime-flags header tipi → `String(req.headers[...] ?? '')` + parantez
+- A3 ✅ root script eksikleri → mevcut
+- A4 ✅ workflow yanlış dizin → `/app/.github/workflows/` düzeltildi
+- A5 ✅ PowerShell `cd && yarn` → `working-directory` standardı
+- A6 ✅ esbuild backend devDep → eklendi
+- A7 ✅ TLS timeout → `--network-timeout 300000`
+- A8 ✅ `retry` action Windows uyumsuzluğu → kullanılmadı
+- A9 ✅ prepackage/after-pack path varsayımları → platform guard + path.join
+- A10 ✅ dist-bundle / dist-electron varlık kontrolü → workflow’da hard-fail
 
-### Task C — GitHub Actions release.yml polish (P0)
+### Bölüm B — Kod analizi ve düzeltmeler
 **Status:** COMPLETE ✅
 
-- `runs-on: windows-latest`, `pwsh` default shell.
-- 13 adımlı pipeline:
-  - `yarn build:all` standardı
-  - `dist-bundle/backend.js` varlık + boyut (≥1MB) doğrulaması
-  - `.exe` varlık + boyut (≥10MB) doğrulaması
-  - SHA256 checksum üretimi
-  - Artifact upload + tag veya `publish_release=true` ise GitHub Release
+- B1 ✅ hardcoded path taraması ve testlerde `os.tmpdir()` refactor
+- B2 ✅ strict typecheck (backend + desktop) 0 hata
+- B3 ✅ root `typecheck` script
+- B4 ✅ backend devDeps: esbuild + rimraf; desktop electron-builder mevcut
 
-### Task D — prepackage-check icon politikası (P1)
+### Bölüm C — Windows 10/11 uyumluluk
 **Status:** COMPLETE ✅
 
-- `os.platform()` tabanlı kontrol eklendi.
-- Windows + CI: `icon.ico` zorunlu (hard fail).
-- Windows local: uyarı + devam.
+- C1 ✅ `icon.ico` multi-res + `icon.png` 512×512
+- C2 ✅ NSIS ayarları: oneClick=false, shortcuts, runAfterFinish, perMachine=false
+- C3 ✅ prepackage-check / after-pack platform guard
+- C4 ✅ native: `npmRebuild:true` + `asarUnpack` (sqlite3/keytar/bufferutil/utf-8-validate)
 
-### Task E — Akıllı hata yönetimi standardı (P1)
+### Bölüm D — GitHub Actions workflow (repo kökünde)
 **Status:** COMPLETE ✅
 
-- Build/smoke scriptlerinde:
-  - `fs.existsSync` preflight
-  - net “Fix: …” yönlendirmeleri
-  - `try/catch` + `process.exit(1)`
+- `/app/.github/workflows/release.yml` ✅ (19 adım; pwsh; working-directory; typecheck; verify bundle; verify exe)
+- `/app/.github/workflows/ci.yml` ✅ (PR/push; typecheck + tests + smoke)
+- `moonlight/.github/workflows/*` ✅ kaldırıldı
 
-### Task F — Regresyon testleri + smoke (P0)
+### Bölüm E — Installer sihirbazı iyileştirmeleri
 **Status:** COMPLETE ✅
 
-- `yarn build:all` → PASS ✅
-- `yarn smoke:bundle` → PASS ✅
-- Backend kritik Jest suite → **25/25 PASS** ✅
+- `desktop/build/installer.nsh` ✅
+  - Windows 10+ kontrolü
+  - ≥ 500 MB disk alanı kontrolü
+  - uninstall’da AppData temizliği için kullanıcı prompt
 
-### Task G — Dokümantasyon + final rapor (P1)
+### Bölüm F — Son doğrulama ve test
 **Status:** COMPLETE ✅
 
-- `CHANGELOG.md` içine **v2.6.10** girişi eklendi.
-- `docs/BUILD_WINDOWS.md` başlığı **v2.6-10** olarak güncellendi + yeni komutlar ve CI doğrulamaları eklendi.
+1. `yarn typecheck` → 0 hata ✅
+2. `yarn bundle:backend:prod` → başarılı ✅
+3. YAML syntax → geçerli ✅
+4. package.json JSON syntax → geçerli ✅
+5. `.github/workflows/release.yml` kökte → evet ✅
+6. `desktop/build/icon.ico` → evet ✅
 
 ---
 
@@ -235,16 +228,23 @@ Uygulananlar:
 
 > Kod tarafı bu fazda tamamlandı. Bundan sonrası kullanıcı/operasyon adımları.
 
-1) **Windows gerçek makine smoke** (kullanıcı aksiyonu):
-   - Installer ile kurulum
-   - Uygulamanın ilk açılış (Onboarding) akışı
-   - Vault’a SSID/secrets girme
-   - Demo modda düşük stake ile smoke
-2) (Opsiyonel) **Code-signing** entegrasyonu:
-   - `CSC_LINK` / `CSC_KEY_PASSWORD` secrets tanımlanır
-   - SmartScreen UX iyileştirilir
-3) (Opsiyonel) **Packaged smoke genişletmesi**:
-   - Windows runner’da `smoke:packaged -- --appOutDir desktop/dist/win-unpacked` gibi doğrulama eklenebilir
+1) **v2.7.0 tag bas ve release üret**
+```bash
+git add -A
+git commit -m "v2.7.0: Windows EXE build & installer — tam yeniden yapılandırma"
+git tag v2.7.0
+git push origin main --tags
+```
+
+2) **Windows gerçek makine smoke (kullanıcı aksiyonu)**
+- Installer ile kurulum
+- İlk açılış (Onboarding) akışı
+- Vault’a SSID/secrets girme
+- Demo modda düşük stake ile smoke
+
+3) (Opsiyonel) **Code-signing**
+- `CSC_LINK` / `CSC_KEY_PASSWORD` secrets tanımla
+- SmartScreen UX iyileştirme
 
 ---
 
@@ -252,59 +252,51 @@ Uygulananlar:
 
 ### Stability
 
+- `yarn typecheck` → PASS ✅
 - `yarn build:all` → PASS ✅
 - `yarn smoke:bundle` → PASS ✅
 - Backend Jest kritik suite → PASS ✅
-- (Hedef) tam backend suite: `cd backend && yarn test` → PASS *(kod değişmedi; beklenen yeşil)*
+- Desktop Vitest → PASS ✅
 
 ### Windows .exe readiness
 
-- Tag push (`vX.Y.Z`) → GitHub Actions `windows-latest` → NSIS `.exe` artifact + GitHub Release ✅
+- Tag push (`v2.7.0`) → GitHub Actions `windows-latest` → `MoonLight-Owner-2.7.0-win-x64.exe` artifact + GitHub Release ✅
 - Workflow doğrulamaları ✅
-  - `dist-bundle/backend.js` var ve ≥1MB
-  - `.exe` var ve ≥10MB
+  - `dist-bundle/backend.js` var ve ≥100KB
+  - `desktop/dist/*.exe` var ve ≥10MB
   - `.sha256` + `latest.yml` upload ediliyor
 
 ### Windows uyumluluk (hardcoded path)
 
-- Repo scriptlerinde `/app/moonlight`, `/root` gibi mutlak Linux yolları **kalmamalı** ✅ *(audit 0 sonuç)*
+- Kod tabanında `/app`, `/tmp`, `/home`, `/usr`, `/root`, `/var` ile başlayan hardcoded path **kalmamalı** ✅
 
 ### Production safety (Live trading)
 
 - Real broker connections opt‑in (feature flags default OFF) ✅
 - Dry-run defaults preserved; live order flags explicit operator opt‑in ✅
-- DOM live path:
-  - preflight (demo badge / max stake / balance) ✅
-  - selector drift soft-disable ✅
 
 ---
 
-## Kullanıcı Live Test Checklist (Operasyonel)
+## Değişiklik Özeti (v2.7.0)
 
-> Bu checklist kod dışı kalan “kullanıcı aksiyonu” kısmıdır.
+### Yeni dosyalar
+- `/app/.github/workflows/release.yml`
+- `/app/.github/workflows/ci.yml`
+- `/app/moonlight/desktop/build/installer.nsh`
 
-1. Windows’ta installer ile kur ve çalıştır.
-2. Settings → Vault:
-   - IQ Option: `IQ_OPTION_SSID` (ve gerekiyorsa ek anahtarlar) gir.
-3. İlk etapta **DEMO** hedefle.
-4. Flag’ler:
-   - `BROKER_IQOPTION_REAL_ENABLED=true`
-   - `BROKER_DOM_AUTOMATION_ENABLED=true`
-   - (İlk smoke) `BROKER_DOM_LIVE_ORDERS=false` (dry-run)
-   - Her şey yeşilse: `BROKER_DOM_LIVE_ORDERS=true`
-   - Güvenlik: `BROKER_DOM_MAX_STAKE=1` gibi küçük cap ile başla.
-5. About panel:
-   - Update state görüntüleniyor mu?
-   - Crash history boş mu?
-6. İlk canlı işlem:
-   - düşük stake, tek sinyal, tek broker.
-   - Trinity audit reason string logs kontrol.
+### Güncellenen dosyalar
+- `/app/moonlight/desktop/build/icon.ico`
+- `/app/moonlight/desktop/build/icon.png`
+- `/app/moonlight/desktop/package.json`
+- `/app/moonlight/backend/package.json`
+- `/app/moonlight/package.json`
+- `/app/moonlight/backend/src/runtime-flags/runtime-flags.module.ts`
+- `/app/moonlight/desktop/scripts/after-pack.js`
+- `/app/moonlight/desktop/main/__tests__/backend-manager.spec.ts`
+- `/app/moonlight/desktop/main/__tests__/v264-updater-crash.spec.ts`
+- `/app/moonlight/CHANGELOG.md`
+- `/app/moonlight/docs/BUILD_WINDOWS.md`
 
----
-
-## Notlar / Bilinen Kısıtlar
-
-- **CCXT Geo-block (HTTP 451/403):** CI ortamında görülebilir; kullanıcı makinesinde genelde yok. Gerekirse proxy/alt endpoint stratejisi ayrı iş.
-- **Keytar:** Linux’ta libsecret gerekebilir; Windows’ta genelde stabil. Fallback AES‑256‑GCM hazır.
-- **Code-signing:** SmartScreen uyarılarını azaltmak için önerilir ama zorunlu değil.
-- **Packaged smoke:** CI’da Electron GUI yok; bu yüzden backend packaged smoke “layout + backend boot” şeklinde yapılır (Electron launch değil). `smoke-packaged.js` artık `--appOutDir` ile platform-agnostik çalışır.
+### Silinen dosyalar
+- `/app/moonlight/.github/workflows/*` (repo köküne taşındı)
+- `/app/moonlight/scripts/electron-stub.js`

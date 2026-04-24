@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import * as os from 'os';
+import * as path from 'path';
 import { AutoUpdaterService } from '../auto-updater';
 import { CrashReporterService } from '../crash-reporter';
 
@@ -6,11 +8,13 @@ import { CrashReporterService } from '../crash-reporter';
 // main process. We *mock* electron APIs lightly because the real ones
 // require an Electron runtime we don't have in a vitest node env.
 
+const TEST_TMP_BASE = path.join(os.tmpdir(), 'moonlight-vitest');
+
 vi.mock('electron', () => ({
   app: {
     isPackaged: false,
     getVersion: () => '2.6.4',
-    getPath: (n: string) => `/tmp/moonlight-vitest-${n}`,
+    getPath: (n: string) => path.join(os.tmpdir(), `moonlight-vitest-${n}`),
   },
   crashReporter: {
     start: vi.fn(),
@@ -66,8 +70,8 @@ describe('CrashReporterService (v2.6-4)', () => {
       code: 1,
       signal: null,
       lastError: 'boom',
-      entry: '/bundle/backend.js',
-      logFile: '/tmp/backend.log',
+      entry: path.join('bundle', 'backend.js'),
+      logFile: path.join(TEST_TMP_BASE, 'backend.log'),
       uptimeMs: 3123,
     });
     expect(ev.kind).toBe('backend-exit');

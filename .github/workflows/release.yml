@@ -1,0 +1,240 @@
+name: MoonLight Windows Installer Build
+
+# MoonLight v2.7.0 — Windows NSIS installer release pipeline.
+#
+# Repo layout: `moonlight/` is a sub-directory (monorepo) of this repo.
+# All Node commands run with PowerShell 7 (pwsh) on windows-latest.
+#
+# Triggers:
+#   - push of a SemVer tag (e.g. v2.7.0) → publishes GitHub Release
+#   - manual workflow_dispatch with `debug_mode` input
+#
+# Output:
+#   - moonlight/desktop/dist/MoonLight-Owner-<version>-win-x64.exe
+#   - moonlight/desktop/dist/*.exe.sha256
+#   - moonlight/desktop/dist/latest.yml (electron-updater manifest)
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      debug_mode:
+        description: 'Enable verbose electron-builder logging'
+        required: false
+        default: 'false'
+      publish_release:
+        description: 'Publish a GitHub Release even without a tag'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    env:
+      ELECTRON_CACHE: ${{ github.workspace }}\.cache\electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}\.cache\electron-builder
+      MOONLIGHT_PACKAGED: 'true'
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+    steps:
+      # 1. Checkout
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. Node.js 20
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 3. Toolchain diagnostics
+      - name: Log toolchain versions
+        run: |
+          node --version
+          yarn --version
+          npm --version
+          Write-Host "Platform: $env:RUNNER_OS ($env:RUNNER_ARCH)"
+          Write-Host "Working dir: $(Get-Location)"
+          Write-Host "pwsh version: $($PSVersionTable.PSVersion)"
+
+      # 4. Yarn + Electron binary cache
+      - name: Cache Yarn + Electron binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.yarn/cache
+            moonlight/node_modules
+            moonlight/backend/node_modules
+            moonlight/desktop/node_modules
+            ${{ env.ELECTRON_CACHE }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
+          key: ${{ runner.os }}-moonlight-${{ hashFiles('moonlight/**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-moonlight-
+
+      # 5. Install root (monorepo) dependencies
+      - name: Install root dependencies
+        working-directory: moonlight
+        run: yarn install --frozen-lockfile --network-timeout 300000
+
+      # 6. Install backend dependencies explicitly (ensure workspace is hydrated)
+      - name: Install backend dependencies
+        working-directory: moonlight/backend
+        run: yarn install --frozen-lockfile --network-timeout 300000
+
+      # 7. Install desktop dependencies explicitly
+      - name: Install desktop dependencies
+        working-directory: moonlight/desktop
+        run: yarn install --frozen-lockfile --network-timeout 300000
+
+      # 8. TypeScript strict type check (backend + desktop)
+      - name: TypeScript type check
+        working-directory: moonlight
+        run: yarn typecheck
+
+      # 9. Backend TS build
+      - name: Build backend (TypeScript → dist)
+        working-directory: moonlight
+        run: yarn build:backend
+
+      # 10. esbuild bundle (minified production)
+      - name: Bundle backend (esbuild, minified)
+        working-directory: moonlight
+        run: yarn bundle:backend:prod
+
+      # 11. Verify backend bundle
+      - name: Verify backend bundle
+        run: |
+          $bundle = "moonlight/dist-bundle/backend.js"
+          if (-Not (Test-Path $bundle)) {
+            Write-Error "HATA: $bundle bulunamadi! Bundle adimi sessizce basarisiz olmus olabilir."
+            exit 1
+          }
+          $size = (Get-Item $bundle).Length
+          $sizeMB = [math]::Round($size / 1MB, 2)
+          Write-Host "Bundle boyutu: $sizeMB MB ($size bytes)"
+          if ($size -lt 102400) {
+            Write-Error "HATA: Bundle cok kucuk ($size bytes < 100KB), build basarisiz olmus olmali."
+            exit 1
+          }
+          Write-Host "Backend bundle OK."
+
+      # 12. Backend runtime native deps (sqlite3, ws, ccxt, keytar, ...)
+      #     These ship inside the installer under resources/backend-bundle/node_modules.
+      - name: Install backend runtime deps (natives)
+        working-directory: moonlight/backend
+        run: |
+          npm install --omit=dev --no-package-lock --no-audit --no-fund
+          if (-Not (Test-Path "node_modules/sqlite3")) {
+            Write-Error "sqlite3 missing in backend/node_modules after install"
+            exit 1
+          }
+          Write-Host "Backend runtime deps OK."
+
+      # 13. Rebuild natives for Electron ABI (best-effort, doesn't fail release)
+      - name: Rebuild native modules for Electron ABI
+        working-directory: moonlight/desktop
+        run: |
+          npx --yes @electron/rebuild -m ../backend/node_modules -o sqlite3,keytar,bufferutil,utf-8-validate -f
+        continue-on-error: true
+
+      # 14. Desktop build (vite + tsc)
+      - name: Build desktop (renderer + main + preload)
+        working-directory: moonlight
+        run: yarn build:desktop
+
+      # 15. Verify desktop build
+      - name: Verify desktop build
+        run: |
+          if (-Not (Test-Path "moonlight/desktop/dist-electron")) {
+            Write-Error "HATA: moonlight/desktop/dist-electron klasoru bulunamadi!"
+            exit 1
+          }
+          if (-Not (Test-Path "moonlight/desktop/dist-renderer")) {
+            Write-Error "HATA: moonlight/desktop/dist-renderer klasoru bulunamadi!"
+            exit 1
+          }
+          Write-Host "Desktop build OK."
+
+      # 16. Package Windows installer (NSIS x64)
+      - name: Package Windows installer (NSIS x64)
+        working-directory: moonlight/desktop
+        run: yarn dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEBUG: ${{ github.event.inputs.debug_mode == 'true' && 'electron-builder' || '' }}
+
+      # 17. Verify .exe installer
+      - name: Verify installer .exe
+        run: |
+          $exes = Get-ChildItem -Path "moonlight/desktop/dist" -Filter "*.exe" -ErrorAction SilentlyContinue
+          if (-not $exes -or $exes.Count -eq 0) {
+            Write-Error "HATA: .exe dosyasi uretilmedi!"
+            Get-ChildItem -Path "moonlight/desktop/dist" -ErrorAction SilentlyContinue | Format-Table -AutoSize
+            exit 1
+          }
+          $failed = $false
+          foreach ($exe in $exes) {
+            $sizeMB = [math]::Round($exe.Length / 1MB, 2)
+            Write-Host "EXE: $($exe.Name) - $sizeMB MB"
+            if ($exe.Length -lt 10485760) {
+              Write-Error "HATA: $($exe.Name) 10 MB'dan kucuk ($sizeMB MB), eksik/bozuk olabilir."
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+          Write-Host "Installer size OK."
+
+      # 18. SHA256 checksums
+      - name: Generate SHA256 checksums
+        working-directory: moonlight/desktop/dist
+        run: |
+          Get-ChildItem -Filter "*.exe" | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$hash  $($_.Name)" | Out-File -FilePath "$($_.Name).sha256" -Encoding ASCII
+            Write-Host "SHA256($($_.Name)) = $hash"
+          }
+          Write-Host "=== dist contents ==="
+          Get-ChildItem | Format-Table -AutoSize
+
+      # 19a. Upload artifact (always, even on partial failure — for debugging)
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: moonlight-windows-installer
+          path: |
+            moonlight/desktop/dist/*.exe
+            moonlight/desktop/dist/*.exe.sha256
+            moonlight/desktop/dist/latest.yml
+          if-no-files-found: warn
+          retention-days: 30
+
+      # 19b. GitHub Release on tag push OR explicit opt-in
+      - name: Publish GitHub Release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish_release == 'true' }}
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            moonlight/desktop/dist/*.exe
+            moonlight/desktop/dist/*.exe.sha256
+            moonlight/desktop/dist/latest.yml
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

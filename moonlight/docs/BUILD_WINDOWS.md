@@ -1,4 +1,4 @@
-# MoonLight Owner Console — Windows `.exe` Build Guide (v2.6-10)
+# MoonLight Owner Console — Windows `.exe` Build Guide (v2.7.0)
 
 > Bu belge, kullanıcının bilgisayarında **çift tıklanarak kurulabilen**
 > Windows NSIS installer'ını (`.exe`) nasıl üreteceğini anlatır.
@@ -7,23 +7,26 @@
 
 ---
 
-## 0) v2.6-10 — Neler değişti?
+## 0) v2.7.0 — Neler değişti?
 
-Windows build zinciri **tamamen deterministik** ve **fail-fast** hale getirildi.
+Windows build zinciri **tamamen deterministik**, **TypeScript strict**, ve
+**Windows 10/11 UX-ready** hale getirildi.
 
+- **Workflow dosyaları repo kökünde:** `/.github/workflows/release.yml` +
+  `/.github/workflows/ci.yml`. Eski `moonlight/.github/` silindi.
 - **Tek orkestrasyon komutu:** `yarn build:all`
   (= `build:backend` + `bundle:backend:prod` + `build:desktop`).
-- **Hardcoded Linux path'ler kaldırıldı.** Tüm build/smoke scriptleri
-  `path.resolve(__dirname, ...)` ve `os.tmpdir()` ile çalışır.
-- **Akıllı ön-kontroller:** Scriptler eksik dosya/modül gördüğünde net
-  "nasıl düzeltilir" mesajı basıp `exit 1` eder (silent broken build yok).
-- **Release workflow doğrulamaları** (`release.yml`):
-  - `dist-bundle/backend.js` var mı, ≥ 1 MB mı?
-  - `desktop/dist/*.exe` var mı, ≥ 10 MB mı?
-  - Bunlardan biri başarısızsa release otomatik iptal edilir.
-- **Platform-duyarlı icon kontrolü:** Windows CI'da `icon.ico` zorunlu.
-- **Root `devDependencies`:** `esbuild` ve `rimraf` artık root'ta kilitli
-  (Windows runner'da deterministik resolve).
+- **TypeScript strict → 0 hata:** `yarn typecheck` komutu CI'da adım olarak
+  var; PR'lar bunu geçmek zorunda.
+- **Native icon:** `desktop/build/icon.ico` 7 resolution (16→256) multi-res ICO.
+- **NSIS installer UX:** `oneClick: false`, kurulum dizini seçilebilir,
+  masaüstü/Başlat menüsü kısayolları, `runAfterFinish: true`.
+- **NSIS preflight (`installer.nsh`):** Windows 10+ kontrolü + ≥ 500 MB
+  disk alanı kontrolü + Türkçe iptal mesajları.
+- **Workflow fail-fast doğrulamaları:**
+  - `dist-bundle/backend.js` ≥ 100 KB olmalı
+  - `.exe` ≥ 10 MB olmalı
+  - `dist-electron/` + `dist-renderer/` mutlaka var olmalı
 
 Local komut sözleşmesi değişmedi — eski akış (`yarn dev`, `yarn test`) aynen
 çalışır. Yeni komutlar:
@@ -31,9 +34,23 @@ Local komut sözleşmesi değişmedi — eski akış (`yarn dev`, `yarn test`) a
 | Komut | Ne yapar? |
 |------|-----------|
 | `yarn build:all` | Tek komutla backend + bundle + desktop build |
-| `yarn smoke:bundle` | BackendManager → packaged-like smoke (Linux/macOS/Win) |
-| `yarn smoke:packaged -- --appOutDir <path>` | Packaged appOutDir smoke (platform-bağımsız) |
+| `yarn typecheck` | Backend + desktop TypeScript strict check |
+| `yarn smoke:bundle` | BackendManager → packaged-like smoke |
+| `yarn smoke:packaged -- --appOutDir <path>` | Packaged appOutDir smoke |
 | `yarn clean` | `rimraf` ile tüm build artifact'lerini siler |
+
+### Kullanıcı akışı (Windows)
+
+1. GitHub Releases'ten `MoonLight-Owner-2.7.0-win-x64.exe` indir.
+2. İndirilen `.exe`'yi çift tıkla.
+3. NSIS sihirbazı:
+   - Windows 10/11 değilse → Türkçe mesajla iptal
+   - ≥ 500 MB disk yoksa → Türkçe mesajla iptal
+   - Kurulum dizini seç (default: `%LOCALAPPDATA%\Programs\moonlight-owner-console`)
+4. Masaüstü + Başlat menüsü kısayolları oluşur.
+5. "Run MoonLight Owner Console now" seçeneği ile uygulama başlar.
+6. İlk açılışta **Onboarding Wizard** tetiklenir → kullanıcı vault/secrets
+   girer, runtime flag'leri yapılandırır.
 
 ---
 

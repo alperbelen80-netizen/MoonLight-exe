@@ -353,7 +353,8 @@ export class RuntimeFlagsController {
   ): Promise<FlagValue> {
     assertLoopback(req);
     const name = req.params.name;
-    const actor = body.actor ?? req.headers['x-moonlight-actor']?.toString() ?? 'ui';
+    const actor =
+      body.actor ?? (String(req.headers['x-moonlight-actor'] ?? '') || 'ui');
     return this.svc.set(
       name,
       String(body.value ?? ''),

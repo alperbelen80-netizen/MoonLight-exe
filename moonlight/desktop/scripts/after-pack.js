@@ -53,16 +53,24 @@ function fmtMb(bytes) {
 
 exports.default = async function afterPack(context) {
   const { appOutDir, electronPlatformName, arch, packager } = context;
+  const isWin = electronPlatformName === 'win32';
+  const isMac = electronPlatformName === 'darwin';
   const resourcesDir = path.join(
     appOutDir,
-    electronPlatformName === 'darwin'
+    isMac
       ? `${packager.appInfo.productFilename}.app/Contents/Resources`
       : 'resources',
   );
 
   console.log(
-    `[after-pack] platform=${electronPlatformName} arch=${arch} resources=${resourcesDir}`,
+    `[after-pack] host=${process.platform} target=${electronPlatformName} arch=${arch} resources=${resourcesDir}`,
   );
+
+  // On Windows we intentionally DO NOT call chmod / POSIX-only APIs below —
+  // all file operations below use cross-platform `fs` + `path.join`.
+  if (isWin) {
+    console.log('[after-pack] Windows target detected — skipping POSIX-only steps.');
+  }
 
   // 1) Validate required files exist.
   const missing = [];

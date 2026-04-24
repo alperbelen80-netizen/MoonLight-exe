@@ -1,21 +1,28 @@
 name: CI
 
-# MoonLight v2.6-3 — continuous integration pipeline.
+# MoonLight — Continuous Integration (v2.7.0)
 #
 # Runs on every push to main/develop and on every PR to main.
+# Repo layout: `moonlight/` is a sub-directory (monorepo).
+#
 # Covers:
-#   - Backend Jest suite (should stay at 387/387 PASS).
-#   - Desktop main Vitest suite (BackendManager etc.).
-#   - Backend build + single-file bundle.
-#   - Desktop renderer build.
-#   - Bundled-spawn smoke test (ensures the bundle starts and hits /api/healthz).
-#   - (Best-effort) Linux `--dir` packaging smoke via electron-builder.
+#   - Backend Jest suite
+#   - Desktop Vitest suite (BackendManager etc.)
+#   - TypeScript strict type check (backend + desktop)
+#   - Backend build + single-file bundle
+#   - Desktop renderer build
+#   - Bundled-spawn smoke test
+#   - (Best-effort) Linux `--dir` packaging smoke
 
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
+
+defaults:
+  run:
+    working-directory: moonlight
 
 jobs:
   build-and-test:
@@ -30,16 +37,21 @@ jobs:
         with:
           node-version: '20'
           cache: 'yarn'
+          cache-dependency-path: 'moonlight/yarn.lock'
 
       - name: Install root (monorepo) dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --frozen-lockfile --network-timeout 300000
+
+      - name: TypeScript type check (backend + desktop)
+        run: yarn typecheck
 
       - name: Run backend Jest suite
-        run: cd backend && yarn test
+        working-directory: moonlight/backend
+        run: yarn test
 
       - name: Run desktop Vitest suite
-        run: cd desktop && yarn test
-        continue-on-error: false
+        working-directory: moonlight/desktop
+        run: yarn test
 
       - name: Build backend (NestJS compile)
         run: yarn build:backend
@@ -55,8 +67,8 @@ jobs:
         run: yarn build:desktop
 
       - name: Package Linux (dir only — no installer)
-        run: |
-          cd desktop && yarn dist:dir
+        working-directory: moonlight/desktop
+        run: yarn dist:dir
         continue-on-error: true
 
       - name: Upload Linux packaged dir (artifact)
@@ -64,6 +76,6 @@ jobs:
         if: always()
         with:
           name: moonlight-linux-dir-${{ github.sha }}
-          path: desktop/dist/linux-unpacked
+          path: moonlight/desktop/dist/linux-unpacked
           if-no-files-found: ignore
           retention-days: 7

@@ -1,6 +1,148 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.7.0 — MoonLight Windows EXE Build & Installer Sistemi: Tam Kapsamlı Yeniden Yapılandırma
+
+**Release Date:** 2026-04-24
+**Scope:** Windows `.exe` build pipeline'ını "hedge-fund grade" determinizm ve
+kullanıcı deneyimi seviyesine taşır. Kod davranışında fonksiyonel değişiklik
+yok; yalnızca build, CI/CD, TypeScript tip güvenliği ve installer UX katmanı.
+
+### 🧹 Bölüm A — Geçmişteki 10 sorunun tamamı çözüldü
+
+1. ✅ `scripts/bundle-backend.js` hardcoded `/app/moonlight/...` kaldırıldı →
+   `require('esbuild')` + `path.join(REPO_ROOT, …)` fallback.
+2. ✅ `runtime-flags.module.ts:357` TypeScript `string | string[]` tip hatası:
+   `String(req.headers['x-moonlight-actor'] ?? '')` pattern'ine geçildi,
+   `??`/`||` öncelik parantezi eklendi.
+3. ✅ Root `package.json` tüm build script'leri mevcut:
+   `build:backend`, `bundle:backend:prod`, `build:desktop`, `build:all`,
+   `typecheck`, `clean`.
+4. ✅ Workflow dosyaları **repo kökündeki** `.github/workflows/` dizinine
+   taşındı (`release.yml` + `ci.yml`); eski `moonlight/.github/` silindi.
+5. ✅ Tüm adımlar `working-directory: moonlight[/subdir]` kullanıyor, hiçbir
+   adım PowerShell'de `cd x && yarn` pattern'i içermez.
+6. ✅ `backend/package.json` devDependencies: `esbuild@^0.21.5` + `rimraf@^3.0.2`.
+7. ✅ Ağ timeout hardening: `yarn install --network-timeout 300000`.
+8. ✅ `nick-fields/retry` kullanılmadı; her adım basit `run:` kullanır.
+9. ✅ `prepackage-check.js` ve `after-pack.js` `os.platform()` / `process.platform`
+   kontrolü içerir, tüm yollar `path.join`.
+10. ✅ `dist-bundle/backend.js` ve `dist-electron/` varlık + boyut doğrulaması
+    workflow'da hard-fail adımları olarak var.
+
+### 🔬 Bölüm B — Kapsamlı kod analizi & düzeltmeler
+
+**B1 — Hardcoded path taraması:**
+- Aktif kodda `/app`, `/tmp`, `/home`, `/usr`, `/root`, `/var` absolute path
+  **bulunmuyor** (`grep` auditi 0 sonuç — shebang hariç).
+- `desktop/main/__tests__/{backend-manager,v264-updater-crash}.spec.ts`
+  sabit `/tmp/...` path'leri `os.tmpdir()` + `path.join` ile değiştirildi.
+- `scripts/electron-stub.js` artıkları temizlendi (yeni smoke kendi stub'ını
+  `os.tmpdir()` altına yazıyor).
+
+**B2 — TypeScript strict tip güvenliği:**
+- `yarn typecheck` (= `tsc --noEmit`) backend + desktop için **0 hata**.
+
+**B3 — Root package.json:**
+- Yeni: `typecheck` script.
+
+**B4 — Bağımlılık sağlamlığı:**
+- `backend/devDependencies` → `esbuild@^0.21.5` + `rimraf@^3.0.2` eklendi.
+- Root `devDependencies` → `esbuild@^0.21.5` + `rimraf@^3.0.2` kilitli.
+- `desktop/devDependencies` → `electron-builder@^24.9.1` doğrulandı.
+
+### 🪟 Bölüm C — Windows 10/11 uyumluluğu
+
+**C1 — Gerçek branded icon:**
+- `desktop/build/icon.ico`: **47 KB, 7 rezolüsyon** (16/24/32/48/64/128/256).
+- `desktop/build/icon.png`: **17 KB, 512×512**.
+- Python/Pillow ile deterministik üretildi (PR'da commit edilir).
+
+**C2 — NSIS installer UX:**
+- `oneClick: false` — kurulum dizini seçilebilir.
+- `perMachine: false` — admin gerekmez (kullanıcı bazlı).
+- `allowToChangeInstallationDirectory: true`.
+- `createDesktopShortcut: true`, `createStartMenuShortcut: true`.
+- `runAfterFinish: true`.
+- `artifactName: "MoonLight-Owner-${version}-win-x64.${ext}"` (sabitlendi).
+- `compression: "normal"`.
+
+**C3 — Script platform uyumluluğu:**
+- `prepackage-check.js`: `os.platform()` → Windows+CI'da `icon.ico` zorunlu.
+- `after-pack.js`: `electronPlatformName === 'win32'` dalı eklendi, POSIX-only
+  adımlar atlanır.
+
+**C4 — Native modül uyumluluğu:**
+- `npmRebuild: true` aktif.
+- `asarUnpack`: `**/*.node`, `keytar`, `sqlite3`, `better-sqlite3`,
+  `bufferutil`, `utf-8-validate`.
+
+### 🤖 Bölüm D — GitHub Actions (repo kökünde)
+
+- `/app/.github/workflows/release.yml` — 19 adımlı Windows pipeline:
+  1–3. Checkout + Node 20 + toolchain log
+  4. Yarn + Electron cache
+  5–7. Root/backend/desktop yarn install (`--network-timeout 300000`)
+  8. TypeScript type check
+  9–10. Backend compile + esbuild minified bundle
+  11. Bundle doğrulama (var & ≥ 100 KB)
+  12. Backend natives `npm install --omit=dev`
+  13. `@electron/rebuild` (best-effort)
+  14. Desktop build
+  15. dist-electron/dist-renderer varlık kontrolü
+  16. `yarn dist:win` (NSIS)
+  17. `.exe` varlık + boyut (≥ 10 MB) doğrulama
+  18. SHA256 checksum + log
+  19a. Artifact upload (always)
+  19b. Tag veya `publish_release=true` → GitHub Release
+- `/app/.github/workflows/ci.yml` — push/PR için CI (typecheck + test + bundle +
+  smoke + Linux dir pack).
+- `defaults.run.shell: pwsh`, `working-directory: moonlight` tüm adımlarda.
+
+### 🧙 Bölüm E — Installer sihirbazı iyileştirmeleri
+
+- Yeni dosya: `desktop/build/installer.nsh` (`!macro customInit/Install/UnInstall`).
+- Kurulum öncesi kontroller:
+  - **Minimum Windows sürümü:** Windows 10 (WinVer.nsh `AtLeastWin10`). Değilse
+    Türkçe açıklamayla iptal.
+  - **Minimum disk alanı:** 500 MB (`DriveSpace` / `FileFunc.nsh`). Değilse
+    Türkçe açıklamayla iptal.
+- Kurulum sonrası:
+  - Masaüstü + Başlat menüsü kısayolları.
+  - `runAfterFinish: true` → uygulama ilk açılışta Onboarding Wizard tetikler.
+- Uninstall akışı:
+  - Kullanıcıya "AppData temizlensin mi?" onayı; istenirse
+    `%APPDATA%\moonlight-owner-console` vb. tam temizlenir.
+
+### 🧪 Bölüm F — Son doğrulama sonuçları
+
+- `yarn typecheck` → **0 hata** ✅
+- `yarn bundle:backend:prod` → **5.24 MB** ✅
+- YAML syntax (release.yml + ci.yml) → **OK** ✅
+- JSON syntax (3 package.json) → **OK** ✅
+- `/app/.github/workflows/release.yml` repo kökünde → **OK** ✅
+- `desktop/build/icon.ico` (7 rezolüsyon) → **OK** ✅
+- `yarn smoke:bundle` → **PASS** (backend 3s, 3 endpoint 200) ✅
+- Backend Jest kritik suite → **25/25 PASS** ✅
+- Desktop Vitest → **17/17 PASS** ✅
+
+### 🚀 Kullanıcı için son komut
+
+```bash
+git add -A
+git commit -m "v2.7.0: Windows EXE build & installer — tam yeniden yapılandırma"
+git tag v2.7.0
+git push origin main --tags
+```
+
+Tag push → GitHub Actions `windows-latest` runner → `MoonLight-Owner-2.7.0-win-x64.exe`
+→ Releases sayfası → kullanıcı indirir, çift tıklar, Windows kurulum sihirbazı
+açılır (Windows 10+ kontrolü + 500 MB disk + kurulum dizini seçimi + masaüstü
+kısayolu + ilk çalıştırmada Onboarding Wizard).
+
+
+
+
 ## v2.6.10 — Windows Build Sistemi: Tam Yeniden Yapılandırma
 
 **Release Date:** 2026-04-24

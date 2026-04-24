@@ -24,6 +24,7 @@
     "test": "cd backend && yarn test",
     "test:desktop": "cd desktop && yarn test",
     "test:all": "yarn test && yarn test:desktop",
+    "typecheck": "yarn --cwd backend tsc --noEmit && yarn --cwd desktop tsc --noEmit",
     "clean": "rimraf backend/dist dist-bundle desktop/dist desktop/dist-electron desktop/dist-renderer",
     "smoke": "cd backend && ts-node scripts/smoke-test.ts",
     "poc": "cd backend && yarn poc:core-flow",
