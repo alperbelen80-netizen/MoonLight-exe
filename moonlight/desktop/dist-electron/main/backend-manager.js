@@ -158,6 +158,11 @@ class BackendManager {
         // CWD is set to the bundle directory so the backend's bundle-safe
         // config resolver finds `src/config/*.yaml` relative to backend.js.
         const bundleDir = path.dirname(this.backendEntry);
+        // Electron's `app.getPath('userData')` is writable (roaming profile on
+        // Windows, ~/.config on Linux, ~/Library/Application Support on macOS)
+        // — we pass it so the backend can write SQLite, vault, logs etc
+        // without ever touching the read-only install directory.
+        const userDataDir = electron_1.app?.getPath ? electron_1.app.getPath('userData') : bundleDir;
         const env = {
             ...process.env,
             ...this.extraEnv,
@@ -167,6 +172,8 @@ class BackendManager {
             ELECTRON_RUN_AS_NODE: '1',
             // Explicit config dir override — wins over CWD-based heuristics.
             MOONLIGHT_CONFIG_DIR: path.join(bundleDir, 'src'),
+            // Writable per-user data dir — backend resolves DB path from this.
+            MOONLIGHT_USER_DATA_DIR: userDataDir,
         };
         this.proc = (0, child_process_1.spawn)(process.execPath, [this.backendEntry], {
             env,

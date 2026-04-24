@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
+import * as path from 'path';
+import * as fs from 'fs';
 import { SharedModule } from './shared/shared.module';
 import { ExecutionModule } from './execution/execution.module';
 import { RiskModule } from './risk/risk.module';
@@ -27,13 +29,47 @@ import { TrinityOversightModule } from './trinity-oversight/trinity-oversight.mo
 import { IndicatorRegistryModule } from './indicators/indicator-registry.module';
 import { BrokerHealthModule } from './broker/health/broker-health.module';
 import { SecurityModule } from './security/security.module';
+import { ALL_ENTITIES } from './database/entities';
+
+/**
+ * Resolve the SQLite database path deterministically across environments:
+ *   1. If DB_PATH is set (power-user override) → use it verbatim.
+ *   2. If MOONLIGHT_USER_DATA_DIR is set (injected by Electron main process
+ *      from `app.getPath('userData')`) → put db under `<userData>/data/db/`.
+ *   3. Otherwise fall back to `./data/db/moonlight.sqlite` (dev mode, from
+ *      backend/ cwd).
+ *
+ * This prevents the packaged Windows app from trying to write the DB into
+ * the install directory (Program Files → permission denied) or into
+ * whatever the spawned process's CWD happens to be.
+ */
+function resolveDbPath(): string {
+  if (process.env.DB_PATH && process.env.DB_PATH.trim().length > 0) {
+    return process.env.DB_PATH;
+  }
+  const userDataDir = process.env.MOONLIGHT_USER_DATA_DIR;
+  const baseDir =
+    userDataDir && userDataDir.trim().length > 0
+      ? path.join(userDataDir, 'data', 'db')
+      : path.resolve(process.cwd(), 'data', 'db');
+  try {
+    fs.mkdirSync(baseDir, { recursive: true });
+  } catch {
+    /* best-effort — TypeOrm will report the real failure if this blows up */
+  }
+  return path.join(baseDir, 'moonlight.sqlite');
+}
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
       type: 'sqlite',
-      database: process.env.DB_PATH || './data/db/moonlight.sqlite',
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      database: resolveDbPath(),
+      // CRITICAL: we list entities EXPLICITLY because glob patterns
+      // (`__dirname + '/**/*.entity.js'`) do not work inside an esbuild
+      // bundle — every entity file is collapsed into a single backend.js
+      // and the glob silently returns an empty array.
+      entities: ALL_ENTITIES,
       synchronize: process.env.DB_SYNCHRONIZE === 'false' ? false : true,
       logging: false,
     }),

@@ -5,6 +5,26 @@ import { GlobalExceptionFilter } from './shared/filters/global-exception.filter'
 import * as dotenv from 'dotenv';
 import compression from 'compression';
 
+// ---------------------------------------------------------------------------
+// CRITICAL — crypto polyfill for Electron-embedded Node runtime.
+// When spawned via `ELECTRON_RUN_AS_NODE=1`, Electron's bundled Node does
+// NOT expose the global `crypto` WHATWG object that plain Node >=19 has.
+// @nestjs/schedule calls `crypto.randomUUID()` at onModuleInit → crashes
+// the entire backend with `ReferenceError: crypto is not defined`.
+// We backfill from the built-in `node:crypto` module.
+// ---------------------------------------------------------------------------
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const __moonlightNodeCrypto = require('node:crypto');
+const __g = globalThis as unknown as { crypto?: { randomUUID?: () => string } };
+if (!__g.crypto || typeof __g.crypto.randomUUID !== 'function') {
+  __g.crypto =
+    __moonlightNodeCrypto.webcrypto ?? __moonlightNodeCrypto;
+  if (typeof __g.crypto.randomUUID !== 'function') {
+    __g.crypto.randomUUID =
+      __moonlightNodeCrypto.randomUUID.bind(__moonlightNodeCrypto);
+  }
+}
+
 dotenv.config();
 
 // ---------------------------------------------------------------------------

@@ -162,6 +162,23 @@ async function main() {
     logLevel: 'info',
     // NestJS emits decorator metadata; keep class names intact for DI.
     keepNames: true,
+    // --- CRITICAL: crypto polyfill for Electron-embedded Node ------------
+    // When spawned via `ELECTRON_RUN_AS_NODE=1`, Electron's bundled Node
+    // does NOT expose the global `crypto` object that modern Node >=19 has
+    // in a normal `node` binary. NestJS's @nestjs/schedule uses
+    // `crypto.randomUUID()` at boot → ReferenceError crashes the backend.
+    // We polyfill at the top of the bundle using the built-in
+    // `node:crypto` module (webcrypto subset is WHATWG-compatible).
+    banner: {
+      js:
+        "const __moonlightNodeCrypto = require('node:crypto');\n" +
+        "if (typeof globalThis.crypto === 'undefined' || !globalThis.crypto.randomUUID) {\n" +
+        "  globalThis.crypto = __moonlightNodeCrypto.webcrypto || __moonlightNodeCrypto;\n" +
+        "}\n" +
+        "if (typeof globalThis.crypto.randomUUID !== 'function') {\n" +
+        "  globalThis.crypto.randomUUID = __moonlightNodeCrypto.randomUUID.bind(__moonlightNodeCrypto);\n" +
+        "}\n",
+    },
     // Preserve `__dirname`-style resource lookups.
     define: {
       'process.env.NODE_ENV': JSON.stringify(
