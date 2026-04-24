@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Bell, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiBase } from '../../services/api-client';
 
 interface Channel {
   channel: string;
@@ -14,7 +15,7 @@ export function AlertsWebhookPanel() {
   const [testUrl, setTestUrl] = useState('');
   const [testChannel, setTestChannel] = useState<'discord' | 'slack' | 'telegram' | 'generic'>('generic');
 
-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  const base = getApiBase();
 
   const load = async () => {
     try {

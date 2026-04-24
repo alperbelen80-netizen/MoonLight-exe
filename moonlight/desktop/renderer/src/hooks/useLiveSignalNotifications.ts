@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import { getApiBase } from '../services/api-client';
 
 interface LiveSignal {
   id: string;
@@ -20,7 +21,7 @@ export function useLiveSignalNotifications() {
   const seenIds = useRef<Set<string>>(new Set());
   const seenApproved = useRef<Set<string>>(new Set());
   const bootstrapped = useRef(false);
-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  const base = getApiBase();
 
   useEffect(() => {
     let cancelled = false;

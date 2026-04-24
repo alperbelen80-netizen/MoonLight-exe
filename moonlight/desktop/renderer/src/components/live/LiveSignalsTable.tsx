@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LiveSignalDTO } from '../../services/live-signal-api';
 import { Bot, Brain, CheckCircle2, Loader2, ShieldAlert, XCircle } from 'lucide-react';
+import { getApiBase } from '../../services/api-client';
 
 interface LiveSignalsTableProps {
   signals: LiveSignalDTO[];
@@ -50,7 +51,7 @@ export function LiveSignalsTable({
   const [asking, setAsking] = useState(false);
   const [result, setResult] = useState<any>(null);
 
-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  const base = getApiBase();
 
   const askReasoning = async (signal: LiveSignalDTO) => {
     setReasoningModal(signal);

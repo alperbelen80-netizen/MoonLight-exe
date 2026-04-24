@@ -24,6 +24,19 @@ const FALLBACK_BASE =
 let resolvedBase: string = FALLBACK_BASE;
 let resolving: Promise<string> | null = null;
 
+/**
+ * Synchronous base getter for components that can't (or don't want to)
+ * await the async resolver. Returns the *currently resolved* base; the
+ * very first render before `resolveApiBase()` finishes may still hit the
+ * FALLBACK_BASE, which in the packaged app is `http://localhost:8001`
+ * — the preferred backend port. Within a tick of module load, the real
+ * dynamic port (if different) is patched in and subsequent fetches hit
+ * the correct port.
+ */
+export function getApiBase(): string {
+  return resolvedBase;
+}
+
 async function resolveApiBase(): Promise<string> {
   if (resolving) return resolving;
   resolving = (async () => {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ShellLayout } from './components/layout/ShellLayout';
 import { DashboardPage } from './routes/DashboardPage';
 import { AccountsPage } from './routes/AccountsPage';
@@ -36,7 +36,7 @@ function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   return (
     <ErrorBoundary>
-      <BrowserRouter>
+      <HashRouter>
         <GlobalEffects onOpenPalette={() => setPaletteOpen(true)} />
         <AppToaster />
         <OnboardingWizard />
@@ -61,7 +61,7 @@ function App() {
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </ErrorBoundary>
   );
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, AlertTriangle, Bot, Loader2, RefreshCw, Sparkles, TrendingUp } from 'lucide-react';
+import { getApiBase } from '../../services/api-client';
 
 interface DailyInsights {
   generated_at_utc: string;
@@ -24,7 +25,7 @@ export function AIInsightsCard() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  const base = getApiBase();
 
   const load = useCallback(
     async (force = false) => {

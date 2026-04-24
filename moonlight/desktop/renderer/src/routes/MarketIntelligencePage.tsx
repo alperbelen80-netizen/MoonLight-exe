@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, Loader2, RefreshCw } from 'lucide-react';
+import { getApiBase } from '../services/api-client';
 
 interface HeatmapCell {
   symbol: string;
@@ -39,7 +40,7 @@ export function MarketIntelligencePage() {
   const [tuneResult, setTuneResult] = useState<string | null>(null);
   const [tuning, setTuning] = useState(false);
 
-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  const base = getApiBase();
 
   const load = useCallback(async () => {
     setRefreshing(true);

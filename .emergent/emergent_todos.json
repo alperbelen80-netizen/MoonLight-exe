@@ -1,22 +1,26 @@
 [
   {
-    "content": "@types/node'u tek noktada (moonlight/package.json) sabitle, backend'teki duplicate'i kaldır",
+    "content": "P0: BrowserRouter → HashRouter (beyaz ekran fix)",
     "status": "completed"
   },
   {
-    "content": "3 yarn.lock dosyasını sil",
+    "content": "P0: Lokal preview ile UI'nin gerçekten dolu olduğunu kanıtla (screenshot)",
     "status": "completed"
   },
   {
-    "content": "yarn install ile lock dosyalarını yeniden oluştur",
+    "content": "P0: Backend API base URL'i paketlenmiş app için doğru yapılandirma",
     "status": "completed"
   },
   {
-    "content": "release.yml'de --frozen-lockfile → --no-immutable yap",
-    "status": "completed"
+    "content": "P0 PUSH: v2.8.4 için 16 dosyayı kullanıcıya ver, push etsin",
+    "status": "in_progress"
   },
   {
-    "content": "Typecheck + bundle doğrulamaları koş, kullanıcıya push talimatı ver",
-    "status": "completed"
+    "content": "P1: Kurulum süresi optimizasyonu (bundle/installer boyutu, chunk strategy)",
+    "status": "pending"
+  },
+  {
+    "content": "P1: Backend veri akışı/sinyal üretim pipeline'ının uçtan uca çalıştığını doğrula",
+    "status": "pending"
   }
 ]

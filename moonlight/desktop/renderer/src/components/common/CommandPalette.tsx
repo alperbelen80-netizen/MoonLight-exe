@@ -20,6 +20,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiBase } from '../../services/api-client';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -29,7 +30,7 @@ interface CommandPaletteProps {
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  const base = getApiBase();
 
   const go = useCallback(
     (path: string) => {

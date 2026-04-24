@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, Bot, Zap } from 'lucide-react';
+import { getApiBase } from '../../services/api-client';
 
 interface Status {
   available: boolean;
@@ -17,7 +18,7 @@ export function StatusBar() {
   const [status, setStatus] = useState<Status | null>(null);
   const [providers, setProviders] = useState<Providers | null>(null);
 
-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  const base = getApiBase();
 
   const load = useCallback(async () => {
     try {

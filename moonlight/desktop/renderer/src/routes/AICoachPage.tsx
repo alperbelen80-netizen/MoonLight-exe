@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, Loader2, Send, Sparkles, User } from 'lucide-react';
+import { getApiBase } from '../services/api-client';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -35,7 +36,7 @@ export function AICoachPage() {
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  const base = getApiBase();
 
   useEffect(() => {
     (async () => {

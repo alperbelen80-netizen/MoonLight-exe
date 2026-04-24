@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Power, PowerOff, Loader2, CheckCircle2, AlertCircle, KeyRound } from 'lucide-react';
+import { getApiBase } from '../services/api-client';
 
 interface BrokerSnapshot {
   brokerId: string;
@@ -41,7 +42,7 @@ export function SessionManagerPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  const base = getApiBase();
 
   const load = useCallback(async () => {
     try {

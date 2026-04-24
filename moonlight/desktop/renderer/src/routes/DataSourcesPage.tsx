@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, Bot, CheckCircle2, Loader2, RefreshCw, Wand2, XCircle, Zap } from 'lucide-react';
+import { getApiBase } from '../services/api-client';
 
 interface ProviderHealth {
   name: string;
@@ -55,7 +56,7 @@ export function DataSourcesPage() {
   const [lastResult, setLastResult] = useState<AutoSelectResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  const base = getApiBase();
 
   const load = useCallback(async () => {
     setRefreshing(true);

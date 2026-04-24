@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Shield, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiBase } from '../../services/api-client';
 
 interface RiskProfile {
   id: string;
@@ -18,7 +19,7 @@ export function RiskProfilePanel() {
   const [current, setCurrent] = useState<RiskProfile | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  const base = getApiBase();
 
   useEffect(() => {
     (async () => {

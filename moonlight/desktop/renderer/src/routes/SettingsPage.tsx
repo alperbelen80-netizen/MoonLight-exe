@@ -3,6 +3,7 @@ import { AlertsWebhookPanel } from '../components/settings/AlertsWebhookPanel';
 import { CredentialsVaultPanel } from '../components/settings/CredentialsVaultPanel';
 import { LiveFlagsPanel } from '../components/settings/LiveFlagsPanel';
 import { AboutPanel } from '../components/settings/AboutPanel';
+import { getApiBase } from '../services/api-client';
 
 export function SettingsPage() {
   return (
@@ -23,7 +24,7 @@ export function SettingsPage() {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
         <h3 className="font-semibold text-gray-900 dark:text-gray-100">Sistem</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-          <Item label="Backend" value={import.meta.env.VITE_API_BASE_URL || '/api'} />
+          <Item label="Backend" value={getApiBase()} />
           <Item label="Version" value="2.6.7 (Ready-to-Ship)" />
           <Item label="Theme" value="Auto (system / manual toggle)" />
           <Item label="Shortcut" value="Cmd/Ctrl + K — Komut Paleti" />

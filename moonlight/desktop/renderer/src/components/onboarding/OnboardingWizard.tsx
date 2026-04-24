@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { getApiBase } from '../../services/api-client';
 
 /**
  * V2.6-8 First-Run Onboarding Wizard
@@ -42,8 +43,7 @@ interface StepContext {
 function useBackendUrl(): string {
   return useMemo(() => {
     if (typeof window === 'undefined') return '/api';
-    const env = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string } }).env;
-    return env?.VITE_API_BASE_URL || '/api';
+    return getApiBase();
   }, []);
 }
 

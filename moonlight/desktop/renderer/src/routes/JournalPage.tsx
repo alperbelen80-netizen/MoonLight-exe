@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BookOpen, Filter, Loader2, RefreshCw } from 'lucide-react';
+import { getApiBase } from '../services/api-client';
 
 interface JournalItem {
   id: string;
@@ -29,7 +30,7 @@ export function JournalPage() {
   const [filters, setFilters] = useState({ symbol: '', strategy: '', verdict: '', status: '' });
   const [stats, setStats] = useState<any>(null);
 
-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  const base = getApiBase();
 
   const load = useCallback(async () => {
     setRefreshing(true);
