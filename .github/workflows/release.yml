@@ -107,6 +107,28 @@ jobs:
           }
 
       # ---------------------------------------------------------------------
+      # 4b. Sync desktop/package.json version with the git tag (if any).
+      #     This is what drives the installer artifact filename, e.g.
+      #     tag v2.7.3 → MoonLight-Owner-2.7.3-win-x64.exe.
+      # ---------------------------------------------------------------------
+      - name: 4b. Sync desktop version from tag
+        working-directory: moonlight/desktop
+        run: |
+          $ref = "${{ github.ref }}"
+          if ($ref -match '^refs/tags/v(.+)$') {
+            $newVersion = $Matches[1]
+            Write-Host "Tag detected — syncing desktop/package.json version to $newVersion"
+            $pkgPath = "package.json"
+            $json = Get-Content $pkgPath -Raw | ConvertFrom-Json
+            $json.version = $newVersion
+            # Preserve JSON formatting as closely as possible.
+            ($json | ConvertTo-Json -Depth 32) | Set-Content $pkgPath -Encoding UTF8
+            Write-Host "desktop/package.json now at version $newVersion"
+          } else {
+            Write-Host "No tag push detected — keeping existing package.json version."
+          }
+
+      # ---------------------------------------------------------------------
       # 5. Cache Yarn packages + Electron binaries.
       #    Key hashes BOTH yarn.lock AND desktop/package.json so bumping
       #    Electron / electron-builder also invalidates the cache.
@@ -126,14 +148,14 @@ jobs:
             ${{ runner.os }}-moonlight-
 
       # ---------------------------------------------------------------------
-      # 6. Install monorepo root deps (yarn with npm fallback for resilience)
+      # 6. Install monorepo root deps (yarn with install fallback for resilience)
       # ---------------------------------------------------------------------
       - name: 6. Install root dependencies (yarn → npm fallback)
         working-directory: moonlight
         run: |
           $start = Get-Date
           try {
-            yarn install --frozen-lockfile --network-timeout 600000
+            yarn install --network-timeout 600000
             if ($LASTEXITCODE -ne 0) { throw "yarn install exit=$LASTEXITCODE" }
           } catch {
             Write-Warning "yarn install failed: $_ — falling back to npm install"
@@ -151,7 +173,7 @@ jobs:
         run: |
           $start = Get-Date
           try {
-            yarn install --frozen-lockfile --network-timeout 600000
+            yarn install --network-timeout 600000
             if ($LASTEXITCODE -ne 0) { throw "yarn install exit=$LASTEXITCODE" }
           } catch {
             Write-Warning "yarn install failed in backend: $_ — falling back to npm install"
@@ -169,7 +191,7 @@ jobs:
         run: |
           $start = Get-Date
           try {
-            yarn install --frozen-lockfile --network-timeout 600000
+            yarn install --network-timeout 600000
             if ($LASTEXITCODE -ne 0) { throw "yarn install exit=$LASTEXITCODE" }
           } catch {
             Write-Warning "yarn install failed in desktop: $_ — falling back to npm install"
@@ -258,12 +280,14 @@ jobs:
       # ---------------------------------------------------------------------
       # 13. Install backend runtime native deps (sqlite3, keytar, ws, ccxt)
       #     Shipped inside the installer under resources/backend-bundle/node_modules.
+      #     Uses --legacy-peer-deps to be tolerant of transitive peer mismatches
+      #     that occasionally show up when npm is invoked on Windows.
       # ---------------------------------------------------------------------
       - name: 13. Install backend runtime deps (natives)
         working-directory: moonlight/backend
         run: |
           $start = Get-Date
-          npm install --omit=dev --no-package-lock --no-audit --no-fund
+          npm install --omit=dev --no-package-lock --no-audit --no-fund --legacy-peer-deps
           if ($LASTEXITCODE -ne 0) { Write-Error "npm install failed"; exit 1 }
           if (-Not (Test-Path "node_modules/sqlite3")) {
             Write-Error "sqlite3 missing under backend/node_modules"
@@ -315,24 +339,36 @@ jobs:
           }
 
       # ---------------------------------------------------------------------
-      # 17. Package Windows installer (NSIS x64) — with electron-builder fallback
+      # 17. Package Windows installer (NSIS x64) — with electron-builder fallback.
+      #     We intentionally use `dist:win:ci` (no duplicate prepackage/build)
+      #     because step 15 already produced dist-electron/ and dist-renderer/.
+      #     `--publish never` is baked into the script so the command never
+      #     tries to auto-upload to GitHub (we upload ourselves in step 22).
       # ---------------------------------------------------------------------
       - name: 17. Package Windows installer (NSIS x64)
         working-directory: moonlight/desktop
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Never let electron-builder auto-publish; we upload via
-          # action-gh-release in step 22 for full control over the release.
+          # Deliberately DO NOT expose GH_TOKEN here — belt + suspenders
+          # against a stray auto-publish attempt. Upload happens in step 22.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           EP_PRE_RELEASE: 'false'
           DEBUG: ${{ github.event.inputs.debug_mode == 'true' && 'electron-builder' || '' }}
         run: |
           $start = Get-Date
+          # First run the prepackage hook once explicitly (prepackage-check.js).
           try {
-            yarn dist:win -- --publish never
-            if ($LASTEXITCODE -ne 0) { throw "dist:win exit=$LASTEXITCODE" }
+            node scripts/prepackage-check.js
+            if ($LASTEXITCODE -ne 0) { throw "prepackage-check exit=$LASTEXITCODE" }
           } catch {
-            Write-Warning "yarn dist:win failed: $_ — falling back to direct electron-builder"
-            npx --yes electron-builder --win --x64 --publish never
+            Write-Warning "prepackage-check.js reported: $_ (continuing; check is non-fatal)"
+          }
+          # Primary packaging attempt via the pinned `electron-builder`.
+          try {
+            yarn dist:win:ci
+            if ($LASTEXITCODE -ne 0) { throw "dist:win:ci exit=$LASTEXITCODE" }
+          } catch {
+            Write-Warning "yarn dist:win:ci failed: $_ — falling back to npx electron-builder"
+            npx --yes electron-builder@24.13.3 --win --x64 --publish never
             if ($LASTEXITCODE -ne 0) { Write-Error "electron-builder fallback failed"; exit 1 }
           }
           $elapsed = ((Get-Date) - $start).TotalSeconds

@@ -394,6 +394,14 @@ electron_1.app.whenReady().then(function () { return __awaiter(void 0, void 0, v
                     var event = crashReporter.recordMainUncaught(err);
                     void crashReporter.forwardToBackend(event, backend.getStatus().port);
                 });
+                // v2.7.0: also capture unhandled promise rejections in the main process.
+                process.on('unhandledRejection', function (reason) {
+                    var err = reason instanceof Error
+                        ? reason
+                        : new Error("UnhandledRejection: ".concat(String(reason)));
+                    var event = crashReporter.recordMainUncaught(err);
+                    void crashReporter.forwardToBackend(event, backend.getStatus().port);
+                });
                 registerIpc();
                 shouldSpawnBackend = !isDev || process.env.MOONLIGHT_SPAWN_BACKEND === 'true';
                 if (!shouldSpawnBackend) return [3 /*break*/, 4];

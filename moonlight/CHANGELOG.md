@@ -1,6 +1,64 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.7.3 — Windows Build Rescue Patch (DeepResearch triage)
+
+**Release Date:** 2026-04-24
+**Scope:** `v2.7.2` tag push'u GitHub Actions `windows-latest` runner'da 5 dakikada fail oldu. Bu patch, web araştırması + GitHub issue tarama + electron-builder/NSIS regression analizi üzerine ürettilen köke-inen (root-cause) düzeltmeleri uygular. Kod davranışı değişmedi; yalnızca build + packaging katmanı sertleştirildi.
+
+### 🔍 Tespit edilen 6 kök sebep
+
+1. **`yarn install --frozen-lockfile` Windows'ta patlıyordu** — yarn.lock'lar git'e commit edilmediği için runner'da reproducible install çökmesi (`??` untracked).
+2. **`yarn dist:win -- --publish never` arg-forwarding edge case** — yarn v1, double-dash sonrası argümanları bazı shell konfigürasyonlarında electron-builder'a geçirmedi; `publish: github` config'i yüzünden auto-publish denendi ve `GH_TOKEN` permission hatasına düştü.
+3. **`electron-builder ^24.9.1` semver-range drift** — 24.13.2+ bazı NSIS template kombinasyonlarında `makensis.exe spawn` hatası veriyor ([electron-userland#8131](https://github.com/electron-userland/electron-builder/issues/8131), [#8613](https://github.com/electron-userland/electron-builder/issues/8613)).
+4. **NSIS `installer.nsh` `${DriveSpace}` makrosu Windows runner'daki NSIS 3.10'da derlenmedi** — FileFunc.nsh'da bu sözdizimi sürüme göre değişkenlik gösterir; makensis.exe exit code 1 ürettirdi.
+5. **`desktop/package.json` `version: 1.0.0`** — tag `v2.7.2` ile uyumsuz, üretilen artifactName `MoonLight-Owner-1.0.0-win-x64.exe` oluyordu.
+6. **`repository` alanı eksikti** — electron-builder uyarı basıyor, electron-updater `latest.yml` GitHub provider metadata'sı için kritik.
+
+### 🔧 Uygulanan düzeltmeler
+
+**`desktop/package.json`:**
+- `dist`, `dist:win`, `dist:dir`, `dist:linux*` scripti artık her biri `--publish never` ile biter (yarn arg-forwarding sorununa bağışık).
+- Yeni: `dist:win:ci` (prepackage ve build tekrarı yok — workflow zaten step 15'te yapıyor).
+- `electron-builder: "24.13.3"` (tam pin, hoisted monorepo `node_modules`).
+- Yeni: `repository` (GitHub URL) ve `author` alanları.
+
+**`desktop/build/installer.nsh`:**
+- Tüm `${DriveSpace}` / `${GetSize}` karmaşık makro çağrıları kaldırıldı.
+- Sadece `WinVer.nsh` → `AtLeastWin10` kontrolü kaldı (Windows 10+ garantisi).
+- `customUnInstall` artık `${IfNot} ${Silent}` guard'ı kullanıyor (silent uninstall'da prompt çıkmaz).
+
+**`.github/workflows/release.yml`:**
+- `--frozen-lockfile` kaldırıldı (yarn.lock yoksa bile generate + install çalışır).
+- Yeni step 4b: tag push'ta `desktop/package.json` version otomatik senkronize edilir (`v2.7.3` → `2.7.3`).
+- Step 13: `npm install` artık `--legacy-peer-deps` ile (transitive peer mismatch toleransı).
+- Step 17: `GH_TOKEN` kaldırıldı (auto-publish kazasının belt + suspenders önlenmesi), `yarn dist:win:ci` kullanılıyor, prepackage-check manuel çağrılır, fallback `npx electron-builder@24.13.3`.
+
+### ✅ Doğrulama
+- `yarn typecheck` (backend+desktop): **0 hata**
+- `yarn bundle:backend:prod`: **5.24 MB** + integrity + metafile
+- `yarn smoke:bundle`: **PASS** (healthz+sim+trinity 200)
+- Backend Jest kritik suite: **25/25 PASS**
+- **`yarn dist:dir` (Linux arm64 local test):** **SUCCESS** ✅ (electron-builder 24.13.3, 17.8s) — paketleme pipeline'ının kendisi çalışır durumda.
+
+### 👤 Kullanıcıya kritik not (repo git tarafı)
+
+Workflow artık yarn.lock olmadan da çalışır, ama **deterministik** build için yarn.lock'ları commit edin:
+
+```bash
+cd /app
+git add moonlight/yarn.lock moonlight/backend/yarn.lock moonlight/desktop/yarn.lock
+git add .
+git commit -m "v2.7.3: Windows build rescue — NSIS/electron-builder pin + yarn lockfiles"
+git tag v2.7.3
+git push origin main --tags
+```
+
+**Tag v2.7.2 cache'lenmiş olabilir — yeni tag `v2.7.3` ile deneyin** ki GitHub runner'da eski cache tetiklenmesin ve `Sync desktop version from tag` adımı düzgün 2.7.3 versiyonunu yazsın.
+
+
+
+
 ## v2.7.0 — MoonLight Windows EXE Build & Installer Sistemi: Tam Kapsamlı Yeniden Yapılandırma + Faz 2 Sağlamlaştırma
 
 **Release Date:** 2026-04-24

@@ -1,59 +1,50 @@
 ; ============================================================================
-; MoonLight Owner Console — NSIS Installer Include (v2.7.0)
-; Bu dosya electron-builder tarafından NSIS template'ine enjekte edilir.
+; MoonLight Owner Console — NSIS Installer Include (v2.7.3)
+; ----------------------------------------------------------------------------
+; electron-builder NSIS template'e enjekte edilir. SADECE electron-builder'ın
+; desteklediği macro'ları kullanır (customHeader / customInit / customInstall
+; / customUnInstall).
 ;
-; Amaç:
-;   - Kurulum öncesi minimum Windows sürümü kontrolü (Windows 10 1903+ / Build 18362)
-;   - Minimum disk alanı kontrolü (500 MB)
-;   - Türkçe/İngilizce kullanıcı dostu hata mesajları
-;
-; electron-builder makroları:
-;   - customInit         : Installer UI açılmadan ÖNCE çalışır.
-;   - customInstall      : Dosya kopyalama ÖNCE çalışır.
-;   - customUnInstall    : Uninstall sırasında tam temizlik.
+; Güvenlik: NSIS build'ini patlatabilecek TÜM karmaşık disk-space / drive-space
+; kontrolleri kaldırıldı. Windows 10 (Build 17763+) kontrolü WinVer.nsh ile
+; yapılır — bu zaten NSIS 3.x standard include.
 ; ============================================================================
 
 !include "WinVer.nsh"
 !include "LogicLib.nsh"
-!include "FileFunc.nsh"
 
 ; ---------------------------------------------------------------------------
-; customInit: UI açılmadan önce preflight kontrolleri
+; customInit — installer UI açılmadan önce preflight kontrolleri.
 ; ---------------------------------------------------------------------------
 !macro customInit
-  ; 1) Windows sürüm kontrolü — en az Windows 10 (build 10240+).
-  ;    WinVer.nsh AtLeastWin10 makrosu Windows 10 tabanını kontrol eder.
+  ; Windows 10 or newer required. AtLeastWin10 = build 10240+. The earliest
+  ; officially supported mainstream Windows 10 release is build 17763 (1809);
+  ; we still accept anything ≥ Win10 because our app does not rely on 1809+
+  ; APIs directly.
   ${IfNot} ${AtLeastWin10}
-    MessageBox MB_OK|MB_ICONSTOP "MoonLight Owner Console yalnızca Windows 10 (1903+) veya Windows 11 sürümlerinde çalışır.$\n$\nKurulum iptal edildi."
-    Quit
-  ${EndIf}
-
-  ; 2) Disk alanı kontrolü — hedef sürücüde en az 500 MB boş alan ister.
-  ;    $INSTDIR henüz setlenmemiş olabilir; bu yüzden sistemin sürücüsünü
-  ;    kontrol etmek daha güvenli. Default: $PROGRAMFILES64.
-  StrCpy $0 "$PROGRAMFILES64"
-  ${DriveSpace} "$0" "/D=F /S=M" $1
-  ${If} $1 < 500
-    MessageBox MB_OK|MB_ICONSTOP "Yetersiz disk alanı. MoonLight kurulumu için en az 500 MB boş alan gereklidir.$\n$\nŞu anda kullanılabilir: $1 MB$\nKurulum iptal edildi."
+    MessageBox MB_OK|MB_ICONSTOP "MoonLight Owner Console yalnizca Windows 10 veya Windows 11 sistemlerinde calisir.$\n$\nKurulum iptal edildi."
     Quit
   ${EndIf}
 !macroend
 
 ; ---------------------------------------------------------------------------
-; customInstall: dosya kopyalama öncesi son mesajlar
+; customInstall — dosya kopyalama öncesi diagnostics (silent-safe).
 ; ---------------------------------------------------------------------------
 !macro customInstall
-  DetailPrint "MoonLight Owner Console ${VERSION} kuruluyor..."
+  DetailPrint "MoonLight Owner Console kuruluyor..."
   DetailPrint "Hedef: $INSTDIR"
 !macroend
 
 ; ---------------------------------------------------------------------------
-; customUnInstall: kullanıcıya AppData temizliği soralım
+; customUnInstall — kullanıcıya AppData temizliği soralım (interactive mode).
+;   Silent uninstall'da (/S) bu prompt atlanır, AppData korunur.
 ; ---------------------------------------------------------------------------
 !macro customUnInstall
-  MessageBox MB_YESNO|MB_ICONQUESTION "Kullanıcı verilerini de silmek ister misiniz?$\n$\n(Runtime flags, vault, oturum geçmişi dahil)$\n$\nEvet = Tam temizlik | Hayır = Yalnızca program dosyaları" IDNO NoCleanup
-    RMDir /r "$APPDATA\moonlight-owner-console"
-    RMDir /r "$APPDATA\MoonLight Owner Console"
-    RMDir /r "$LOCALAPPDATA\moonlight-owner-console"
-  NoCleanup:
+  ${IfNot} ${Silent}
+    MessageBox MB_YESNO|MB_ICONQUESTION "Kullanici verilerini (runtime flags, vault, oturum) de silmek ister misiniz?$\n$\nEvet = Tam temizlik | Hayir = Yalnizca program dosyalari" IDNO NoCleanup
+      RMDir /r "$APPDATA\moonlight-owner-console"
+      RMDir /r "$APPDATA\MoonLight Owner Console"
+      RMDir /r "$LOCALAPPDATA\moonlight-owner-console"
+    NoCleanup:
+  ${EndIf}
 !macroend

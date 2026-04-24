@@ -8,6 +8,27 @@
 
 ## A. GitHub Actions Workflow
 
+
+## 🚨 v2.7.3 Rescue Patch — `v2.7.2` fail post-mortem
+
+**Belirti:** `v2.7.2` tag push'u → GitHub Actions → 5 dk 0 sn'de fail + "Failure summary" step 22 (Publish GitHub Release) skipped.
+
+**6 Kök Sebep ve çözümleri** (hepsi v2.7.3'te otomatik düzeltildi):
+
+| # | Sebep | Çözüm |
+|---|-------|-------|
+| 1 | `yarn install --frozen-lockfile` yarn.lock yok/uyumsuz | Workflow'dan `--frozen-lockfile` kaldırıldı |
+| 2 | `yarn dist:win -- --publish never` arg-forwarding | `dist:win` script'ine `--publish never` gömüldü + yeni `dist:win:ci` |
+| 3 | `electron-builder ^24.9.1` NSIS spawn hatası | Pin: `electron-builder@24.13.3` |
+| 4 | NSIS `${DriveSpace}` makrosu makensis.exe fail | `installer.nsh` minimized (WinVer only) |
+| 5 | `desktop/package.json version: 1.0.0` tag mismatch | Workflow step 4b tag'den versiyonu senkronize eder |
+| 6 | `repository` / `author` alanları eksik | package.json'a eklendi |
+
+**Kullanıcı aksiyonu:** Yeni tag `v2.7.3` (cache invalidation için), yarn.lock commit.
+
+---
+
+
 ### A1. `yarn install` ağ zaman aşımı alıyor (`ESOCKETTIMEDOUT`, `ETIMEDOUT`)
 
 **Belirti:**

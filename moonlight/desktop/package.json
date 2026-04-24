@@ -2,6 +2,14 @@
   "name": "moonlight-desktop",
   "version": "1.0.0",
   "description": "MoonLight Owner Desktop Console",
+  "author": {
+    "name": "MoonLight Systems",
+    "email": "noreply@moonlight.local"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alperbelen80-netizen/MoonLight-exe.git"
+  },
   "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "vite",
@@ -10,11 +18,12 @@
     "build:preload": "tsc main/preload.ts --outDir dist-electron",
     "preview": "vite preview",
     "prepackage": "node scripts/prepackage-check.js",
-    "dist": "yarn prepackage && yarn build && electron-builder",
-    "dist:win": "yarn prepackage && yarn build && electron-builder --win --x64",
-    "dist:linux": "yarn prepackage && yarn build && electron-builder --linux dir",
-    "dist:linux:appimage": "yarn prepackage && yarn build && electron-builder --linux AppImage",
-    "dist:dir": "yarn prepackage && yarn build && electron-builder --dir",
+    "dist": "yarn prepackage && yarn build && electron-builder --publish never",
+    "dist:win": "yarn prepackage && yarn build && electron-builder --win --x64 --publish never",
+    "dist:win:ci": "electron-builder --win --x64 --publish never",
+    "dist:linux": "yarn prepackage && yarn build && electron-builder --linux dir --publish never",
+    "dist:linux:appimage": "yarn prepackage && yarn build && electron-builder --linux AppImage --publish never",
+    "dist:dir": "yarn prepackage && yarn build && electron-builder --dir --publish never",
     "test": "vitest run --config vitest.main.config.ts"
   },
   "dependencies": {
@@ -36,7 +45,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
     "electron": "^28.1.4",
-    "electron-builder": "^24.9.1",
+    "electron-builder": "24.13.3",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
