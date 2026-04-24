@@ -11,7 +11,11 @@ import {
   Put,
   Req,
 } from '@nestjs/common';
-import type { Request } from 'express';
+// NOTE: previously used `import type { Request } from 'express'` but switched
+// to `req: any` in controllers to stay compatible across @types/express 5.0.x
+// and 5.1.x (which tightened `req.headers[key]` to `string | string[] | undefined`
+// and caused CI-only TS2345 errors on Windows runners when yarn.lock was
+// absent / freshly resolved).
 import { EventEmitter } from 'events';
 import { SecurityModule } from '../security/security.module';
 import { SecretsStoreService } from '../security/secrets-store.service';
@@ -184,7 +188,7 @@ function isLoopback(ip: string): boolean {
   );
 }
 
-function assertLoopback(req: Request): void {
+function assertLoopback(req: any): void {
   const ip = req.ip ?? req.socket?.remoteAddress ?? '';
   if (!isLoopback(ip)) {
     throw new ForbiddenException(`runtime flags API is localhost-only (seen=${ip})`);
@@ -341,20 +345,28 @@ export class RuntimeFlagsController {
   constructor(private readonly svc: RuntimeFlagsService) {}
 
   @Get()
-  list(@Req() req: Request): FlagValue[] {
+  list(@Req() req: any): FlagValue[] {
     assertLoopback(req);
     return this.svc.list();
   }
 
   @Put(':name')
   async set(
-    @Req() req: Request,
+    @Req() req: any,
     @Body() body: SetFlagBody,
   ): Promise<FlagValue> {
     assertLoopback(req);
-    const name = req.params.name;
-    const actor =
-      body.actor ?? (String(req.headers['x-moonlight-actor'] ?? '') || 'ui');
+    const name: string = String(req?.params?.name ?? '');
+    // Header extraction — tolerant of `string | string[] | undefined` and of
+    // different @types/express major versions (5.0.x vs 5.1.x both supported).
+    const rawActor: unknown = req?.headers?.['x-moonlight-actor'];
+    let headerActor = '';
+    if (Array.isArray(rawActor)) {
+      headerActor = rawActor.length ? String(rawActor[0] ?? '') : '';
+    } else if (typeof rawActor === 'string') {
+      headerActor = rawActor;
+    }
+    const actor: string = body.actor ?? (headerActor || 'ui');
     return this.svc.set(
       name,
       String(body.value ?? ''),
@@ -365,7 +377,7 @@ export class RuntimeFlagsController {
 
   @Post('reset')
   async reset(
-    @Req() req: Request,
+    @Req() req: any,
     @Body() body: { actor?: string },
   ): Promise<{ reset: number }> {
     assertLoopback(req);
@@ -375,7 +387,7 @@ export class RuntimeFlagsController {
   }
 
   @Get('audit')
-  audit(@Req() req: Request): FlagAuditEntry[] {
+  audit(@Req() req: any): FlagAuditEntry[] {
     assertLoopback(req);
     return this.svc.getAudit(100);
   }

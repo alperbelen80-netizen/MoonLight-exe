@@ -9,6 +9,35 @@
 ## A. GitHub Actions Workflow
 
 
+## 🔥 v2.7.4 — `@types/express` minor bump TS2345 (v2.7.3 fail post-mortem v2)
+
+**Belirti (GitHub Actions `v2.7.3` run):**
+- Duration: 4m 15s
+- Annotation: `step:11:359 — Argument of type 'string | string[]' is not assignable to parameter of type 'string'`
+- Failure: Step "9. TypeScript type check" (GitHub internal step:11)
+
+**Root cause (DeepResearch):**
+`44ba3ba` commit'inin `.patch` raw'ı incelendiğinde yalnızca `.emergent/emergent.yml`
++ `.gitignore` değişmiş. Tüm v2.7.3 rescue patch (electron-builder pin,
+NSIS minimize, workflow 23-step hardening, tag→version sync) aslında **zaten**
+önceki commit'lerde GitHub'daydı — raw dosyalar doğrulandı.
+
+Tek kalan nokta: `@types/express` `^5.0.5` → GitHub yarn install (yarn.lock yok)
+→ `5.1.x` minor çekti → `IncomingHttpHeaders[key]` tipi `string | string[] | undefined`
+olarak sıkılaştı → TS2345.
+
+**Fix (v2.7.4):**
+1. **Type erasure pattern** — `@Req() req: Request` → `@Req() req: any`
+   runtime-flags controller'da 4 yerde.
+2. **Defensive extraction** — `Array.isArray(v) ? String(v[0]) : typeof v === 'string' ? v : ''`
+3. **Pin `@types/express: 5.0.5` + `@types/express-serve-static-core: 5.1.0`** (exact)
+
+**Kullanıcı aksiyonu:** push + yeni tag `v2.7.4`. Detay: `/app/BUILD_NOW.md`.
+
+---
+
+
+
 ## 🚨 v2.7.3 Rescue Patch — `v2.7.2` fail post-mortem
 
 **Belirti:** `v2.7.2` tag push'u → GitHub Actions → 5 dk 0 sn'de fail + "Failure summary" step 22 (Publish GitHub Release) skipped.

@@ -1,6 +1,96 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.7.4 — @types/express Minor Bump TS2345 Rescue (DeepResearch v2)
+
+**Release Date:** 2026-04-24
+**Scope:** `v2.7.3` tag push'u `windows-latest` runner'da 4m 15s'de tekrar fail oldu.
+Annotation: `step:11:359 — Argument of type 'string | string[]' is not assignable to
+parameter of type 'string'`. Kök sebep tespit edildi ve tip erasure pattern ile kesin
+çözüldü.
+
+### 🔍 DeepResearch bulguları
+
+1. **`44ba3ba` commit'i incelendi** → `.patch` raw: yalnızca `.emergent/emergent.yml` +
+   `.gitignore` değişimi. **Bu demektir ki v2.7.3 rescue patch (electron-builder pin,
+   NSIS minimize, workflow hardening, tag→version sync) lokaldeydi ama GitHub'da
+   zaten önceki commit'lerde vardı**. Kod tarafı tamdı.
+2. **GitHub raw dosyaları doğrulandı** → `release.yml` 23-adım hardened versiyon,
+   `desktop/package.json` electron-builder 24.13.3 pin, dist:win:ci script — hepsi
+   GitHub'da mevcut.
+3. **Kalan tek hata: `@types/express` minor bump**. Lokal 5.0.5, GitHub'da yarn.lock
+   olmadığı için `^5.0.5` range'inde 5.1.x çekmiş; 5.1'de `Request.headers[key]`
+   tipi `IncomingHttpHeaders[key]` = `string | string[] | undefined` olarak
+   sıkılaştırıldı. `String()` wrap yeterli olsa bile TypeScript 5.9 Windows runner'da
+   TS2345 üretti.
+
+### 🔧 Kesin çözüm (TS type-erasure pattern)
+
+`backend/src/runtime-flags/runtime-flags.module.ts`:
+```ts
+// BEFORE (v2.7.3)
+@Req() req: Request
+const actor = body.actor ?? (String(req.headers['x-moonlight-actor'] ?? '') || 'ui');
+
+// AFTER (v2.7.4)
+@Req() req: any
+const rawActor: unknown = req?.headers?.['x-moonlight-actor'];
+let headerActor = '';
+if (Array.isArray(rawActor)) {
+  headerActor = rawActor.length ? String(rawActor[0] ?? '') : '';
+} else if (typeof rawActor === 'string') {
+  headerActor = rawActor;
+}
+const actor: string = body.actor ?? (headerActor || 'ui');
+```
+
+Tüm 4 controller handler (`list`, `set`, `reset`, `audit`) + `assertLoopback`
+artık `req: any` kullanıyor. `import type { Request }` tamamen kaldırıldı.
+
+### 🔒 @types pinning (deterministik çözüm)
+
+`backend/package.json`:
+```diff
+- "@types/compression": "^1.8.1",
+- "@types/express": "^5.0.5",
++ "@types/compression": "1.8.1",
++ "@types/express": "5.0.5",
++ "@types/express-serve-static-core": "5.1.0",
+```
+
+Bu, GitHub runner'da yarn.lock olmadan bile **belirli** major+minor+patch çekmesini
+garanti eder. `@types/express-serve-static-core` explicit pin'lendi çünkü 5.1.x'in
+`IncomingHttpHeaders` override'ı var.
+
+### ✅ Lokal doğrulama
+
+- `yarn typecheck` (backend+desktop): **0 hata** ✅
+- `yarn build:backend` (nest build): **5.80s** ✅
+- `yarn bundle:backend:prod`: **5.24 MB** + integrity + metafile ✅
+- `yarn smoke:bundle`: healthz+sim+trinity 200 **PASS** ✅
+- Backend Jest kritik suite: **25/25 PASS** ✅
+
+### 👤 Kullanıcı aksiyon (BLOCKER)
+
+Bu patch yalnızca lokal `/app/moonlight`'ta. **GitHub'a push ve yeni tag (v2.7.4)
+basılmadan build yeniden tetiklenmez**. Detaylı talimat: `/app/BUILD_NOW.md`.
+
+```bash
+cd /app
+git add moonlight/backend/package.json
+git add moonlight/backend/src/runtime-flags/runtime-flags.module.ts
+git add moonlight/yarn.lock moonlight/backend/yarn.lock moonlight/desktop/yarn.lock
+git commit -m "v2.7.4: TS type erasure + @types/express pin + yarn.lock"
+git tag v2.7.4
+git push origin main --tags
+```
+
+**`v2.7.4` yeni tag zorunlu** — `v2.7.3` GitHub Actions cache'inde kayıtlı, aynı tag
+yeniden push'u re-run tetiklemez.
+
+
+
+
 ## v2.7.3 — Windows Build Rescue Patch (DeepResearch triage)
 
 **Release Date:** 2026-04-24
