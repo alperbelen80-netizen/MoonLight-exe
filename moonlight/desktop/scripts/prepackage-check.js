@@ -17,6 +17,7 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
@@ -26,6 +27,9 @@ const BUNDLE_FILE = path.join(REPO_ROOT, 'dist-bundle', 'backend.js');
 const BACKEND_NODE_MODULES = path.join(REPO_ROOT, 'backend', 'node_modules');
 const ICON_ICO = path.join(DESKTOP_DIR, 'build', 'icon.ico');
 const ICON_PNG = path.join(DESKTOP_DIR, 'build', 'icon.png');
+
+const IS_WINDOWS = os.platform() === 'win32';
+const IS_CI = process.env.CI === 'true' || process.env.CI === '1';
 
 function sizeOf(p) {
   try {
@@ -110,6 +114,21 @@ function checkIcons() {
   console.log(
     `[prepackage] icons: ico=${icoOk ? 'OK' : 'MISSING'} png=${pngOk ? 'OK' : 'MISSING'}`,
   );
+
+  // Windows NSIS builds NEED icon.ico. In CI on Windows, treat missing
+  // ico as a hard failure so we don't ship a broken installer. On dev
+  // machines (non-CI), stay lenient so local experiments keep working.
+  if (IS_WINDOWS && !icoOk) {
+    const msg =
+      `icon.ico is required on Windows builds.\n` +
+      `  Expected: ${ICON_ICO}\n` +
+      `  Fix: drop a valid 256x256 (or multi-res) .ico into desktop/build/icon.ico`;
+    if (IS_CI) {
+      throw new Error(msg);
+    }
+    console.warn(`[prepackage] WARN (local): ${msg}`);
+  }
+
   if (!icoOk || !pngOk) {
     console.warn(
       '[prepackage] WARN: at least one icon is missing. electron-builder\n' +
@@ -120,7 +139,9 @@ function checkIcons() {
 }
 
 function main() {
-  console.log('[prepackage] MoonLight v2.6-3 pre-package checks');
+  console.log('[prepackage] MoonLight v2.6-10 pre-package checks');
+  console.log(`[prepackage]   platform  = ${os.platform()} (${os.arch()})`);
+  console.log(`[prepackage]   CI        = ${IS_CI}`);
   console.log(`[prepackage]   REPO_ROOT = ${REPO_ROOT}`);
   checkBundle();
   checkBackendNodeModules();

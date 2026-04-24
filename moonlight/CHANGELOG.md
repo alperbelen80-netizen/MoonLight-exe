@@ -1,6 +1,103 @@
 # MoonLight Trading OS - Change Log
 
 
+## v2.6.10 — Windows Build Sistemi: Tam Yeniden Yapılandırma
+
+**Release Date:** 2026-04-24
+**Scope:** `.exe` paketinin `windows-latest` runner'da ve gerçek Windows
+makinesinde **deterministik + fail-fast** şekilde üretilmesini garanti eder.
+Kod davranışı değişmez, yalnızca build/CI/packaging katmanı düzenlenir.
+
+### 🧹 Hardcoded Linux Path Temizliği (P0)
+
+- `scripts/bundle-backend.js`:
+  - `require('/app/moonlight/node_modules/esbuild')` **kaldırıldı**.
+  - Yeni `loadEsbuild()`: REPO_ROOT altından `path.join()` ile resolve,
+    sonra `require('esbuild')` fallback, yoksa net hata + `process.exit(1)`.
+  - Backend dist entry’sinin varlığı başlamadan önce `fs.existsSync()` ile
+    doğrulanır (yoksa “yarn build:backend önce” hatası).
+  - `require('../backend/package.json')` yerine `fs.existsSync` korumalı okuma.
+- `scripts/smoke-backend-manager.js`:
+  - Sıfırdan platform-agnostik yeniden yazıldı.
+  - `/app/moonlight/...` ve `/tmp/...` kaldırıldı; `path.resolve(__dirname, …)`
+    ve `os.tmpdir()` kullanılıyor.
+  - Preflight: `dist-bundle/backend.js` ve `desktop/dist-electron/backend-manager.js`
+    yoksa net mesajla çıkar.
+- `scripts/smoke-packaged.js`:
+  - `desktop/dist/linux-arm64-unpacked` hardcoded path kaldırıldı.
+  - `--appOutDir <path>` CLI arg **veya** `MOONLIGHT_APP_OUT_DIR` env
+    **veya** otomatik tespit (`*-unpacked` klasörü) ile çalışır.
+  - DB/data dosyaları `os.tmpdir()` altında (Windows uyumlu).
+- `backend/scripts/parse-indicators.js`: kodda zaten dinamik; yalnızca
+  yorum satırındaki absolute path güncellendi.
+
+### 🧩 Root package.json Orkestrasyonu (P0)
+
+- Yeni scriptler:
+  - `build:all` → backend compile + bundle:prod + desktop build (tek komut).
+  - `test:desktop`, `test:all`.
+  - `smoke:all` (şu an `smoke:bundle` alias, ilerde packaged'i de çağıracak).
+  - `clean` → `rimraf` ile tüm build artifact'leri temizler.
+- Yeni `devDependencies`: `esbuild@^0.21.5`, `rimraf@^3.0.2` (root’a
+  eklendi → Windows runner deterministik resolve).
+
+### 🛠️ GitHub Actions release.yml — 13 Adım Polish (P0)
+
+- `runs-on: windows-latest`, `defaults.run.shell: pwsh` (PowerShell 7).
+- Adımlar netleştirildi ve numaralandırıldı (1–13):
+  1. Checkout
+  2. Node 20 + yarn cache
+  3. Toolchain diagnostics (node/yarn/npm/pwsh versiyonları logu)
+  4. Electron binary cache
+  5. `yarn install --frozen-lockfile`
+  6. `yarn build:all` (tek orkestrasyon komutu)
+  7. **Bundle verify**: `dist-bundle/backend.js` var mı, boyut ≥ 1 MB?
+  8. Backend isolated `npm install --omit=dev` (sqlite3 kontrolü)
+  9. `@electron/rebuild` ile native ABI uyumu
+  10. `yarn dist:win` (NSIS installer)
+  11. **Installer verify**: `.exe` var mı, boyut ≥ 10 MB? Aksi halde hard-fail.
+  12. SHA256 checksum üretimi + loglama
+  13. Artifact upload + (tag varsa veya `publish_release=true` ise) GitHub
+      Release'e dosya attach
+- `workflow_dispatch` input `publish_release` artık koşula bağlı release
+  oluşturmayı tetikliyor.
+- Code-signing: `CSC_IDENTITY_AUTO_DISCOVERY=false` varsayılan (opt-in).
+
+### 🧠 Akıllı Hata Yönetimi (P1)
+
+- Tüm build/smoke scriptleri ortak pattern kullanır:
+  1. Preflight dosya/klasör varlığı → yoksa net "nasıl düzeltilir" mesajı.
+  2. Try/catch + `console.error('[tag] …', err)` + `process.exit(1)`.
+  3. Boyut/sanity doğrulamaları build hattının ilerisine taşındı.
+
+### 🖼️ Platform-Duyarlı Icon Politikası (P1)
+
+- `desktop/scripts/prepackage-check.js`:
+  - `os.platform()` tabanlı kontrol.
+  - Windows + CI: `icon.ico` **zorunlu** (hard fail).
+  - Windows dev (yerel): uyarı + devam (dev ergonomisi korunur).
+  - Diğer platformlar: önceki davranış (warn).
+
+### ✅ Regresyon
+
+- Backend kritik suite (runtime-flags + triple-check + execution-fsm +
+  evvetoslot-engine): **25/25 PASS** ✅
+- `yarn build:backend`: **PASS** ✅
+- `yarn bundle:backend:prod`: **PASS** (5.24 MB output) ✅
+- `yarn build:desktop`: **PASS** ✅
+- `yarn smoke:bundle` (BackendManager → healthz + sim/state + trinity):
+  **PASS ✅** (backend 3s içinde ayağa kalktı, 3 endpoint 200).
+
+### 🧭 Migrasyon notları
+
+- Lokal geliştirme: komut değişikliği yok (`yarn dev`, `yarn test` aynen).
+- Release tag akışı: `git tag vX.Y.Z && git push --tags` → Windows runner
+  artık **build:all → bundle verify → installer verify** doğrulamalarını
+  otomatik yapıyor.
+
+
+
+
 ## v2.6.7 — Zero-Terminal UX: In-App Live Flags + Onboarding + Safety Widget
 
 **Release Date:** 2026-04-23

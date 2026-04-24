@@ -1,4 +1,4 @@
-// Parse /app/moonlight/docs/v2/100-indicators.md into two JSON files:
+// Parse docs/v2/100-indicators.md (resolved relative to this script) into two JSON files:
 //   - indicators.json (100 core indicators)
 //   - templates.json  (100 multi-use templates)
 // Usage: node scripts/parse-indicators.js

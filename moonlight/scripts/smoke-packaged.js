@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * MoonLight v2.6-3 — Packaged smoke test.
+ * MoonLight v2.6-3 / v2.6-10 — Packaged smoke test.
  *
  * Spawns the backend from the *packaged* appOutDir layout (the same paths
  * that Electron's BackendManager would hit in production) and verifies:
@@ -11,20 +11,58 @@
  * This does NOT launch Electron itself (we don't have a working DISPLAY
  * in CI); it just proves the **bundled backend + extraResources layout**
  * would work when Electron spawns it on a real user machine.
+ *
+ * Platform-agnostic path resolution: uses `os.tmpdir()` and auto-detects
+ * the appOutDir so the same script works on Linux (linux-arm64-unpacked),
+ * macOS (mac-unpacked), and Windows (win-unpacked).
+ *
+ * Override points:
+ *   - env `MOONLIGHT_APP_OUT_DIR` → absolute path to the unpacked app dir
+ *   - CLI arg `--appOutDir <path>`
  */
 
 const { spawn } = require('child_process');
 const http = require('http');
 const path = require('path');
+const os = require('os');
 const fs = require('fs');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const APP_OUT_DIR = path.join(
-  REPO_ROOT,
-  'desktop',
-  'dist',
-  'linux-arm64-unpacked',
-);
+const DESKTOP_DIST = path.join(REPO_ROOT, 'desktop', 'dist');
+
+// --- Resolve packaged app output directory ---------------------------------
+
+function resolveAppOutDir() {
+  // 1) Explicit CLI argument wins.
+  const cliIdx = process.argv.indexOf('--appOutDir');
+  if (cliIdx !== -1 && process.argv[cliIdx + 1]) {
+    return path.resolve(process.argv[cliIdx + 1]);
+  }
+  // 2) Environment override.
+  if (process.env.MOONLIGHT_APP_OUT_DIR) {
+    return path.resolve(process.env.MOONLIGHT_APP_OUT_DIR);
+  }
+  // 3) Auto-detect under desktop/dist: look for any *-unpacked dir.
+  if (!fs.existsSync(DESKTOP_DIST)) {
+    throw new Error(
+      `desktop/dist missing: ${DESKTOP_DIST}\n` +
+        'Did you run `cd desktop && yarn dist:dir` first?',
+    );
+  }
+  const entries = fs.readdirSync(DESKTOP_DIST, { withFileTypes: true });
+  const unpacked = entries.find(
+    (e) => e.isDirectory() && e.name.endsWith('-unpacked'),
+  );
+  if (!unpacked) {
+    throw new Error(
+      `Could not auto-detect *-unpacked directory under ${DESKTOP_DIST}.\n` +
+        'Pass --appOutDir <path> or set MOONLIGHT_APP_OUT_DIR explicitly.',
+    );
+  }
+  return path.join(DESKTOP_DIST, unpacked.name);
+}
+
+const APP_OUT_DIR = resolveAppOutDir();
 const RESOURCES_DIR = path.join(APP_OUT_DIR, 'resources');
 const BACKEND_ENTRY = path.join(
   RESOURCES_DIR,
@@ -34,6 +72,8 @@ const BACKEND_ENTRY = path.join(
 
 const PORT = 18799;
 const HEALTH_URL = `http://127.0.0.1:${PORT}/api/healthz`;
+
+// --- Helpers ----------------------------------------------------------------
 
 function log(msg) {
   console.log(`[packaged-smoke] ${msg}`);
@@ -71,16 +111,26 @@ async function waitForHealth(maxMs) {
   throw new Error(`health never green after ${maxMs}ms (last=${lastErr})`);
 }
 
+// --- Main -------------------------------------------------------------------
+
 async function main() {
-  log(`REPO_ROOT = ${REPO_ROOT}`);
+  log(`REPO_ROOT     = ${REPO_ROOT}`);
+  log(`APP_OUT_DIR   = ${APP_OUT_DIR}`);
   log(`BACKEND_ENTRY = ${BACKEND_ENTRY}`);
 
   if (!fs.existsSync(BACKEND_ENTRY)) {
     throw new Error(
       `Packaged backend bundle missing: ${BACKEND_ENTRY}\n` +
-        'Did you run `cd desktop && yarn dist:dir` first?',
+        'Did you run `cd desktop && yarn dist:dir` (or `yarn dist:win`) first?',
     );
   }
+
+  // Use OS temp dir so the smoke test pollutes nothing permanent and works
+  // identically on Linux/macOS/Windows.
+  const tmpRoot = os.tmpdir();
+  const dbPath = path.join(tmpRoot, 'moonlight-packaged-smoke.sqlite');
+  const dataDir = path.join(tmpRoot, 'moonlight-packaged-smoke-data');
+  fs.mkdirSync(dataDir, { recursive: true });
 
   const env = {
     ...process.env,
@@ -90,9 +140,8 @@ async function main() {
     // Vault strict only when packaged — disabled here so the smoke runs
     // without real secrets. The vault itself still initializes.
     MOONLIGHT_VAULT_STRICT: 'false',
-    // Data dir in /tmp so we don't pollute the repo.
-    DB_PATH: '/tmp/moonlight-packaged-smoke.sqlite',
-    MOONLIGHT_DATA_DIR: '/tmp/moonlight-packaged-smoke-data',
+    DB_PATH: dbPath,
+    MOONLIGHT_DATA_DIR: dataDir,
     // Explicit config dir — matches what BackendManager sets in prod.
     MOONLIGHT_CONFIG_DIR: path.join(path.dirname(BACKEND_ENTRY), 'src'),
     // Force lazy boot of heavy engines (they'll be started manually if needed).
@@ -100,8 +149,6 @@ async function main() {
     BROKER_IQOPTION_REAL_ENABLED: 'false',
     BROKER_DOM_AUTOMATION_ENABLED: 'false',
   };
-
-  fs.mkdirSync(env.MOONLIGHT_DATA_DIR, { recursive: true });
 
   log('spawning backend via node runtime (packaged layout)...');
   const proc = spawn('node', [BACKEND_ENTRY], {
@@ -140,7 +187,9 @@ async function main() {
       waitForHealth(60_000),
       earlyExit,
     ]);
-    log(`health OK status=${healthy.status} body=${healthy.body.slice(0, 120)}`);
+    log(
+      `health OK status=${healthy.status} body=${healthy.body.slice(0, 120)}`,
+    );
 
     // Simple secrets API smoke.
     try {

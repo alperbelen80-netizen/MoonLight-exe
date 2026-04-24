@@ -1,22 +1,30 @@
 [
   {
-    "content": "V2.6-7: Runtime Flags full stack (backend + IPC + UI)",
+    "content": "Task A: Hardcoded Linux path temizliği (3 script)",
     "status": "completed"
   },
   {
-    "content": "V2.6-8: First-Run Onboarding Wizard",
+    "content": "Task B: Root package.json orkestrasyon scriptleri + devDeps",
     "status": "completed"
   },
   {
-    "content": "V2.6-9: Dashboard Safety Widget",
+    "content": "Task C: release.yml — 13-adımlı Windows pipeline + doğrulama",
     "status": "completed"
   },
   {
-    "content": "Regresyon: Backend 415/415 PASS + Desktop Vitest 17/17 + bundle smoke + packaged smoke",
+    "content": "Task D: prepackage-check.js platform-duyarlı icon kontrolü",
     "status": "completed"
   },
   {
-    "content": "CHANGELOG + plan.md update",
+    "content": "Task E: Akıllı hata yönetimi (try/catch, fs.existsSync)",
+    "status": "completed"
+  },
+  {
+    "content": "Task F: Regresyon (build:all + smoke:bundle + kritik Jest suite'leri)",
+    "status": "completed"
+  },
+  {
+    "content": "Task G: CHANGELOG + BUILD_WINDOWS.md güncellemesi",
     "status": "completed"
   }
 ]

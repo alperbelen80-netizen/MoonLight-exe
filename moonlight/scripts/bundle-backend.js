@@ -16,11 +16,42 @@
 
 const path = require('path');
 const fs = require('fs');
-const esbuild = require('/app/moonlight/node_modules/esbuild');
 
-const BACKEND_ROOT = path.resolve(__dirname, '..', 'backend');
-const OUT_DIR = path.resolve(__dirname, '..', 'dist-bundle');
+const REPO_ROOT = path.resolve(__dirname, '..');
+const BACKEND_ROOT = path.join(REPO_ROOT, 'backend');
+const OUT_DIR = path.join(REPO_ROOT, 'dist-bundle');
 const OUT_FILE = path.join(OUT_DIR, 'backend.js');
+
+// Resolve esbuild from the monorepo root deterministically (Windows/Linux safe).
+// Falls back to standard `require('esbuild')` in case it was hoisted elsewhere.
+function loadEsbuild() {
+  const candidates = [
+    path.join(REPO_ROOT, 'node_modules', 'esbuild'),
+    path.join(REPO_ROOT, 'node_modules', 'esbuild', 'lib', 'main.js'),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      try {
+        return require(candidate);
+      } catch (_) {
+        // fall through
+      }
+    }
+  }
+  try {
+    return require('esbuild');
+  } catch (err) {
+    console.error(
+      '[bundle-backend] FATAL: esbuild is not installed.\n' +
+        '  Fix: run `yarn install` at the repo root so esbuild is present\n' +
+        '       under node_modules/esbuild (it is listed as a devDependency).\n' +
+        `  Original error: ${err.message}`,
+    );
+    process.exit(1);
+  }
+}
+
+const esbuild = loadEsbuild();
 
 // Native + notoriously bundle-hostile deps that must remain external.
 // These will be resolved at runtime from `resources/node_modules`.
@@ -92,9 +123,26 @@ const isMinify = process.argv.includes('--minify');
 async function main() {
   if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
 
+  // Sanity check: the TS build output must exist before we can bundle.
+  const entryFile = path.join(
+    BACKEND_ROOT,
+    'dist',
+    'backend',
+    'src',
+    'main.js',
+  );
+  if (!fs.existsSync(entryFile)) {
+    console.error(
+      '[bundle-backend] FATAL: backend entry missing.\n' +
+        `  Expected: ${entryFile}\n` +
+        '  Fix: run `yarn build:backend` (or `yarn --cwd backend build`) first.',
+    );
+    process.exit(1);
+  }
+
   const start = Date.now();
   const result = await esbuild.build({
-    entryPoints: [path.join(BACKEND_ROOT, 'dist', 'backend', 'src', 'main.js')],
+    entryPoints: [entryFile],
     bundle: true,
     platform: 'node',
     target: 'node20',
@@ -125,12 +173,16 @@ async function main() {
 
   // Also write a sibling `package.json` so the bundle can be hoisted into
   // resources/ verbatim and stay a valid Node entry point.
+  const backendPkgJson = path.join(BACKEND_ROOT, 'package.json');
+  const backendVersion = fs.existsSync(backendPkgJson)
+    ? require(backendPkgJson).version
+    : '0.0.0';
   fs.writeFileSync(
     path.join(OUT_DIR, 'package.json'),
     JSON.stringify(
       {
         name: 'moonlight-backend-bundle',
-        version: require('../backend/package.json').version,
+        version: backendVersion,
         private: true,
         main: 'backend.js',
       },

@@ -1,9 +1,39 @@
-# MoonLight Owner Console — Windows `.exe` Build Guide (v2.6-3)
+# MoonLight Owner Console — Windows `.exe` Build Guide (v2.6-10)
 
 > Bu belge, kullanıcının bilgisayarında **çift tıklanarak kurulabilen**
 > Windows NSIS installer'ını (`.exe`) nasıl üreteceğini anlatır.
 > **Resmi/önerilen yol:** GitHub Actions `windows-latest` runner.
 > **Geliştirici yolu (best-effort):** Linux + Wine (kırılgan).
+
+---
+
+## 0) v2.6-10 — Neler değişti?
+
+Windows build zinciri **tamamen deterministik** ve **fail-fast** hale getirildi.
+
+- **Tek orkestrasyon komutu:** `yarn build:all`
+  (= `build:backend` + `bundle:backend:prod` + `build:desktop`).
+- **Hardcoded Linux path'ler kaldırıldı.** Tüm build/smoke scriptleri
+  `path.resolve(__dirname, ...)` ve `os.tmpdir()` ile çalışır.
+- **Akıllı ön-kontroller:** Scriptler eksik dosya/modül gördüğünde net
+  "nasıl düzeltilir" mesajı basıp `exit 1` eder (silent broken build yok).
+- **Release workflow doğrulamaları** (`release.yml`):
+  - `dist-bundle/backend.js` var mı, ≥ 1 MB mı?
+  - `desktop/dist/*.exe` var mı, ≥ 10 MB mı?
+  - Bunlardan biri başarısızsa release otomatik iptal edilir.
+- **Platform-duyarlı icon kontrolü:** Windows CI'da `icon.ico` zorunlu.
+- **Root `devDependencies`:** `esbuild` ve `rimraf` artık root'ta kilitli
+  (Windows runner'da deterministik resolve).
+
+Local komut sözleşmesi değişmedi — eski akış (`yarn dev`, `yarn test`) aynen
+çalışır. Yeni komutlar:
+
+| Komut | Ne yapar? |
+|------|-----------|
+| `yarn build:all` | Tek komutla backend + bundle + desktop build |
+| `yarn smoke:bundle` | BackendManager → packaged-like smoke (Linux/macOS/Win) |
+| `yarn smoke:packaged -- --appOutDir <path>` | Packaged appOutDir smoke (platform-bağımsız) |
+| `yarn clean` | `rimraf` ile tüm build artifact'lerini siler |
 
 ---
 
