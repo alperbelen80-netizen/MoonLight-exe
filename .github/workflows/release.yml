@@ -11,8 +11,14 @@ name: MoonLight Windows Installer Build
 on:
   push:
     tags:
-      - 'v*.*.*'
+      # Any tag starting with `v` (v2.8.6, v3.0.0, v10.1.0-beta, v1, etc.)
+      - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to embed in installer (e.g. 2.8.6). Leave empty to keep package.json version.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -49,18 +55,26 @@ jobs:
           npm --version
           Write-Host "pwsh: $($PSVersionTable.PSVersion)"
 
-      - name: Sync desktop version from tag (if any)
+      - name: Sync desktop version from tag or input (if any)
         working-directory: moonlight/desktop
         run: |
           $ref = "${{ github.ref }}"
+          $inputVersion = "${{ github.event.inputs.version }}"
+          $newVersion = $null
           if ($ref -match '^refs/tags/v(.+)$') {
             $newVersion = $Matches[1]
             Write-Host "Tag detected — syncing desktop package.json version to $newVersion"
+          } elseif ($inputVersion -and $inputVersion.Trim().Length -gt 0) {
+            $newVersion = $inputVersion.Trim().TrimStart('v')
+            Write-Host "Manual input detected — syncing desktop package.json version to $newVersion"
+          } else {
+            Write-Host "No tag / input — keeping existing version in package.json."
+          }
+          if ($newVersion) {
             $pkg = Get-Content package.json -Raw | ConvertFrom-Json
             $pkg.version = $newVersion
             ($pkg | ConvertTo-Json -Depth 32) | Set-Content package.json -Encoding UTF8
-          } else {
-            Write-Host "No tag — keeping existing version."
+            Write-Host "package.json.version is now: $newVersion"
           }
 
       - name: Install root deps

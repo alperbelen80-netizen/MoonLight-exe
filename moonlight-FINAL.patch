@@ -1,0 +1,91 @@
+diff --git a/moonlight/desktop/vite.config.ts b/moonlight/desktop/vite.config.ts
+index a2e330f..27a12cc 100644
+--- a/moonlight/desktop/vite.config.ts
++++ b/moonlight/desktop/vite.config.ts
+@@ -23,12 +23,32 @@ export default defineConfig({
+         // Split vendor libs into deterministic chunks to improve cache
+         // reuse between releases (e.g. only app code changes → vendor
+         // chunks stay cached).
++        //
++        // CRITICAL: Match on *exact package boundaries* inside
++        // node_modules, not naive substrings. `id.includes('react')` would
++        // pull @radix-ui/react-*, lucide-react, react-router-dom and many
++        // more into the React chunk, scrambling module init order and
++        // crashing with `Cannot read properties of undefined (reading
++        // 'useState')` at runtime. The regex below only matches real
++        // package directories (`/node_modules/<pkg>/`).
+         manualChunks: (id) => {
+           if (!id.includes('node_modules')) return undefined;
+-          if (id.includes('react') || id.includes('scheduler')) return 'vendor-react';
+-          if (id.includes('@radix-ui') || id.includes('cmdk') || id.includes('lucide-react')) return 'vendor-ui';
+-          if (id.includes('sonner') || id.includes('clsx') || id.includes('zustand')) return 'vendor-util';
+-          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
++          // React core + its official peer deps must ship together.
++          if (/[\\/]node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom|@remix-run[\\/]router)[\\/]/.test(id)) {
++            return 'vendor-react';
++          }
++          // Radix primitives, cmdk, and icon sets — pure UI building blocks.
++          if (/[\\/]node_modules[\\/](@radix-ui|cmdk|lucide-react|class-variance-authority)[\\/]/.test(id)) {
++            return 'vendor-ui';
++          }
++          // Tiny helpers used almost everywhere.
++          if (/[\\/]node_modules[\\/](sonner|clsx|zustand|tailwind-merge|nanoid)[\\/]/.test(id)) {
++            return 'vendor-util';
++          }
++          // Charting — heavyweight, lazy on dashboard tabs.
++          if (/[\\/]node_modules[\\/](recharts|d3-.*|victory-.*|echarts.*)[\\/]/.test(id)) {
++            return 'vendor-charts';
++          }
+           return 'vendor';
+         },
+       },
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index dfeeef7..31dc93f 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -11,8 +11,14 @@ name: MoonLight Windows Installer Build
+ on:
+   push:
+     tags:
+-      - 'v*.*.*'
++      # Any tag starting with `v` (v2.8.6, v3.0.0, v10.1.0-beta, v1, etc.)
++      - 'v*'
+   workflow_dispatch:
++    inputs:
++      version:
++        description: 'Version to embed in installer (e.g. 2.8.6). Leave empty to keep package.json version.'
++        required: false
++        default: ''
+ 
+ permissions:
+   contents: write
+@@ -49,18 +55,26 @@ jobs:
+           npm --version
+           Write-Host "pwsh: $($PSVersionTable.PSVersion)"
+ 
+-      - name: Sync desktop version from tag (if any)
++      - name: Sync desktop version from tag or input (if any)
+         working-directory: moonlight/desktop
+         run: |
+           $ref = "${{ github.ref }}"
++          $inputVersion = "${{ github.event.inputs.version }}"
++          $newVersion = $null
+           if ($ref -match '^refs/tags/v(.+)$') {
+             $newVersion = $Matches[1]
+             Write-Host "Tag detected — syncing desktop package.json version to $newVersion"
++          } elseif ($inputVersion -and $inputVersion.Trim().Length -gt 0) {
++            $newVersion = $inputVersion.Trim().TrimStart('v')
++            Write-Host "Manual input detected — syncing desktop package.json version to $newVersion"
++          } else {
++            Write-Host "No tag / input — keeping existing version in package.json."
++          }
++          if ($newVersion) {
+             $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+             $pkg.version = $newVersion
+             ($pkg | ConvertTo-Json -Depth 32) | Set-Content package.json -Encoding UTF8
+-          } else {
+-            Write-Host "No tag — keeping existing version."
++            Write-Host "package.json.version is now: $newVersion"
+           }
+ 
+       - name: Install root deps

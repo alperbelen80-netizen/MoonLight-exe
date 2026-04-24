@@ -1,26 +1,18 @@
 [
   {
-    "content": "P0: BrowserRouter → HashRouter (beyaz ekran fix)",
+    "content": "release.yml tag pattern'i esneklet (v*, workflow_dispatch input)",
     "status": "completed"
   },
   {
-    "content": "P0: API base URL için getApiBase() refactor (16 dosya)",
+    "content": "vite.config.ts son fix'in commit edildiğini doğrula",
     "status": "completed"
   },
   {
-    "content": "P1: Electron-builder kurulum hız optimizasyonu + installer boyutu",
+    "content": "Tüm değişiklikleri kapsayan tek patch hazirla",
     "status": "completed"
   },
   {
-    "content": "P1: Bundle + build + tsc son doğrulama",
-    "status": "completed"
-  },
-  {
-    "content": "P1: Backend veri akışı / sinyal üretim pipeline smoke test",
-    "status": "completed"
-  },
-  {
-    "content": "P0: Kullanıcıya tek komut bas push paketi ver",
-    "status": "completed"
+    "content": "Kullanıcıya net son talimat (3 komut)",
+    "status": "in_progress"
   }
 ]
