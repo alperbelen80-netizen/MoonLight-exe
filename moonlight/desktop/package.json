@@ -14,8 +14,8 @@
   "scripts": {
     "dev": "vite",
     "dev:electron": "MOONLIGHT_SPAWN_BACKEND=true electron .",
-    "build": "tsc && vite build && tsc main/index.ts main/backend-manager.ts main/auto-updater.ts main/crash-reporter.ts --outDir dist-electron/main && tsc main/preload.ts --outDir dist-electron",
-    "build:preload": "tsc main/preload.ts --outDir dist-electron",
+    "build": "tsc && vite build && tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json",
+    "build:preload": "tsc -p tsconfig.preload.json",
     "preview": "vite preview",
     "prepackage": "node scripts/prepackage-check.js",
     "dist": "yarn prepackage && yarn build && electron-builder --publish never",
