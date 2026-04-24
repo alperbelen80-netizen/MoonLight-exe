@@ -2,10 +2,6 @@
   "name": "moonlight-monorepo",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "backend",
-    "desktop"
-  ],
   "scripts": {
     "dev": "concurrently \"yarn dev:backend\" \"yarn dev:desktop\"",
     "dev:backend": "cd backend && yarn start:dev",

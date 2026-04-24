@@ -65,15 +65,15 @@ jobs:
 
       - name: Install root deps
         working-directory: moonlight
-        run: yarn install --frozen-lockfile --network-timeout 600000
+        run: yarn install --no-immutable --network-timeout 600000
 
       - name: Install backend deps
         working-directory: moonlight/backend
-        run: yarn install --frozen-lockfile --network-timeout 600000
+        run: yarn install --no-immutable --network-timeout 600000
 
       - name: Install desktop deps
         working-directory: moonlight/desktop
-        run: yarn install --frozen-lockfile --network-timeout 600000
+        run: yarn install --no-immutable --network-timeout 600000
 
       - name: TypeScript check (backend)
         working-directory: moonlight/backend

@@ -1,34 +1,22 @@
 [
   {
-    "content": "Bölüm 2: @types/express 4.17.21 downgrade + express-serve-static-core uyumlu + tsconfig skipLibCheck",
-    "status": "in_progress"
+    "content": "@types/node'u tek noktada (moonlight/package.json) sabitle, backend'teki duplicate'i kaldır",
+    "status": "completed"
   },
   {
-    "content": "Bölüm 3: ci.yml SIL (sadece release.yml kalsın)",
-    "status": "pending"
+    "content": "3 yarn.lock dosyasını sil",
+    "status": "completed"
   },
   {
-    "content": "Bölüm 4: release.yml sadeleştir - kullanıcı şablonuna göre",
-    "status": "pending"
+    "content": "yarn install ile lock dosyalarını yeniden oluştur",
+    "status": "completed"
   },
   {
-    "content": "Bölüm 5: moonlight/package.json scripts doğrula",
-    "status": "pending"
+    "content": "release.yml'de --frozen-lockfile → --no-immutable yap",
+    "status": "completed"
   },
   {
-    "content": "Bölüm 6: backend/package.json - esbuild@0.21.5, ts@5.3.3 sabit; desktop - electron@28.3.3, electron-builder@24.9.1 sabit",
-    "status": "pending"
-  },
-  {
-    "content": "Bölüm 7: npmRebuild:false, nodeGypRebuild:false, build/icon.ico mevcut",
-    "status": "pending"
-  },
-  {
-    "content": "Bölüm 8: Son test (tsc, bundle, testler, yaml)",
-    "status": "pending"
-  },
-  {
-    "content": "Bölüm 9: Commit + tag v2.7.5 hazırla + Rapor",
-    "status": "pending"
+    "content": "Typecheck + bundle doğrulamaları koş, kullanıcıya push talimatı ver",
+    "status": "completed"
   }
 ]
