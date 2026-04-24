@@ -1,0 +1,323 @@
+diff --git a/moonlight/desktop/package.json b/moonlight/desktop/package.json
+index eae55a7..498cdaf 100644
+--- a/moonlight/desktop/package.json
++++ b/moonlight/desktop/package.json
+@@ -71,7 +71,8 @@
+       "**/node_modules/bufferutil/**",
+       "**/node_modules/utf-8-validate/**"
+     ],
+-    "compression": "normal",
++    "compression": "maximum",
++    "removePackageScripts": true,
+     "npmRebuild": false,
+     "nodeGypRebuild": false,
+     "buildDependenciesFromSource": false,
+diff --git a/moonlight/desktop/renderer/src/components/common/CommandPalette.tsx b/moonlight/desktop/renderer/src/components/common/CommandPalette.tsx
+index 0ac33c2..a79f5e3 100644
+--- a/moonlight/desktop/renderer/src/components/common/CommandPalette.tsx
++++ b/moonlight/desktop/renderer/src/components/common/CommandPalette.tsx
+@@ -20,6 +20,7 @@ import {
+   Zap,
+ } from 'lucide-react';
+ import { toast } from 'sonner';
++import { getApiBase } from '../../services/api-client';
+ 
+ interface CommandPaletteProps {
+   open: boolean;
+@@ -29,7 +30,7 @@ interface CommandPaletteProps {
+ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
+   const navigate = useNavigate();
+   const [search, setSearch] = useState('');
+-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
++  const base = getApiBase();
+ 
+   const go = useCallback(
+     (path: string) => {
+diff --git a/moonlight/desktop/renderer/src/components/dashboard/AIInsightsCard.tsx b/moonlight/desktop/renderer/src/components/dashboard/AIInsightsCard.tsx
+index 7382b05..a128687 100644
+--- a/moonlight/desktop/renderer/src/components/dashboard/AIInsightsCard.tsx
++++ b/moonlight/desktop/renderer/src/components/dashboard/AIInsightsCard.tsx
+@@ -1,5 +1,6 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { Activity, AlertTriangle, Bot, Loader2, RefreshCw, Sparkles, TrendingUp } from 'lucide-react';
++import { getApiBase } from '../../services/api-client';
+ 
+ interface DailyInsights {
+   generated_at_utc: string;
+@@ -24,7 +25,7 @@ export function AIInsightsCard() {
+   const [refreshing, setRefreshing] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+ 
+-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
++  const base = getApiBase();
+ 
+   const load = useCallback(
+     async (force = false) => {
+diff --git a/moonlight/desktop/renderer/src/components/layout/StatusBar.tsx b/moonlight/desktop/renderer/src/components/layout/StatusBar.tsx
+index 4caf327..d5b3f9b 100644
+--- a/moonlight/desktop/renderer/src/components/layout/StatusBar.tsx
++++ b/moonlight/desktop/renderer/src/components/layout/StatusBar.tsx
+@@ -1,5 +1,6 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { Activity, Bot, Zap } from 'lucide-react';
++import { getApiBase } from '../../services/api-client';
+ 
+ interface Status {
+   available: boolean;
+@@ -17,7 +18,7 @@ export function StatusBar() {
+   const [status, setStatus] = useState<Status | null>(null);
+   const [providers, setProviders] = useState<Providers | null>(null);
+ 
+-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
++  const base = getApiBase();
+ 
+   const load = useCallback(async () => {
+     try {
+diff --git a/moonlight/desktop/renderer/src/components/live/LiveSignalsTable.tsx b/moonlight/desktop/renderer/src/components/live/LiveSignalsTable.tsx
+index 406b786..7dfc4bd 100644
+--- a/moonlight/desktop/renderer/src/components/live/LiveSignalsTable.tsx
++++ b/moonlight/desktop/renderer/src/components/live/LiveSignalsTable.tsx
+@@ -1,6 +1,7 @@
+ import React, { useState } from 'react';
+ import { LiveSignalDTO } from '../../services/live-signal-api';
+ import { Bot, Brain, CheckCircle2, Loader2, ShieldAlert, XCircle } from 'lucide-react';
++import { getApiBase } from '../../services/api-client';
+ 
+ interface LiveSignalsTableProps {
+   signals: LiveSignalDTO[];
+@@ -50,7 +51,7 @@ export function LiveSignalsTable({
+   const [asking, setAsking] = useState(false);
+   const [result, setResult] = useState<any>(null);
+ 
+-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
++  const base = getApiBase();
+ 
+   const askReasoning = async (signal: LiveSignalDTO) => {
+     setReasoningModal(signal);
+diff --git a/moonlight/desktop/renderer/src/components/onboarding/OnboardingWizard.tsx b/moonlight/desktop/renderer/src/components/onboarding/OnboardingWizard.tsx
+index a44207a..eb104b4 100644
+--- a/moonlight/desktop/renderer/src/components/onboarding/OnboardingWizard.tsx
++++ b/moonlight/desktop/renderer/src/components/onboarding/OnboardingWizard.tsx
+@@ -1,4 +1,5 @@
+ import { useEffect, useMemo, useState } from 'react';
++import { getApiBase } from '../../services/api-client';
+ 
+ /**
+  * V2.6-8 First-Run Onboarding Wizard
+@@ -42,8 +43,7 @@ interface StepContext {
+ function useBackendUrl(): string {
+   return useMemo(() => {
+     if (typeof window === 'undefined') return '/api';
+-    const env = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string } }).env;
+-    return env?.VITE_API_BASE_URL || '/api';
++    return getApiBase();
+   }, []);
+ }
+ 
+diff --git a/moonlight/desktop/renderer/src/components/settings/AlertsWebhookPanel.tsx b/moonlight/desktop/renderer/src/components/settings/AlertsWebhookPanel.tsx
+index 9222e4c..67b4041 100644
+--- a/moonlight/desktop/renderer/src/components/settings/AlertsWebhookPanel.tsx
++++ b/moonlight/desktop/renderer/src/components/settings/AlertsWebhookPanel.tsx
+@@ -1,6 +1,7 @@
+ import { useEffect, useState } from 'react';
+ import { Bell, Send, Loader2 } from 'lucide-react';
+ import { toast } from 'sonner';
++import { getApiBase } from '../../services/api-client';
+ 
+ interface Channel {
+   channel: string;
+@@ -14,7 +15,7 @@ export function AlertsWebhookPanel() {
+   const [testUrl, setTestUrl] = useState('');
+   const [testChannel, setTestChannel] = useState<'discord' | 'slack' | 'telegram' | 'generic'>('generic');
+ 
+-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
++  const base = getApiBase();
+ 
+   const load = async () => {
+     try {
+diff --git a/moonlight/desktop/renderer/src/components/settings/RiskProfilePanel.tsx b/moonlight/desktop/renderer/src/components/settings/RiskProfilePanel.tsx
+index 5475333..d0abb57 100644
+--- a/moonlight/desktop/renderer/src/components/settings/RiskProfilePanel.tsx
++++ b/moonlight/desktop/renderer/src/components/settings/RiskProfilePanel.tsx
+@@ -1,6 +1,7 @@
+ import { useEffect, useState } from 'react';
+ import { Shield, Save } from 'lucide-react';
+ import { toast } from 'sonner';
++import { getApiBase } from '../../services/api-client';
+ 
+ interface RiskProfile {
+   id: string;
+@@ -18,7 +19,7 @@ export function RiskProfilePanel() {
+   const [current, setCurrent] = useState<RiskProfile | null>(null);
+   const [saving, setSaving] = useState(false);
+ 
+-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
++  const base = getApiBase();
+ 
+   useEffect(() => {
+     (async () => {
+diff --git a/moonlight/desktop/renderer/src/hooks/useLiveSignalNotifications.ts b/moonlight/desktop/renderer/src/hooks/useLiveSignalNotifications.ts
+index 19b98a4..7af7beb 100644
+--- a/moonlight/desktop/renderer/src/hooks/useLiveSignalNotifications.ts
++++ b/moonlight/desktop/renderer/src/hooks/useLiveSignalNotifications.ts
+@@ -1,5 +1,6 @@
+ import { useEffect, useRef } from 'react';
+ import { toast } from 'sonner';
++import { getApiBase } from '../services/api-client';
+ 
+ interface LiveSignal {
+   id: string;
+@@ -20,7 +21,7 @@ export function useLiveSignalNotifications() {
+   const seenIds = useRef<Set<string>>(new Set());
+   const seenApproved = useRef<Set<string>>(new Set());
+   const bootstrapped = useRef(false);
+-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
++  const base = getApiBase();
+ 
+   useEffect(() => {
+     let cancelled = false;
+diff --git a/moonlight/desktop/renderer/src/routes/AICoachPage.tsx b/moonlight/desktop/renderer/src/routes/AICoachPage.tsx
+index 95fbcfa..88dea4d 100644
+--- a/moonlight/desktop/renderer/src/routes/AICoachPage.tsx
++++ b/moonlight/desktop/renderer/src/routes/AICoachPage.tsx
+@@ -1,5 +1,6 @@
+ import { useCallback, useEffect, useRef, useState } from 'react';
+ import { Bot, Loader2, Send, Sparkles, User } from 'lucide-react';
++import { getApiBase } from '../services/api-client';
+ 
+ interface ChatMessage {
+   role: 'user' | 'assistant';
+@@ -35,7 +36,7 @@ export function AICoachPage() {
+   const [error, setError] = useState<string | null>(null);
+   const scrollRef = useRef<HTMLDivElement>(null);
+ 
+-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
++  const base = getApiBase();
+ 
+   useEffect(() => {
+     (async () => {
+diff --git a/moonlight/desktop/renderer/src/routes/DataSourcesPage.tsx b/moonlight/desktop/renderer/src/routes/DataSourcesPage.tsx
+index 18c5902..880002e 100644
+--- a/moonlight/desktop/renderer/src/routes/DataSourcesPage.tsx
++++ b/moonlight/desktop/renderer/src/routes/DataSourcesPage.tsx
+@@ -1,5 +1,6 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { Activity, Bot, CheckCircle2, Loader2, RefreshCw, Wand2, XCircle, Zap } from 'lucide-react';
++import { getApiBase } from '../services/api-client';
+ 
+ interface ProviderHealth {
+   name: string;
+@@ -55,7 +56,7 @@ export function DataSourcesPage() {
+   const [lastResult, setLastResult] = useState<AutoSelectResponse | null>(null);
+   const [error, setError] = useState<string | null>(null);
+ 
+-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
++  const base = getApiBase();
+ 
+   const load = useCallback(async () => {
+     setRefreshing(true);
+diff --git a/moonlight/desktop/renderer/src/routes/JournalPage.tsx b/moonlight/desktop/renderer/src/routes/JournalPage.tsx
+index 441c324..d960a93 100644
+--- a/moonlight/desktop/renderer/src/routes/JournalPage.tsx
++++ b/moonlight/desktop/renderer/src/routes/JournalPage.tsx
+@@ -1,5 +1,6 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { BookOpen, Filter, Loader2, RefreshCw } from 'lucide-react';
++import { getApiBase } from '../services/api-client';
+ 
+ interface JournalItem {
+   id: string;
+@@ -29,7 +30,7 @@ export function JournalPage() {
+   const [filters, setFilters] = useState({ symbol: '', strategy: '', verdict: '', status: '' });
+   const [stats, setStats] = useState<any>(null);
+ 
+-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
++  const base = getApiBase();
+ 
+   const load = useCallback(async () => {
+     setRefreshing(true);
+diff --git a/moonlight/desktop/renderer/src/routes/MarketIntelligencePage.tsx b/moonlight/desktop/renderer/src/routes/MarketIntelligencePage.tsx
+index 4f3c037..76a35fb 100644
+--- a/moonlight/desktop/renderer/src/routes/MarketIntelligencePage.tsx
++++ b/moonlight/desktop/renderer/src/routes/MarketIntelligencePage.tsx
+@@ -1,5 +1,6 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { Activity, Loader2, RefreshCw } from 'lucide-react';
++import { getApiBase } from '../services/api-client';
+ 
+ interface HeatmapCell {
+   symbol: string;
+@@ -39,7 +40,7 @@ export function MarketIntelligencePage() {
+   const [tuneResult, setTuneResult] = useState<string | null>(null);
+   const [tuning, setTuning] = useState(false);
+ 
+-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
++  const base = getApiBase();
+ 
+   const load = useCallback(async () => {
+     setRefreshing(true);
+diff --git a/moonlight/desktop/renderer/src/routes/SessionManagerPage.tsx b/moonlight/desktop/renderer/src/routes/SessionManagerPage.tsx
+index 9cc7a54..ecc5476 100644
+--- a/moonlight/desktop/renderer/src/routes/SessionManagerPage.tsx
++++ b/moonlight/desktop/renderer/src/routes/SessionManagerPage.tsx
+@@ -1,5 +1,6 @@
+ import { useEffect, useState, useCallback } from 'react';
+ import { Power, PowerOff, Loader2, CheckCircle2, AlertCircle, KeyRound } from 'lucide-react';
++import { getApiBase } from '../services/api-client';
+ 
+ interface BrokerSnapshot {
+   brokerId: string;
+@@ -41,7 +42,7 @@ export function SessionManagerPage() {
+   const [error, setError] = useState<string | null>(null);
+   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+ 
+-  const base = import.meta.env.VITE_API_BASE_URL || '/api';
++  const base = getApiBase();
+ 
+   const load = useCallback(async () => {
+     try {
+diff --git a/moonlight/desktop/renderer/src/routes/SettingsPage.tsx b/moonlight/desktop/renderer/src/routes/SettingsPage.tsx
+index b5bfb0f..3ed81c6 100644
+--- a/moonlight/desktop/renderer/src/routes/SettingsPage.tsx
++++ b/moonlight/desktop/renderer/src/routes/SettingsPage.tsx
+@@ -3,6 +3,7 @@ import { AlertsWebhookPanel } from '../components/settings/AlertsWebhookPanel';
+ import { CredentialsVaultPanel } from '../components/settings/CredentialsVaultPanel';
+ import { LiveFlagsPanel } from '../components/settings/LiveFlagsPanel';
+ import { AboutPanel } from '../components/settings/AboutPanel';
++import { getApiBase } from '../services/api-client';
+ 
+ export function SettingsPage() {
+   return (
+@@ -23,7 +24,7 @@ export function SettingsPage() {
+       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+         <h3 className="font-semibold text-gray-900 dark:text-gray-100">Sistem</h3>
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+-          <Item label="Backend" value={import.meta.env.VITE_API_BASE_URL || '/api'} />
++          <Item label="Backend" value={getApiBase()} />
+           <Item label="Version" value="2.6.7 (Ready-to-Ship)" />
+           <Item label="Theme" value="Auto (system / manual toggle)" />
+           <Item label="Shortcut" value="Cmd/Ctrl + K — Komut Paleti" />
+diff --git a/moonlight/desktop/renderer/src/services/api-client.ts b/moonlight/desktop/renderer/src/services/api-client.ts
+index 52b9b76..80abda9 100644
+--- a/moonlight/desktop/renderer/src/services/api-client.ts
++++ b/moonlight/desktop/renderer/src/services/api-client.ts
+@@ -24,6 +24,19 @@ const FALLBACK_BASE =
+ let resolvedBase: string = FALLBACK_BASE;
+ let resolving: Promise<string> | null = null;
+ 
++/**
++ * Synchronous base getter for components that can't (or don't want to)
++ * await the async resolver. Returns the *currently resolved* base; the
++ * very first render before `resolveApiBase()` finishes may still hit the
++ * FALLBACK_BASE, which in the packaged app is `http://localhost:8001`
++ * — the preferred backend port. Within a tick of module load, the real
++ * dynamic port (if different) is patched in and subsequent fetches hit
++ * the correct port.
++ */
++export function getApiBase(): string {
++  return resolvedBase;
++}
++
+ async function resolveApiBase(): Promise<string> {
+   if (resolving) return resolving;
+   resolving = (async () => {

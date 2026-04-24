@@ -71,7 +71,8 @@
       "**/node_modules/bufferutil/**",
       "**/node_modules/utf-8-validate/**"
     ],
-    "compression": "normal",
+    "compression": "maximum",
+    "removePackageScripts": true,
     "npmRebuild": false,
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,

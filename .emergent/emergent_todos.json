@@ -4,23 +4,23 @@
     "status": "completed"
   },
   {
-    "content": "P0: Lokal preview ile UI'nin gerçekten dolu olduğunu kanıtla (screenshot)",
+    "content": "P0: API base URL için getApiBase() refactor (16 dosya)",
     "status": "completed"
   },
   {
-    "content": "P0: Backend API base URL'i paketlenmiş app için doğru yapılandirma",
+    "content": "P1: Electron-builder kurulum hız optimizasyonu + installer boyutu",
     "status": "completed"
   },
   {
-    "content": "P0 PUSH: v2.8.4 için 16 dosyayı kullanıcıya ver, push etsin",
-    "status": "in_progress"
+    "content": "P1: Bundle + build + tsc son doğrulama",
+    "status": "completed"
   },
   {
-    "content": "P1: Kurulum süresi optimizasyonu (bundle/installer boyutu, chunk strategy)",
-    "status": "pending"
+    "content": "P1: Backend veri akışı / sinyal üretim pipeline smoke test",
+    "status": "completed"
   },
   {
-    "content": "P1: Backend veri akışı/sinyal üretim pipeline'ının uçtan uca çalıştığını doğrula",
-    "status": "pending"
+    "content": "P0: Kullanıcıya tek komut bas push paketi ver",
+    "status": "completed"
   }
 ]
