@@ -23,12 +23,32 @@ export default defineConfig({
         // Split vendor libs into deterministic chunks to improve cache
         // reuse between releases (e.g. only app code changes → vendor
         // chunks stay cached).
+        //
+        // CRITICAL: Match on *exact package boundaries* inside
+        // node_modules, not naive substrings. `id.includes('react')` would
+        // pull @radix-ui/react-*, lucide-react, react-router-dom and many
+        // more into the React chunk, scrambling module init order and
+        // crashing with `Cannot read properties of undefined (reading
+        // 'useState')` at runtime. The regex below only matches real
+        // package directories (`/node_modules/<pkg>/`).
         manualChunks: (id) => {
           if (!id.includes('node_modules')) return undefined;
-          if (id.includes('react') || id.includes('scheduler')) return 'vendor-react';
-          if (id.includes('@radix-ui') || id.includes('cmdk') || id.includes('lucide-react')) return 'vendor-ui';
-          if (id.includes('sonner') || id.includes('clsx') || id.includes('zustand')) return 'vendor-util';
-          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+          // React core + its official peer deps must ship together.
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom|@remix-run[\\/]router)[\\/]/.test(id)) {
+            return 'vendor-react';
+          }
+          // Radix primitives, cmdk, and icon sets — pure UI building blocks.
+          if (/[\\/]node_modules[\\/](@radix-ui|cmdk|lucide-react|class-variance-authority)[\\/]/.test(id)) {
+            return 'vendor-ui';
+          }
+          // Tiny helpers used almost everywhere.
+          if (/[\\/]node_modules[\\/](sonner|clsx|zustand|tailwind-merge|nanoid)[\\/]/.test(id)) {
+            return 'vendor-util';
+          }
+          // Charting — heavyweight, lazy on dashboard tabs.
+          if (/[\\/]node_modules[\\/](recharts|d3-.*|victory-.*|echarts.*)[\\/]/.test(id)) {
+            return 'vendor-charts';
+          }
           return 'vendor';
         },
       },
