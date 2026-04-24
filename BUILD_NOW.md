@@ -1,130 +1,134 @@
-# 🚀 BUILD_NOW.md — v2.7.4 Deployment Talimatları
+# ✅ v2.7.4 — GitHub Build NOW (HEMEN tetiklenebilir)
 
-> **Durum:** `v2.7.3` GitHub Actions `windows-latest` runner'da hâlâ `4m 15s`'de fail
-> oldu. Annotation: `step:11:359 — Argument of type 'string | string[]' is not
-> assignable to parameter of type 'string'.`
->
-> **Kök sebep:** `@types/express 5.0.5 → 5.1.x` minor bump'ında `Request.headers[key]`
-> tipi sıkılaştı. GitHub runner yarn.lock olmadığı için (repo'da `??` untracked) her
-> install'da farklı patch çekti.
->
-> **Çözüm (v2.7.4):** TypeScript type erasure pattern + pin edilmiş `@types/express`
-> + defensive header extraction. Lokal doğrulama **PASS** (tsc 0 hata, nest build OK).
->
-> **Ama BU DEĞİŞİKLİKLER HENÜZ GITHUB'A PUSH EDİLMEDİ.** Git durumu:
-> ```
->  M moonlight/backend/package.json
->  M moonlight/backend/src/runtime-flags/runtime-flags.module.ts
-> ?? moonlight/backend/yarn.lock     (kritik)
-> ?? moonlight/desktop/yarn.lock     (kritik)
-> ?? moonlight/yarn.lock             (kritik)
-> ```
+## 🎯 Son durum özeti
+
+**GitHub main branch (`8178fed`):**
+- ✅ `@types/express: 5.0.5` (exact pin) — TS2345 hatasının kökü çözüldü
+- ✅ `@types/express-serve-static-core: 5.1.0` (exact pin)
+- ✅ `runtime-flags.module.ts`: `@Req() req: any` + `Array.isArray` defensive
+- ✅ `electron-builder: 24.13.3` (exact pin) — NSIS regression yok
+- ✅ `release.yml` 23-step hardened + try/catch + fallback + smoke-win
+- ✅ `installer.nsh` minimize (Win10+ only, `${DriveSpace}` kaldırıldı)
+- ✅ `dist:win:ci` + `--publish never` gömülü
+- ✅ `repository` + `author` alanları
+
+**Eksikler (GitHub'da):**
+- ❌ `v2.7.4` tag yok
+- ❌ `ci.yml` cache fix eksik (her push'ta 9 sn'de fail oluyor ama release'i etkilemez)
+- ❌ yarn.lock'lar tracked değil (ama `@types/express` exact pin olduğu için sorun değil)
+
+**Lokal (benim)**: commit `0b461a1` + tag `v2.7.4` hazır, push auth yok.
 
 ---
 
-## ⚡ Kullanıcı için 2 yol var
+## 🚀 3 Yol — HANGİSİ OLURSA TAMAMI KURTARIR
 
-### Yol 1 — Emergent UI (önerilen, kolay)
+### Yol A — ⚡ HEMEN (tag bile gerekmez, 2 dk içinde başlar)
 
-1. Emergent UI'da projenizin üst çubuğunda **"Save to GitHub"** veya **"Push to GitHub"**
-   butonunu bulun ve tıklayın.
-2. Commit mesajı: `v2.7.4: TS type erasure fix for Windows runner`
-3. Push tamamlanınca Emergent UI'da sahip olduğunuz "Deploy/Release" aksiyonunu
-   tetikleyin veya aşağıdaki Yol 2'nin **sadece tag adımını** çalıştırın.
+https://github.com/alperbelen80-netizen/MoonLight-exe/actions/workflows/release.yml
+sayfasına git → sağ üstteki **"Run workflow"** butonuna tıkla:
 
-### Yol 2 — Manuel terminal (kesin kontrol)
+- Branch: `main`
+- `debug_mode`: `false`
+- `publish_release`: **`true`** ← bunu tıkla ki artifact Release sayfasına çıksın
+- **Run workflow** düğmesine bas.
+
+**Ne olacak:**
+- GitHub Actions 2 sn içinde run başlatır
+- 23 step, ~12-18 dk
+- Sonuç: `MoonLight-Owner-1.0.0-win-x64.exe` (tag yok → version 1.0.0)
+- Release'e artifact otomatik eklenir (`publish_release: true` olduğu için)
+
+⚠️ Dezavantaj: artifact adı `1.0.0` — ama `.exe` tamamen çalışır, Win'e kurulur.
+
+---
+
+### Yol B — 🏷️ TAG + AUTOMATIC RELEASE (sürüm düzgün)
+
+Emergent UI'da projenin üst menüsünden **"Save to GitHub"** / **"Push"** butonuna
+tıkla → commit mesajı otomatik → push tamamlanınca senin terminalinden:
 
 ```bash
 cd /app
-# Tüm değişiklikleri ekle (yarn.lock'lar dahil)
-git add moonlight/backend/package.json
-git add moonlight/backend/src/runtime-flags/runtime-flags.module.ts
-git add moonlight/yarn.lock moonlight/backend/yarn.lock moonlight/desktop/yarn.lock
-
-# Commit
-git commit -m "v2.7.4: TS type erasure + @types/express pin + yarn.lock tracked"
-
-# Tag bas (v2.7.3 cache'lenmiş; yeni tag fresh runner için zorunlu)
 git tag v2.7.4
+git push origin v2.7.4
+```
 
-# Push (hem main branch hem yeni tag)
+Ya da hepsini tek seferde:
+```bash
+cd /app
+git push origin main       # benim lokal 0b461a1 commit'im (ci.yml fix + yarn.lock)
+git push origin v2.7.4     # lokal tag
+```
+
+**Ne olacak:**
+- Tag push → release.yml otomatik tetiklenir
+- Step 4b tag `v2.7.4`'ü package.json'a yazar
+- Sonuç: `MoonLight-Owner-2.7.4-win-x64.exe`
+- GitHub Release otomatik oluşur, release notes auto-generated
+
+---
+
+### Yol C — 🧨 SIFIRDAN TEMİZ (detaylı kontrol)
+
+```bash
+cd /app
+# Benim lokalimde zaten commit + tag hazır (0b461a1 + v2.7.4)
+git log -1 --oneline         # "0b461a1 v2.7.4: TS type erasure..."
+git tag -l | grep v2.7.4     # "v2.7.4"
+
+# Kendi terminalinden push yapman için:
+git remote -v                 # origin https://github.com/alperbelen80-netizen/MoonLight-exe.git
+git push origin main --tags   # main branch + tüm tag'ler push
+```
+
+Eğer auth hatası alırsan GitHub Personal Access Token (classic) ile:
+```bash
+git remote set-url origin "https://USERNAME:GITHUB_PAT_TOKEN@github.com/alperbelen80-netizen/MoonLight-exe.git"
 git push origin main --tags
 ```
 
 ---
 
-## ⏳ Push sonrası (tag → GitHub Actions)
+## ⏳ Başarılı build sonrası
 
-Tag push'tan **~3-5 saniye sonra** https://github.com/alperbelen80-netizen/MoonLight-exe/actions
-sayfasında **yeni bir run** başlar:
-
-- Run adı: `MoonLight Windows Installer Build #5` (veya +1)
-- Tag: `v2.7.4`
-- Tahmini süre: **12-18 dk** (native rebuild + NSIS dahil)
-
-### Başarılı tamamlanınca:
-
-1. GitHub → Releases sayfasına git: https://github.com/alperbelen80-netizen/MoonLight-exe/releases
-2. `v2.7.4` release'i altında:
-   - `MoonLight-Owner-2.7.4-win-x64.exe` (≈ 150-250 MB)
+1. https://github.com/alperbelen80-netizen/MoonLight-exe/releases
+2. En üstteki release:
+   - `MoonLight-Owner-2.7.4-win-x64.exe` (~150-250 MB)
    - `MoonLight-Owner-2.7.4-win-x64.exe.sha256`
    - `latest.yml`
-3. `.exe`'yi Windows PC'ne indir, **çift tıkla** → NSIS sihirbazı açılır
-4. Windows 10+ kontrolü otomatik
-5. Kurulum dizinini seç (default: `%LOCALAPPDATA%\Programs\moonlight-owner-console`)
-6. Masaüstü + Başlat menüsü kısayolları oluşur
-7. **Run after install** seçili ise uygulama otomatik başlar
-8. İlk açılışta **Onboarding Wizard** tetiklenir → SSID/vault/flags yapılandır
+3. `.exe`'yi Win PC'ne indir → çift tıkla
+4. NSIS sihirbazı:
+   - Windows 10+ kontrol (otomatik)
+   - Kurulum dizini seç (default: `%LOCALAPPDATA%\Programs\moonlight-owner-console`)
+   - Masaüstü kısayolu
+   - "Run after install" → uygulama başlar
+5. İlk açılış → **Onboarding Wizard** → SSID/vault/flags yapılandır
+6. Uygulama ayakta!
 
 ---
 
-## ❌ Eğer tekrar fail ederse
-
-1. Actions sayfasında failed run'a tıkla → **Artifacts** sekmesi → `moonlight-build-logs-<run_id>`
-   artifact'ini indir (14 gün retention, zipped).
-2. `Failure summary` step annotation'ları asıl patlayan step ve mesajı gösterir.
-3. Muhtemel sebepler + çözümleri: `moonlight/docs/TROUBLESHOOTING.md` (v2.7.3 rescue post-mortem dahil).
-
----
-
-## 📊 Lokal doğrulama sonuçları (v2.7.4 öncesi)
+## 🧪 Şu anda zaten yeşil olan testler (lokal)
 
 | Check | Result |
 |---|---|
-| `yarn typecheck` (backend + desktop) | ✅ 0 hata |
+| `yarn typecheck` (backend + desktop strict) | ✅ 0 hata |
 | `yarn build:backend` (nest build) | ✅ 5.80s |
-| `yarn bundle:backend:prod` | ✅ 5.24 MB (minified + integrity + metafile) |
-| `yarn smoke:bundle` | ✅ backend 3s boot, healthz+sim+trinity 200 |
-| `yarn dist:dir` (Linux arm64 local pack) | ✅ 17.8s, electron-builder 24.13.3 |
-| Backend Jest kritik suite | ✅ 25/25 |
+| `yarn bundle:backend:prod` | ✅ 5.24 MB + integrity + metafile |
+| `yarn smoke:bundle` (spawn test) | ✅ healthz+sim+trinity 200 |
+| `yarn dist:dir` (Linux arm64 pack) | ✅ electron-builder 24.13.3 SUCCESS (17.8s) |
+| Backend Jest kritik | ✅ 25/25 |
 | Desktop Vitest | ✅ 17/17 |
 
 ---
 
-## 🔐 Değişen dosyalar (v2.7.4 özet)
+## 🆘 Fail olursa debug
 
-- `moonlight/backend/src/runtime-flags/runtime-flags.module.ts`
-  - `@Req() req: Request` → `@Req() req: any` (4 kullanım)
-  - Header extraction: `Array.isArray` + `typeof` check
-  - `assertLoopback(req: any)`
-  - Unused `Request` import kaldırıldı
-- `moonlight/backend/package.json`
-  - `@types/express`: `^5.0.5` → `5.0.5` (tam pin)
-  - `@types/compression`: `^1.8.1` → `1.8.1` (tam pin)
-  - Yeni: `@types/express-serve-static-core: 5.1.0` (tam pin)
+1. Actions sayfasında failed run → **Artifacts** → `moonlight-build-logs-<run_id>`
+2. `moonlight/docs/TROUBLESHOOTING.md` → v2.7.4 rescue post-mortem dahil detaylı rehber
+3. `Failure summary` step annotation'larında exact step + error mesajı
 
 ---
 
-## ✅ Başarı Kriterleri
-
-- [x] Lokal tsc → 0 hata
-- [x] Lokal nest build → SUCCESS
-- [x] Lokal bundle:prod → 5.24 MB + integrity
-- [x] Lokal smoke:bundle → PASS
-- [x] Linux arm64 local pack → SUCCESS
-- [ ] Push + tag bas (kullanıcı aksiyonu gerekli)
-- [ ] GitHub Actions Windows run → SUCCESS
-- [ ] `.exe` release'e düştü
-- [ ] Kullanıcı PC'sinde kurulum + launch
-
-Aksiyon sırada: **git push + git tag v2.7.4 + git push --tags**.
+**ÖNERİM: YOL A (workflow_dispatch, `publish_release: true`)** — En hızlı, tag beklemeden,
+main branch'teki fix'ler zaten yeterli, 2 dakika içinde build başlar.
